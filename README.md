@@ -4,11 +4,16 @@ A minimal scaffold for a "second brain" application with a Python backend, Neo4j
 
 ## Running with Docker Compose
 
+Set a `NEO4J_PASSWORD` (minimum 8 characters) for the Neo4j admin user.
 Provide an `OPENAI_API_KEY` if you want embeddings to be generated during ingestion. Then run:
 
 ```bash
+export NEO4J_PASSWORD=secretsecret
+export OPENAI_API_KEY=...
 docker compose up --build
 ```
+
+Both values can be supplied via environment variables or a `.env` file used by Docker Compose.
 
 Services:
 - **neo4j** – graph database on ports `7474` (HTTP) and `7687` (bolt)
