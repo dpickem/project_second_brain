@@ -1,5 +1,10 @@
 fastapi
 uvicorn[standard]
 neo4j
-openai
+aisuite[mcp]
 pydantic
+python-multipart
+sqlalchemy
+alembic
+asyncpg
+redis
