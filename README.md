@@ -912,146 +912,28 @@ python scripts/daily_sync.py
 
 ## 📋 Implementation Roadmap
 
-### Phase 1: Foundation (Weeks 1-2)
-**Knowledge Hub Setup**
-- [ ] Set up Obsidian vault with folder structure
-- [ ] Configure essential plugins (Dataview, Templater, Tasks)
-- [ ] Create note templates for each content type
-- [ ] Establish tagging taxonomy
+> 📁 **Full Details**: See [`implementation_plan/OVERVIEW.md`](./implementation_plan/OVERVIEW.md) for the complete implementation roadmap with task checklists.
 
-**Infrastructure** ✅ (Partially Complete)
-- [x] Docker Compose configuration
-- [x] FastAPI backend skeleton
-- [x] React/Vite frontend skeleton
-- [x] Neo4j integration
-- [ ] Add PostgreSQL for learning records
-- [ ] Add Redis for session caching
-- [ ] Set up database migrations (Alembic)
+### Phase Summary
 
-### Phase 2: Ingestion Pipelines (Weeks 3-6)
-**Backend API**
-- [ ] `/api/ingest/pdf` — PDF processing with highlight extraction
-- [ ] `/api/ingest/raindrop` — Raindrop.io sync endpoint
-- [ ] `/api/ingest/ocr` — Book photo OCR pipeline
-- [ ] `/api/ingest/github` — GitHub starred repos importer
-- [ ] Handwriting recognition integration (Vision LLM)
+| Phase | Focus | Duration | Status |
+|-------|-------|----------|--------|
+| 1 | Foundation & Infrastructure | Weeks 1-2 | 🟡 In Progress |
+| 2 | Ingestion Pipelines | Weeks 3-6 | ⬜ Not Started |
+| 3 | LLM Processing | Weeks 7-10 | ⬜ Not Started |
+| 4 | Knowledge Explorer UI | Weeks 11-13 | ⬜ Not Started |
+| 5 | Practice Session UI | Weeks 14-17 | ⬜ Not Started |
+| 6 | Spaced Repetition | Weeks 18-20 | ⬜ Not Started |
+| 7 | Analytics Dashboard | Weeks 21-23 | ⬜ Not Started |
+| 8 | Learning Assistant | Weeks 24-26 | ⬜ Not Started |
+| 9 | Polish & Production | Ongoing | ⬜ Not Started |
 
-**Pipeline Scripts**
-- [ ] Build Raindrop → Obsidian sync script
-- [ ] Implement PDF ingestion with highlight extraction
-- [ ] Create OCR pipeline for book photos
-- [ ] GitHub starred repos importer
+### Implementation Plans
 
-### Phase 3: LLM Processing (Weeks 7-10)
-**Backend Services**
-- [ ] `llm_client.py` — Unified LLM interface via [aisuite](https://github.com/andrewyng/aisuite)
-- [ ] Summarization prompts and chains
-- [ ] Tag suggestion system
-- [ ] Connection discovery via embeddings
-- [ ] Mastery question generation (2-3 per section)
+Detailed implementation plans for each phase:
 
-**Knowledge Graph**
-- [ ] Define node/edge schema (Concepts, Sources, Topics)
-- [ ] Build query interfaces
-- [ ] Semantic similarity search
-
-### Phase 4: Frontend — Knowledge Explorer (Weeks 11-13)
-**Components**
-- [ ] `<KnowledgeExplorer />` — Main navigation view
-- [ ] `<GraphVisualization />` — D3-force graph rendering
-- [ ] `<TopicTree />` — Hierarchical topic browser
-- [ ] `<SearchBar />` — Semantic search interface
-- [ ] `<NoteViewer />` — Markdown note display
-
-**Backend API**
-- [ ] `/api/knowledge/graph` — Full graph data
-- [ ] `/api/knowledge/search` — Semantic search
-- [ ] `/api/knowledge/connections` — Related concepts
-- [ ] `/api/knowledge/topics` — Topic hierarchy
-
-### Phase 5: Frontend — Practice Session (Weeks 14-17)
-**Components (Research-Backed)**
-- [ ] `<PracticeSession />` — Main practice container
-- [ ] `<FreeRecallPrompt />` — Generation effect (Bjork)
-- [ ] `<SelfExplainBox />` — Self-explanation prompts (Chi)
-- [ ] `<WorkedExampleViewer />` — For novice topics (Van Gog)
-- [ ] `<InterleavedQuestionSet />` — Mixed topic practice (Dunlosky)
-- [ ] `<ConfidenceSlider />` — Metacognition rating
-- [ ] `<FeedbackPanel />` — LLM-generated feedback
-
-**Backend API**
-- [ ] `/api/practice/generate` — Exercise generation with difficulty adaptation
-- [ ] `/api/practice/submit` — Response evaluation
-- [ ] `/api/practice/feedback` — LLM feedback generation
-- [ ] `/api/practice/self-explain` — Store and analyze explanations
-
-**Backend Services**
-- [ ] `exercise_generator.py` — LLM-based exercise creation
-- [ ] `mastery_tracker.py` — Track expertise per topic
-- [ ] Adaptive difficulty based on mastery level
-
-### Phase 6: Frontend — Spaced Repetition (Weeks 18-20)
-**Components**
-- [ ] `<ReviewQueue />` — Due items list
-- [ ] `<ReviewCard />` — Flashcard interface
-- [ ] `<RatingButtons />` — Again/Hard/Good/Easy
-- [ ] `<SessionProgress />` — Cards completed, streak display
-
-**Backend API & Services**
-- [ ] `/api/review/due` — Get due items (FSRS algorithm)
-- [ ] `/api/review/update` — Update card after review
-- [ ] `spaced_rep.py` — FSRS scheduling algorithm
-- [ ] Card generation from ingested content
-
-### Phase 7: Frontend — Analytics Dashboard (Weeks 21-23)
-**Components**
-- [ ] `<AnalyticsDashboard />` — Main analytics view
-- [ ] `<MasteryHeatmap />` — Topic mastery treemap
-- [ ] `<LearningCurve />` — Time-series accuracy chart
-- [ ] `<WeakSpotsList />` — Low mastery topics with action buttons
-- [ ] `<StreakCalendar />` — GitHub-style contribution calendar
-- [ ] `<TimeInvestmentChart />` — Where time is spent
-
-**Backend API**
-- [ ] `/api/analytics/mastery` — Mastery scores per topic
-- [ ] `/api/analytics/weak-spots` — Identify struggling areas
-- [ ] `/api/analytics/learning-curve` — Historical performance
-- [ ] `/api/analytics/time-spent` — Time tracking by activity
-
-**Database**
-- [ ] `practice_attempts` table — Full attempt history
-- [ ] `mastery_snapshots` table — Daily mastery snapshots
-- [ ] Analytics queries and aggregations
-
-### Phase 8: Learning Assistant Chat (Weeks 24-26)
-**Components**
-- [ ] `<AssistantChat />` — Chat interface
-- [ ] `<ConnectionSuggestions />` — "Have you considered X relates to Y?"
-- [ ] `<StudyPlanGenerator />` — Personalized study recommendations
-
-**Backend API & Services**
-- [ ] `/api/assistant/chat` — Conversational interface
-- [ ] `/api/assistant/suggest-connections` — Graph-based suggestions
-- [ ] `/api/assistant/study-plan` — Generate personalized plans
-- [ ] RAG pipeline over knowledge graph
-
-### Phase 9: Polish & Production (Ongoing)
-**Automation**
-- [ ] Scheduled pipeline runs (cron/Celery)
-- [ ] Daily sync scripts
-- [ ] Weekly review reminders
-
-**Quality**
-- [ ] Error handling and monitoring (Sentry)
-- [ ] Performance optimization
-- [ ] Test coverage (pytest, React Testing Library)
-- [ ] CI/CD pipeline
-
-**Mobile & UX**
-- [ ] Responsive design for all components
-- [ ] Mobile capture workflow (see details below)
-- [ ] PWA (Progressive Web App) support for offline access
-- [ ] Keyboard shortcuts for power users
+- [`implementation_plan/OVERVIEW.md`](./implementation_plan/OVERVIEW.md) — Master roadmap with all phases
+- [`implementation_plan/01_ingestion_layer_implementation.md`](./implementation_plan/01_ingestion_layer_implementation.md) — Phase 2: Ingestion pipelines
 
 ---
 
