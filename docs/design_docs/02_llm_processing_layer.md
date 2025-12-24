@@ -1,7 +1,7 @@
 # LLM Processing Layer Design
 
 > **Document Status**: Design Specification  
-> **Last Updated**: December 2025  
+> **Last Updated**: December 2025 (Updated: LiteLLM integration, Mistral OCR)  
 > **Related Docs**: `01_ingestion_layer.md`, `05_learning_system.md`
 
 ---
@@ -55,44 +55,63 @@ The LLM Processing Layer transforms raw ingested content into structured, connec
 
 ## 3. LLM Client Configuration
 
-### 3.1 Unified Client (aisuite)
+### 3.1 Unified Client (LiteLLM)
+
+> **Provider-Agnostic Design**: The processing pipeline uses [LiteLLM](https://docs.litellm.ai/) to provide a unified interface to 100+ LLM providers. This enables:
+> - **Spend Tracking**: Built-in cost tracking for API calls
+> - **Rate Limiting**: Automatic handling of provider rate limits
+> - **Fallbacks**: Automatic failover to backup models
+> - **Model Swapping**: Change models via configuration without code changes
 
 ```python
 # backend/app/services/llm_client.py
 
-import aisuite as ai
+import litellm
+from litellm import acompletion, completion, embedding
 from typing import Optional
 import os
+import structlog
+from app.config import settings
+
+logger = structlog.get_logger()
 
 class LLMClient:
-    """Unified LLM client supporting multiple providers."""
+    """Unified LLM client supporting multiple providers via LiteLLM.
     
-    # Model mapping by task
+    Models are configurable via environment variables (see Settings class).
+    """
+    
+    # Model mapping by task - loaded from settings for configurability
     MODELS = {
-        "summarization": "anthropic:claude-3-5-sonnet-20241022",
-        "extraction": "openai:gpt-4o",
-        "classification": "openai:gpt-4o-mini",  # Cost-efficient for simple tasks
-        "connection_discovery": "anthropic:claude-3-5-sonnet-20241022",
-        "question_generation": "openai:gpt-4o",
-        "vision_ocr": "google:gemini-2.0-flash",
-        "embeddings": "openai:text-embedding-3-small",
+        "classification": settings.LLM_MODEL_CLASSIFICATION,
+        "summarization": settings.LLM_MODEL_SUMMARIZATION,
+        "extraction": settings.LLM_MODEL_EXTRACTION,
+        "connection_discovery": settings.LLM_MODEL_CONNECTIONS,
+        "question_generation": settings.LLM_MODEL_QUESTIONS,
+        "embeddings": settings.LLM_MODEL_EMBEDDINGS,
     }
     
-    # Fallback models
+    # Fallback models for automatic failover
     FALLBACKS = {
-        "anthropic:claude-3-5-sonnet-20241022": "openai:gpt-4o",
-        "openai:gpt-4o": "anthropic:claude-3-5-sonnet-20241022",
-        "google:gemini-2.0-flash": "openai:gpt-4o",
+        "anthropic/claude-3-5-sonnet-20241022": "openai/gpt-4o",
+        "openai/gpt-4o": "anthropic/claude-3-5-sonnet-20241022",
+        "openai/gpt-4o-mini": "anthropic/claude-3-5-haiku-20241022",
     }
     
     def __init__(self):
-        self.client = ai.Client()
+        # Enable cost tracking if configured
+        if settings.LITELLM_LOG_COSTS:
+            litellm.success_callback = ["langfuse"]
         
         # Verify API keys are set
-        required_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
+        required_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
         missing = [k for k in required_keys if not os.getenv(k)]
         if missing:
-            raise ValueError(f"Missing API keys: {missing}")
+            logger.warning(f"Missing API keys: {missing}")
+    
+    def get_model(self, task: str) -> str:
+        """Get the configured model for a specific task."""
+        return self.MODELS.get(task, "openai/gpt-4o")
     
     async def complete(
         self,
@@ -100,45 +119,47 @@ class LLMClient:
         messages: list[dict],
         temperature: float = 0.3,
         max_tokens: int = 4096,
-        response_format: Optional[dict] = None,
+        json_mode: bool = False,
         retry_with_fallback: bool = True
     ) -> str:
         """Generate a completion using the appropriate model for the task."""
         
-        model = self.MODELS.get(task, "openai:gpt-4o")
+        model = self.get_model(task)
+        
+        kwargs = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
         
         try:
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                response_format=response_format
-            )
+            response = await acompletion(**kwargs)
+            
+            # Log cost if available
+            if hasattr(response, '_hidden_params') and 'response_cost' in response._hidden_params:
+                logger.info(f"LLM cost for {task}: ${response._hidden_params['response_cost']:.4f}")
+            
             return response.choices[0].message.content
             
         except Exception as e:
+            logger.error(f"LLM completion failed for {task}: {e}")
             if retry_with_fallback and model in self.FALLBACKS:
                 fallback = self.FALLBACKS[model]
-                response = self.client.chat.completions.create(
-                    model=fallback,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens
-                )
+                logger.info(f"Retrying with fallback model: {fallback}")
+                kwargs["model"] = fallback
+                response = await acompletion(**kwargs)
                 return response.choices[0].message.content
             raise
     
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for a list of texts."""
-        from openai import OpenAI
-        
-        client = OpenAI()
-        response = client.embeddings.create(
-            model="text-embedding-3-small",
-            input=texts
-        )
-        return [item.embedding for item in response.data]
+        model = self.get_model("embeddings")
+        response = await embedding(model=model, input=texts)
+        return [item["embedding"] for item in response.data]
 
 # Singleton instance
 _client: Optional[LLMClient] = None
@@ -150,6 +171,22 @@ def get_llm_client() -> LLMClient:
     return _client
 ```
 
+**Environment Variables for Model Configuration:**
+
+```bash
+# LLM Configuration (model-agnostic via LiteLLM)
+# Format: provider/model-name
+LLM_MODEL_CLASSIFICATION=openai/gpt-4o-mini
+LLM_MODEL_SUMMARIZATION=anthropic/claude-3-5-sonnet-20241022
+LLM_MODEL_EXTRACTION=openai/gpt-4o
+LLM_MODEL_CONNECTIONS=anthropic/claude-3-5-sonnet-20241022
+LLM_MODEL_QUESTIONS=openai/gpt-4o
+LLM_MODEL_EMBEDDINGS=openai/text-embedding-3-small
+
+# Cost tracking
+LITELLM_LOG_COSTS=true
+```
+
 ### 3.2 Provider Comparison
 
 | Provider | Best For | Strengths | Considerations |
@@ -157,7 +194,9 @@ def get_llm_client() -> LLMClient:
 | **Anthropic Claude** | Complex reasoning, summarization | Nuanced understanding, long context | Higher latency |
 | **OpenAI GPT-4o** | Balanced tasks, extraction | Fast, reliable, structured outputs | Cost for high volume |
 | **OpenAI GPT-4o-mini** | Classification, simple tasks | Cost-efficient | Less nuanced |
-| **Google Gemini** | Vision tasks, OCR | Excellent multimodal | Rate limits |
+| **Google Gemini** | Long context, multimodal | Very long context window (1M tokens) | Rate limits |
+
+> **Note**: Vision/OCR tasks (e.g., `mistral/pixtral-large-latest`) are configured in the **Ingestion Layer** (`01_ingestion_layer.md`), not in this processing layer.
 
 ---
 
@@ -1113,13 +1152,16 @@ processing:
     truncate_for_summary: 30000
     truncate_for_extraction: 20000
     
-  # Model selection
+  # Model selection (format: provider/model-name for LiteLLM)
+  # These are defaults - override via environment variables:
+  #   LLM_MODEL_CLASSIFICATION, LLM_MODEL_SUMMARIZATION, etc.
   models:
-    summarization: "anthropic:claude-3-5-sonnet-20241022"
-    extraction: "openai:gpt-4o"
-    classification: "openai:gpt-4o-mini"
-    connection_discovery: "anthropic:claude-3-5-sonnet-20241022"
-    question_generation: "openai:gpt-4o"
+    classification: "openai/gpt-4o-mini"      # Cost-efficient for structured output
+    summarization: "anthropic/claude-3-5-sonnet-20241022"  # Best for long-form understanding
+    extraction: "openai/gpt-4o"               # Strong structured JSON output
+    connection_discovery: "anthropic/claude-3-5-sonnet-20241022"  # Nuanced reasoning
+    question_generation: "openai/gpt-4o"      # Creative yet precise
+    embeddings: "openai/text-embedding-3-small"  # Cost-effective, high quality
     
   # Output settings
   output:

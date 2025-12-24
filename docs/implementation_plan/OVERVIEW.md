@@ -14,7 +14,7 @@ This document provides the high-level implementation roadmap for the Second Brai
 |-------|-------|-------|---------------|
 | 1 | Foundation | 1-2 | `00_foundation_implementation.md` |
 | 2 | Ingestion Pipelines | 3-6 | `01_ingestion_layer_implementation.md` |
-| 3 | LLM Processing | 7-10 | `02_llm_processing_implementation.md` (planned) |
+| 3 | LLM Processing | 7-10 | `02_llm_processing_implementation.md` |
 | 4 | Knowledge Explorer UI | 11-13 | `03_knowledge_explorer_implementation.md` (planned) |
 | 5 | Practice Session UI | 14-17 | `04_practice_session_implementation.md` (planned) |
 | 6 | Spaced Repetition | 18-20 | `05_spaced_repetition_implementation.md` (planned) |
@@ -66,8 +66,10 @@ This document provides the high-level implementation roadmap for the Second Brai
 
 ## Phase 3: LLM Processing (Weeks 7-10)
 
+> 📋 **Detailed Plan**: See [`02_llm_processing_implementation.md`](./02_llm_processing_implementation.md)
+
 ### Backend Services
-- [ ] `llm_client.py` — Unified LLM interface via [aisuite](https://github.com/andrewyng/aisuite)
+- [ ] `llm_client.py` — Unified LLM interface via [LiteLLM](https://docs.litellm.ai/)
 - [ ] Summarization prompts and chains
 - [ ] Tag suggestion system
 - [ ] Connection discovery via embeddings
@@ -204,7 +206,7 @@ Use this section to track overall progress:
 |-------|--------|------------|-----------------|-------|
 | 1 - Foundation | 🟡 In Progress | — | — | Docker/FastAPI/React done |
 | 2 - Ingestion | ⬜ Not Started | — | — | Plan ready |
-| 3 - LLM Processing | ⬜ Not Started | — | — | — |
+| 3 - LLM Processing | ⬜ Not Started | — | — | Plan ready |
 | 4 - Knowledge Explorer | ⬜ Not Started | — | — | — |
 | 5 - Practice Session | ⬜ Not Started | — | — | — |
 | 6 - Spaced Repetition | ⬜ Not Started | — | — | — |
