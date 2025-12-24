@@ -5,5 +5,8 @@ backend/.env
 frontend/node_modules
 frontend/dist
 
+# Prototype output
+prototypes/ocr_results/
+
 # macOS
 .DS_Store

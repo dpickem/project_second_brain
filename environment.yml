@@ -93,7 +93,6 @@ dependencies:
     - anthropic>=0.37.0
     - tiktoken>=0.8.0
     - tenacity>=9.0.0
-    - aisuite
     
     # ------------------------------------------
     # OCR & Document Processing
