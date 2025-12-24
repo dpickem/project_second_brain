@@ -15,12 +15,13 @@ This document provides the high-level implementation roadmap for the Second Brai
 | 1 | Foundation | 1-2 | `00_foundation_implementation.md` |
 | 2 | Ingestion Pipelines | 3-6 | `01_ingestion_layer_implementation.md` |
 | 3 | LLM Processing | 7-10 | `02_llm_processing_implementation.md` |
-| 4 | Knowledge Explorer UI | 11-13 | `03_knowledge_explorer_implementation.md` (planned) |
-| 5 | Practice Session UI | 14-17 | `04_practice_session_implementation.md` (planned) |
-| 6 | Spaced Repetition | 18-20 | `05_spaced_repetition_implementation.md` (planned) |
-| 7 | Analytics Dashboard | 21-23 | `06_analytics_implementation.md` (planned) |
-| 8 | Learning Assistant | 24-26 | `07_learning_assistant_implementation.md` (planned) |
-| 9 | Polish & Production | Ongoing | `08_production_readiness.md` (planned) |
+| 4 | Knowledge Hub (Obsidian) | 11-14 | `03_knowledge_hub_obsidian_implementation.md` |
+| 5 | Knowledge Explorer UI | 15-17 | `04_knowledge_explorer_implementation.md` (planned) |
+| 6 | Practice Session UI | 18-21 | `05_practice_session_implementation.md` (planned) |
+| 7 | Spaced Repetition | 22-24 | `06_spaced_repetition_implementation.md` (planned) |
+| 8 | Analytics Dashboard | 25-27 | `07_analytics_implementation.md` (planned) |
+| 9 | Learning Assistant | 28-30 | `08_learning_assistant_implementation.md` (planned) |
+| 10 | Polish & Production | Ongoing | `09_production_readiness.md` (planned) |
 
 ---
 
@@ -33,6 +34,12 @@ This document provides the high-level implementation roadmap for the Second Brai
 - [ ] Configure essential plugins (Dataview, Templater, Tasks)
 - [ ] Create note templates for each content type
 - [ ] Establish tagging taxonomy
+
+### Extensible Content Type System
+- [ ] Implement Content Type Registry (config-driven)
+- [ ] Support for technical, career, personal, and non-tech content
+- [ ] Dynamic template loading from configuration
+- [ ] Extensibility without code changes
 
 ### Infrastructure ✅ (Partially Complete)
 - [x] Docker Compose configuration
@@ -82,7 +89,30 @@ This document provides the high-level implementation roadmap for the Second Brai
 
 ---
 
-## Phase 4: Frontend — Knowledge Explorer (Weeks 11-13)
+## Phase 4: Knowledge Hub — Obsidian (Weeks 11-14)
+
+> 📋 **Detailed Plan**: See [`03_knowledge_hub_obsidian_implementation.md`](./03_knowledge_hub_obsidian_implementation.md)
+
+### Vault Management
+- [ ] Vault structure initialization
+- [ ] Note templates (Paper, Article, Book, Code, Concept)
+- [ ] Frontmatter YAML generation
+- [ ] Wikilink handling and extraction
+
+### Automation
+- [ ] Folder index auto-generation
+- [ ] Daily note generation
+- [ ] Dataview query templates
+- [ ] Tag taxonomy enforcement
+
+### Synchronization
+- [ ] Vault file watcher
+- [ ] Bi-directional Neo4j sync
+- [ ] Backend API for vault operations
+
+---
+
+## Phase 5: Frontend — Knowledge Explorer (Weeks 15-17)
 
 ### Components
 - [ ] `<KnowledgeExplorer />` — Main navigation view
@@ -99,7 +129,7 @@ This document provides the high-level implementation roadmap for the Second Brai
 
 ---
 
-## Phase 5: Frontend — Practice Session (Weeks 14-17)
+## Phase 6: Frontend — Practice Session (Weeks 18-21)
 
 ### Components (Research-Backed)
 - [ ] `<PracticeSession />` — Main practice container
@@ -123,7 +153,7 @@ This document provides the high-level implementation roadmap for the Second Brai
 
 ---
 
-## Phase 6: Frontend — Spaced Repetition (Weeks 18-20)
+## Phase 7: Frontend — Spaced Repetition (Weeks 22-24)
 
 ### Components
 - [ ] `<ReviewQueue />` — Due items list
@@ -139,7 +169,7 @@ This document provides the high-level implementation roadmap for the Second Brai
 
 ---
 
-## Phase 7: Frontend — Analytics Dashboard (Weeks 21-23)
+## Phase 8: Frontend — Analytics Dashboard (Weeks 25-27)
 
 ### Components
 - [ ] `<AnalyticsDashboard />` — Main analytics view
@@ -162,7 +192,7 @@ This document provides the high-level implementation roadmap for the Second Brai
 
 ---
 
-## Phase 8: Learning Assistant Chat (Weeks 24-26)
+## Phase 9: Learning Assistant Chat (Weeks 28-30)
 
 ### Components
 - [ ] `<AssistantChat />` — Chat interface
@@ -177,7 +207,7 @@ This document provides the high-level implementation roadmap for the Second Brai
 
 ---
 
-## Phase 9: Polish & Production (Ongoing)
+## Phase 10: Polish & Production (Ongoing)
 
 ### Automation
 - [ ] Scheduled pipeline runs (cron/Celery)
@@ -207,12 +237,13 @@ Use this section to track overall progress:
 | 1 - Foundation | 🟡 In Progress | — | — | Docker/FastAPI/React done |
 | 2 - Ingestion | ⬜ Not Started | — | — | Plan ready |
 | 3 - LLM Processing | ⬜ Not Started | — | — | Plan ready |
-| 4 - Knowledge Explorer | ⬜ Not Started | — | — | — |
-| 5 - Practice Session | ⬜ Not Started | — | — | — |
-| 6 - Spaced Repetition | ⬜ Not Started | — | — | — |
-| 7 - Analytics | ⬜ Not Started | — | — | — |
-| 8 - Learning Assistant | ⬜ Not Started | — | — | — |
-| 9 - Production | ⬜ Not Started | — | — | — |
+| 4 - Knowledge Hub (Obsidian) | ⬜ Not Started | — | — | Plan ready |
+| 5 - Knowledge Explorer | ⬜ Not Started | — | — | — |
+| 6 - Practice Session | ⬜ Not Started | — | — | — |
+| 7 - Spaced Repetition | ⬜ Not Started | — | — | — |
+| 8 - Analytics | ⬜ Not Started | — | — | — |
+| 9 - Learning Assistant | ⬜ Not Started | — | — | — |
+| 10 - Production | ⬜ Not Started | — | — | — |
 
 **Legend**: ⬜ Not Started | 🟡 In Progress | ✅ Complete
 

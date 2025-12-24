@@ -60,6 +60,8 @@ The Ingestion Layer captures content from diverse sources and normalizes it for 
 
 All pipelines output content in this standardized format:
 
+> **EXTENSIBILITY**: Content types are defined in `config/default.yaml`. New types can be added without code changes—just add the type to config and create a template.
+
 ```python
 from pydantic import BaseModel
 from datetime import datetime
@@ -67,12 +69,24 @@ from enum import Enum
 from typing import Optional
 
 class ContentType(str, Enum):
+    """
+    Built-in content types. Additional types can be added via config.
+    See config/default.yaml content_types section.
+    """
+    # Technical content
     PAPER = "paper"
     ARTICLE = "article"
     BOOK = "book"
     CODE = "code"
     IDEA = "idea"
     VOICE_MEMO = "voice_memo"
+    
+    # Career & personal (extensible via config)
+    CAREER = "career"
+    PERSONAL = "personal"
+    PROJECT = "project"
+    REFLECTION = "reflection"
+    NON_TECH = "non-tech"
 
 class AnnotationType(str, Enum):
     DIGITAL_HIGHLIGHT = "digital_highlight"

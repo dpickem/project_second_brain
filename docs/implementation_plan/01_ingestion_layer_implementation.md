@@ -194,12 +194,29 @@ from typing import Optional
 import uuid
 
 class ContentType(str, Enum):
+    """
+    Built-in content types. Additional types can be added via config/default.yaml.
+    
+    EXTENSIBILITY: The system uses a Content Type Registry that loads types
+    from configuration. To add a new type:
+    1. Add to config/default.yaml content_types section
+    2. Create template in templates/
+    3. Optionally add to this enum for type safety
+    """
+    # Technical content
     PAPER = "paper"
     ARTICLE = "article"
     BOOK = "book"
     CODE = "code"
     IDEA = "idea"
     VOICE_MEMO = "voice_memo"
+    
+    # Career & personal development
+    CAREER = "career"
+    PERSONAL = "personal"
+    PROJECT = "project"
+    REFLECTION = "reflection"
+    NON_TECH = "non-tech"
 
 class AnnotationType(str, Enum):
     DIGITAL_HIGHLIGHT = "digital_highlight"

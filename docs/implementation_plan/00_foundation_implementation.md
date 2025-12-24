@@ -368,9 +368,20 @@ app:
   name: "Second Brain"        # Display name in logs and UI
   debug: false                # Set via DEBUG env var in production
 
-# Obsidian vault configuration
+# =============================================================================
+# OBSIDIAN VAULT CONFIGURATION
+# =============================================================================
 # These settings tell the ingestion pipelines WHERE to write notes
-# and WHICH template to use for each content type
+# and WHICH template to use for each content type.
+#
+# EXTENSIBILITY: This configuration is designed to be extended without code changes.
+# To add a new content type:
+#   1. Add entry to content_types below
+#   2. Create the template file in templates/
+#   3. (Optional) Add subfolder structure
+#   4. (Optional) Add tags to tag taxonomy
+# The system will automatically recognize and handle the new type.
+
 obsidian:
   vault_path: "/vault"        # Overridden by OBSIDIAN_VAULT_PATH env var
   
@@ -385,30 +396,178 @@ obsidian:
     daily: "daily"            # Daily notes (YYYY-MM-DD.md)
     templates: "templates"    # Note templates (not shown in Obsidian)
     meta: "meta"              # System config, dashboards, documentation
+
+# =============================================================================
+# CONTENT TYPE REGISTRY
+# =============================================================================
+# This is the single source of truth for all content types in the system.
+# Each content type defines:
+#   - folder: Where notes are stored in the vault
+#   - template: Obsidian template path (for manual creation via Templater)
+#   - jinja_template: Jinja2 template filename (for backend note generation)
+#   - subfolders: Optional subfolders for organization
+#   - description: Human-readable description
+#   - icon: Optional emoji for UI display
+#   - file_types: What file types this content type accepts
+#   - system: If true, hidden from user content type selectors
+#
+# TWO TYPES OF TEMPLATES:
+#   - template: Plain Markdown in vault's templates/ folder, used by Templater
+#               plugin when user manually creates notes in Obsidian
+#   - jinja_template: Jinja2 template in config/templates/, used by backend
+#               when generating notes programmatically
+#
+# TO ADD A NEW CONTENT TYPE:
+# 1. Add a new entry below with unique key
+# 2. Create Obsidian template file in vault's templates/ folder
+# 3. Create Jinja2 template file in config/templates/
+# 4. Run `python scripts/setup_vault.py` to create folders
+# 5. The system will automatically handle ingestion, queries, and display
+
+content_types:
+  # ---------------------------------------------------------------------------
+  # TECHNICAL CONTENT
+  # ---------------------------------------------------------------------------
+  paper:
+    folder: "sources/papers"
+    template: "templates/paper.md"           # Obsidian template (for Templater)
+    jinja_template: "paper.md.j2"            # Backend Jinja2 template
+    description: "Academic papers, research publications"
+    icon: "📄"
+    file_types: ["pdf"]
     
-  # Subfolders within sources/ - one for each content type
-  # Maps directly to ContentType enum in the data models
-  subfolders:
-    sources:
-      - papers               # Academic papers, research (PDFs)
-      - articles             # Blog posts, news, essays (web)
-      - books                # Book notes and highlights (photos/OCR)
-      - code                 # Repository analyses (GitHub)
-      - ideas                # Fleeting notes, quick captures
-      - work                 # Work-specific content (meetings, proposals)
+  article:
+    folder: "sources/articles"
+    template: "templates/article.md"
+    jinja_template: "article.md.j2"
+    description: "Blog posts, news, essays, web content"
+    icon: "📰"
+    file_types: ["url", "html", "md"]
+    
+  book:
+    folder: "sources/books"
+    template: "templates/book.md"
+    jinja_template: "book.md.j2"
+    description: "Book notes and highlights"
+    icon: "📚"
+    file_types: ["pdf", "epub", "photo"]
+    
+  code:
+    folder: "sources/code"
+    template: "templates/code.md"
+    jinja_template: "code.md.j2"
+    description: "GitHub repositories, code analysis"
+    icon: "💻"
+    file_types: ["url", "git"]
+    
+  idea:
+    folder: "sources/ideas"
+    template: "templates/idea.md"
+    jinja_template: "article.md.j2"          # Ideas use article Jinja2 template
+    description: "Fleeting notes, quick captures"
+    icon: "💡"
+    file_types: ["text", "voice"]
+
+  # ---------------------------------------------------------------------------
+  # WORK & PROFESSIONAL
+  # ---------------------------------------------------------------------------
+  work:
+    folder: "sources/work"
+    template: "templates/work.md"
+    jinja_template: "article.md.j2"
+    description: "Work-related content"
+    icon: "💼"
+    subfolders:
+      - meetings
+      - proposals
+      - projects
       
-  # Template file paths for each content type
-  # When ingesting a paper, use templates/paper.md
-  # These templates define the frontmatter schema and section structure
-  templates:
-    paper: "templates/paper.md"
-    article: "templates/article.md"
-    book: "templates/book.md"
-    code: "templates/code.md"
-    concept: "templates/concept.md"
-    idea: "templates/idea.md"
-    daily: "templates/daily.md"
-    exercise: "templates/exercise.md"
+  career:
+    folder: "sources/career"
+    template: "templates/career.md"
+    jinja_template: "career.md.j2"
+    description: "Career development content"
+    icon: "🎯"
+    subfolders:
+      - goals
+      - interviews
+      - networking
+      - skills
+
+  # ---------------------------------------------------------------------------
+  # PERSONAL DEVELOPMENT
+  # ---------------------------------------------------------------------------
+  personal:
+    folder: "sources/personal"
+    template: "templates/personal.md"
+    jinja_template: "personal.md.j2"
+    description: "Personal development content"
+    icon: "🌱"
+    subfolders:
+      - goals
+      - reflections
+      - habits
+      - wellbeing
+      
+  project:
+    folder: "sources/projects"
+    template: "templates/project.md"
+    jinja_template: "project.md.j2"
+    description: "Personal project notes"
+    icon: "🚀"
+    subfolders:
+      - active
+      - ideas
+      - archive
+      
+  reflection:
+    folder: "sources/personal/reflections"
+    template: "templates/reflection.md"
+    jinja_template: "reflection.md.j2"
+    description: "Periodic reflections, retrospectives"
+    icon: "🔮"
+
+  # ---------------------------------------------------------------------------
+  # NON-TECHNICAL
+  # ---------------------------------------------------------------------------
+  non-tech:
+    folder: "sources/non-tech"
+    template: "templates/personal.md"        # Reuse personal template
+    jinja_template: "personal.md.j2"
+    description: "Non-technical learning and interests"
+    icon: "🌍"
+    subfolders:
+      - finance
+      - hobbies
+      - philosophy
+      - misc
+
+  # ---------------------------------------------------------------------------
+  # SYSTEM CONTENT TYPES (used internally)
+  # ---------------------------------------------------------------------------
+  concept:
+    folder: "concepts"
+    template: "templates/concept.md"
+    jinja_template: "concept.md.j2"
+    description: "Atomic concept notes"
+    icon: "🧩"
+    system: true  # Not shown in content type selector
+    
+  daily:
+    folder: "daily"
+    template: "templates/daily.md"
+    jinja_template: "daily.md.j2"
+    description: "Daily notes"
+    icon: "📅"
+    system: true
+    
+  exercise:
+    folder: "exercises"
+    template: "templates/exercise.md"
+    jinja_template: "exercise.md.j2"
+    description: "Practice problems"
+    icon: "🏋️"
+    system: true
 
 # PostgreSQL connection pool configuration
 # These settings prevent overwhelming the database with connections
@@ -443,9 +602,130 @@ template_path = config["obsidian"]["templates"]["paper"]  # "templates/paper.md"
 pool_size = config["database"]["pool_size"]                # 5
 ```
 
+**Content Type Registry Helper:**
+
+```python
+# backend/app/content_types.py
+#
+# PURPOSE: Provides a dynamic registry of content types loaded from config.
+# This allows adding new content types WITHOUT code changes - just update YAML.
+
+from functools import lru_cache
+from pathlib import Path
+from typing import Optional
+import yaml
+
+@lru_cache()
+def load_content_types() -> dict:
+    """Load content types from configuration."""
+    with open("config/default.yaml") as f:
+        config = yaml.safe_load(f)
+    return config.get("content_types", {})
+
+
+class ContentTypeRegistry:
+    """
+    Dynamic registry of content types.
+    
+    EXTENSIBILITY: This class reads content types from config/default.yaml.
+    To add a new content type:
+    1. Add entry to content_types in config/default.yaml
+    2. Create template file
+    3. The system automatically recognizes the new type
+    
+    No code changes required!
+    """
+    
+    def __init__(self):
+        self._types = load_content_types()
+    
+    @property
+    def all_types(self) -> list[str]:
+        """Get all content type keys."""
+        return list(self._types.keys())
+    
+    @property
+    def user_types(self) -> list[str]:
+        """Get content types available for user selection (excludes system types)."""
+        return [k for k, v in self._types.items() if not v.get("system", False)]
+    
+    def get(self, type_key: str) -> Optional[dict]:
+        """Get content type configuration by key."""
+        return self._types.get(type_key)
+    
+    def get_folder(self, type_key: str) -> Optional[str]:
+        """Get folder path for a content type."""
+        ct = self.get(type_key)
+        return ct["folder"] if ct else None
+    
+    def get_template(self, type_key: str) -> Optional[str]:
+        """Get Obsidian template path for a content type (for Templater)."""
+        ct = self.get(type_key)
+        return ct["template"] if ct else None
+    
+    def get_jinja_template(self, type_key: str) -> Optional[str]:
+        """Get Jinja2 template name for a content type (for backend generation)."""
+        ct = self.get(type_key)
+        return ct.get("jinja_template") if ct else None
+    
+    def get_subfolders(self, type_key: str) -> list[str]:
+        """Get subfolders for a content type."""
+        ct = self.get(type_key)
+        return ct.get("subfolders", []) if ct else []
+    
+    def get_all_folders(self) -> list[str]:
+        """Get all folders that should be created (for vault setup)."""
+        folders = []
+        for type_key, config in self._types.items():
+            base_folder = config["folder"]
+            folders.append(base_folder)
+            for subfolder in config.get("subfolders", []):
+                folders.append(f"{base_folder}/{subfolder}")
+        return folders
+    
+    def type_for_folder(self, folder_path: str) -> Optional[str]:
+        """Reverse lookup: get content type from folder path."""
+        for type_key, config in self._types.items():
+            if folder_path.startswith(config["folder"]):
+                return type_key
+        return None
+    
+    def validate_type(self, type_key: str) -> bool:
+        """Check if a content type exists."""
+        return type_key in self._types
+
+
+# Global singleton
+content_registry = ContentTypeRegistry()
+
+
+# Usage examples:
+# 
+# from app.content_types import content_registry
+#
+# # Get all user-selectable content types for dropdown
+# types = content_registry.user_types  # ['paper', 'article', 'book', ...]
+#
+# # Get folder for a content type
+# folder = content_registry.get_folder("paper")  # "sources/papers"
+#
+# # Get Obsidian template for a content type (for Templater plugin)
+# template = content_registry.get_template("career")  # "templates/career.md"
+#
+# # Get Jinja2 template for backend note generation
+# jinja = content_registry.get_jinja_template("career")  # "career.md.j2"
+#
+# # Determine content type from file path
+# type_key = content_registry.type_for_folder("sources/papers/attention.md")  # "paper"
+#
+# # Get all folders for vault setup
+# all_folders = content_registry.get_all_folders()  # Dynamic list based on config
+```
+
 **Deliverables:**
 - [ ] Pydantic settings class
 - [ ] YAML configuration file
+- [ ] Content type registry with dynamic loading
 - [ ] Environment variable validation
 - [ ] Configuration loading utilities
 
@@ -1187,10 +1467,29 @@ vault/
 |   |-- books/            # Book notes -> book.md template
 |   |-- code/             # GitHub repos analyzed -> code.md template
 |   |-- ideas/            # Quick captures, fleeting notes -> idea.md template
-|   +-- work/             # Work-specific content
-|       |-- meetings/     # Meeting notes
-|       |-- proposals/    # Proposals, design docs
-|       +-- projects/     # Project-specific notes
+|   |-- work/             # Work-specific content
+|   |   |-- meetings/     # Meeting notes
+|   |   |-- proposals/    # Proposals, design docs
+|   |   +-- projects/     # Work project-specific notes
+|   |-- career/           # Career development content
+|   |   |-- goals/        # Career goals and planning
+|   |   |-- interviews/   # Interview prep, experiences
+|   |   |-- networking/   # Networking notes, contacts
+|   |   +-- skills/       # Skill development tracking
+|   |-- personal/         # Personal development content
+|   |   |-- goals/        # Personal goals, life planning
+|   |   |-- reflections/  # Journal entries, retrospectives
+|   |   |-- habits/       # Habit tracking, routines
+|   |   +-- wellbeing/    # Health, fitness, mental wellness
+|   |-- projects/         # Personal project notes
+|   |   |-- active/       # Currently active projects
+|   |   |-- ideas/        # Project ideas, brainstorms
+|   |   +-- archive/      # Completed/paused projects
+|   +-- non-tech/         # Non-technical learning
+|       |-- finance/      # Personal finance, investing
+|       |-- hobbies/      # Hobbies, creative pursuits
+|       |-- philosophy/   # Philosophy, thinking frameworks
+|       +-- misc/         # Miscellaneous topics
 |
 |-- topics/               # TOPIC INDEX NOTES (auto-generated)
 |                         # "Machine Learning.md" links to all ML-tagged notes
@@ -1229,20 +1528,17 @@ from pathlib import Path
 import yaml
 
 def create_vault_structure(vault_path: Path, config: dict):
-    """Create the Obsidian vault folder structure."""
+    """
+    Create the Obsidian vault folder structure.
+    
+    EXTENSIBILITY: This function dynamically reads content types from config.
+    To add new content types, just update config/default.yaml - no code changes needed.
+    """
     
     vault_path.mkdir(parents=True, exist_ok=True)
     
-    # Core folders
-    folders = [
-        "sources/papers",
-        "sources/articles", 
-        "sources/books",
-        "sources/code",
-        "sources/ideas",
-        "sources/work/meetings",
-        "sources/work/proposals",
-        "sources/work/projects",
+    # System folders (always created)
+    system_folders = [
         "topics",
         "concepts",
         "exercises/by-topic",
@@ -1256,9 +1552,30 @@ def create_vault_structure(vault_path: Path, config: dict):
         "assets/pdfs",
     ]
     
-    for folder in folders:
+    # Create system folders
+    for folder in system_folders:
         (vault_path / folder).mkdir(parents=True, exist_ok=True)
         print(f"Created: {folder}")
+    
+    # Dynamically create folders from content_types registry
+    # This reads from config/default.yaml, so adding a new content type
+    # there will automatically create the folder here
+    content_types = config.get("content_types", {})
+    
+    for type_key, type_config in content_types.items():
+        # Create base folder
+        base_folder = type_config.get("folder", f"sources/{type_key}")
+        (vault_path / base_folder).mkdir(parents=True, exist_ok=True)
+        print(f"Created: {base_folder}")
+        
+        # Create subfolders if defined
+        for subfolder in type_config.get("subfolders", []):
+            subfolder_path = f"{base_folder}/{subfolder}"
+            (vault_path / subfolder_path).mkdir(parents=True, exist_ok=True)
+            print(f"Created: {subfolder_path}")
+    
+    print(f"\n✅ Vault structure created at: {vault_path}")
+    print(f"   Content types loaded: {len(content_types)}")
     
     # Create .gitkeep files for empty folders
     for folder in folders:
@@ -1336,17 +1653,144 @@ def create_obsidian_config(vault_path: Path):
     print("✅ Obsidian configuration created")
 
 
+def generate_tag_taxonomy_md(vault_path: Path, taxonomy_config_path: Path = None):
+    """
+    Generate meta/tag-taxonomy.md from config/tag-taxonomy.yaml.
+    
+    The YAML config is the single source of truth. This function generates
+    a human-readable markdown reference for use within Obsidian.
+    
+    The generated file includes a warning that it's auto-generated.
+    """
+    taxonomy_config_path = taxonomy_config_path or Path("config/tag-taxonomy.yaml")
+    
+    if not taxonomy_config_path.exists():
+        print(f"⚠️  Tag taxonomy config not found: {taxonomy_config_path}")
+        return
+    
+    with open(taxonomy_config_path) as f:
+        taxonomy = yaml.safe_load(f)
+    
+    # Build markdown content
+    lines = [
+        "---",
+        "type: meta",
+        "title: Tag Taxonomy",
+        "---",
+        "",
+        "> [!warning] Auto-Generated File",
+        "> This file is automatically generated from `config/tag-taxonomy.yaml`.",
+        "> **Do not edit this file directly** — your changes will be overwritten.",
+        "> To modify the tag taxonomy, edit `config/tag-taxonomy.yaml` and run:",
+        "> ```bash",
+        "> python scripts/setup_vault.py --regenerate-taxonomy",
+        "> ```",
+        "",
+        "# Tag Taxonomy",
+        "",
+        "This document defines the valid tags for the knowledge base.",
+        "Tags follow the `domain/category/topic` hierarchy (up to 3 levels).",
+        "",
+        "---",
+        "",
+        "## Domain Tags",
+        "",
+    ]
+    
+    # Add domain tags
+    domains = taxonomy.get("domains", [])
+    if isinstance(domains, list):
+        # Simple list format
+        for tag in domains:
+            lines.append(f"- `{tag}`")
+    elif isinstance(domains, dict):
+        # Hierarchical format
+        for domain, categories in domains.items():
+            lines.append(f"### {domain.replace('-', ' ').title()}")
+            lines.append("")
+            if isinstance(categories, dict):
+                for category, topics in categories.items():
+                    if isinstance(topics, list):
+                        for topic in topics:
+                            lines.append(f"- `{domain}/{category}/{topic}`")
+                    else:
+                        lines.append(f"- `{domain}/{category}`")
+            elif isinstance(categories, list):
+                for cat in categories:
+                    lines.append(f"- `{domain}/{cat}`")
+            lines.append("")
+    
+    lines.extend([
+        "",
+        "---",
+        "",
+        "## Status Tags",
+        "",
+    ])
+    
+    # Add status tags
+    for tag in taxonomy.get("status", []):
+        lines.append(f"- `{tag}`")
+    
+    lines.extend([
+        "",
+        "## Quality Tags",
+        "",
+    ])
+    
+    # Add quality tags
+    for tag in taxonomy.get("quality", []):
+        lines.append(f"- `{tag}`")
+    
+    lines.extend([
+        "",
+        "---",
+        "",
+        "## Usage Guidelines",
+        "",
+        "1. **Always use existing tags** when possible",
+        "2. **Create new tags** by adding them to `config/tag-taxonomy.yaml`",
+        "3. **Follow the hierarchy**: `domain/category/topic`",
+        "4. **Use lowercase** with hyphens for multi-word tags",
+        "",
+        "---",
+        "",
+        f"*Generated from `config/tag-taxonomy.yaml`*",
+    ])
+    
+    # Write to meta/tag-taxonomy.md
+    output_path = vault_path / "meta" / "tag-taxonomy.md"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(output_path, "w") as f:
+        f.write("\n".join(lines))
+    
+    print(f"✅ Generated: meta/tag-taxonomy.md (from config/tag-taxonomy.yaml)")
+
+
 if __name__ == "__main__":
     import json
     import os
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Setup Obsidian vault structure")
+    parser.add_argument("--regenerate-taxonomy", action="store_true",
+                        help="Only regenerate meta/tag-taxonomy.md from YAML config")
+    args = parser.parse_args()
     
     vault_path = Path(os.environ.get("OBSIDIAN_VAULT_PATH", "./vault"))
     
-    with open("config/default.yaml") as f:
-        config = yaml.safe_load(f)
-    
-    create_vault_structure(vault_path, config)
-    create_obsidian_config(vault_path)
+    if args.regenerate_taxonomy:
+        # Only regenerate the tag taxonomy markdown
+        generate_tag_taxonomy_md(vault_path)
+    else:
+        # Full vault setup
+        with open("config/default.yaml") as f:
+            config = yaml.safe_load(f)
+        
+        create_vault_structure(vault_path, config)
+        create_obsidian_config(vault_path)
+        generate_tag_taxonomy_md(vault_path)  # Also generate tag taxonomy
 ```
 
 **Deliverables:**
@@ -1692,6 +2136,196 @@ created: {{date:YYYY-MM-DD}}
 - [[Source Note]]
 ```
 
+```markdown
+<!-- templates/career.md -->
+---
+type: career
+title: "{{title}}"
+category: ""
+tags: []
+status: status/actionable
+created: {{date:YYYY-MM-DD}}
+---
+
+## Overview
+
+
+## Why This Matters
+
+
+## Current State
+<!-- Where am I now? -->
+
+
+## Target State
+<!-- Where do I want to be? -->
+
+
+## Action Plan
+- [ ] 
+
+## Resources Needed
+- 
+
+## Timeline
+| Milestone | Target Date | Status |
+|-----------|-------------|--------|
+|           |             |        |
+
+## Progress Notes
+
+
+## Related
+- [[Related Note]]
+```
+
+```markdown
+<!-- templates/personal.md -->
+---
+type: personal
+title: "{{title}}"
+area: ""
+tags: []
+status: status/actionable
+created: {{date:YYYY-MM-DD}}
+---
+
+## Summary
+
+
+## Why This Matters to Me
+
+
+## Key Insights
+1. 
+2. 
+3. 
+
+## How This Applies to My Life
+
+
+## Action Items
+- [ ] 
+
+## Reflections
+
+
+## Related
+- [[Related Note]]
+```
+
+```markdown
+<!-- templates/project.md -->
+---
+type: project
+title: "{{title}}"
+status: planning
+priority: medium
+started: {{date:YYYY-MM-DD}}
+target_completion: 
+completed: 
+tags: []
+---
+
+## Vision
+<!-- What does success look like? -->
+
+
+## Motivation
+<!-- Why am I doing this? -->
+
+
+## Goals
+- [ ] Primary goal
+- [ ] Secondary goal
+
+## Scope
+### In Scope
+- 
+
+### Out of Scope
+- 
+
+## Milestones
+| Milestone | Target | Status |
+|-----------|--------|--------|
+|           |        |        |
+
+## Tasks
+### To Do
+- [ ] 
+
+### In Progress
+- [ ] 
+
+### Done
+- [x] 
+
+## Resources
+- **Time**: 
+- **Budget**: 
+- **Tools**: 
+
+## Progress Log
+### {{date:YYYY-MM-DD}}
+- 
+
+## Lessons Learned
+
+
+## Related
+- [[Related Project]]
+```
+
+```markdown
+<!-- templates/reflection.md -->
+---
+type: reflection
+title: "{{title}}"
+period: ""
+tags: []
+created: {{date:YYYY-MM-DD}}
+---
+
+## What Went Well
+1. 
+2. 
+3. 
+
+## What Could Be Better
+1. 
+2. 
+3. 
+
+## Key Learnings
+- 
+
+## Surprises
+<!-- What unexpected things happened? -->
+
+
+## Gratitude
+<!-- What am I thankful for? -->
+1. 
+2. 
+3. 
+
+## Energy & Mood
+<!-- How did I feel during this period? -->
+
+
+## Priorities for Next Period
+1. 
+2. 
+3. 
+
+## Adjustments to Make
+- [ ] 
+
+## Questions to Explore
+- 
+```
+
 **Deliverables:**
 - [ ] Paper template
 - [ ] Article template
@@ -1701,6 +2335,10 @@ created: {{date:YYYY-MM-DD}}
 - [ ] Idea template
 - [ ] Daily note template
 - [ ] Exercise template
+- [ ] Career template
+- [ ] Personal development template
+- [ ] Project template
+- [ ] Reflection template
 
 **Estimated Time:** 3 hours
 
@@ -1727,6 +2365,7 @@ TAG HIERARCHY (3 Levels)
 
 DOMAIN TAGS: domain/category/topic
 
+TECHNICAL DOMAINS:
 ml/                                     (domain)
 |-- ml/architecture/                    (category)
 |   |-- ml/architecture/transformers    (topic)
@@ -1742,6 +2381,26 @@ ml/                                     (domain)
 systems/
 |-- systems/distributed/consensus
 +-- systems/storage/databases
+
+CAREER & PERSONAL DOMAINS:
+career/
+|-- career/growth/goals
+|-- career/skills/technical
++-- career/networking/mentorship
+
+personal/
+|-- personal/goals/life
+|-- personal/growth/habits
++-- personal/wellbeing/physical
+
+projects/
+|-- projects/active/side-project
++-- projects/planning/ideas
+
+non-tech/
+|-- non-tech/finance/investing
+|-- non-tech/philosophy/mental-models
++-- non-tech/hobbies/reading
 
 STATUS TAGS (workflow state) - flat, no hierarchy
   status/actionable     Has tasks I need to do
@@ -1777,7 +2436,7 @@ duplicate what the file path already tells you.
 Create the controlled vocabulary for tags:
 
 ```markdown
-<!-- meta/tag-taxonomy.md -->
+<!-- meta/tag-taxonomy.md - AUTO-GENERATED from config/tag-taxonomy.yaml -->
 ---
 type: meta
 title: "Tag Taxonomy"
@@ -1937,16 +2596,86 @@ This document defines the controlled vocabulary for tags in the Second Brain vau
 - `productivity/systems/time` — Time management
 - `productivity/systems/tools` — Productivity tools
 
-### Personal
+### Career
 
-#### personal/wellbeing/ — Health & Wellbeing
-- `personal/wellbeing/health` — Physical health, fitness
-- `personal/wellbeing/mental` — Mental health, mindfulness
+#### career/growth/ — Career Growth
+- `career/growth/goals` — Career goals, planning, vision
+- `career/growth/strategy` — Career strategy, positioning
+- `career/growth/transitions` — Role changes, pivots, promotions
+
+#### career/skills/ — Professional Skills
+- `career/skills/technical` — Technical skill development
+- `career/skills/soft` — Soft skills, interpersonal skills
+- `career/skills/domain` — Domain expertise, industry knowledge
+
+#### career/networking/ — Professional Networking
+- `career/networking/relationships` — Professional relationships
+- `career/networking/mentorship` — Mentoring, being mentored
+- `career/networking/community` — Communities, conferences, events
+
+#### career/job-search/ — Job Search & Interviews
+- `career/job-search/interviews` — Interview preparation, experiences
+- `career/job-search/negotiation` — Salary, offer negotiation
+- `career/job-search/applications` — Resume, applications, portfolio
+
+### Personal Development
+
+#### personal/goals/ — Goals & Planning
+- `personal/goals/life` — Life goals, vision, values
+- `personal/goals/annual` — Annual goals, yearly planning
+- `personal/goals/quarterly` — Quarterly objectives, OKRs
 
 #### personal/growth/ — Personal Growth
-- `personal/growth/finance` — Personal finance
-- `personal/growth/philosophy` — Philosophy, thinking
-- `personal/growth/creativity` — Creative pursuits
+- `personal/growth/mindset` — Mindset, mental models, beliefs
+- `personal/growth/habits` — Habit formation, routines, systems
+- `personal/growth/reflection` — Self-reflection, journaling
+- `personal/growth/creativity` — Creative pursuits, artistic expression
+
+#### personal/wellbeing/ — Health & Wellbeing
+- `personal/wellbeing/physical` — Physical health, fitness, exercise
+- `personal/wellbeing/mental` — Mental health, mindfulness, meditation
+- `personal/wellbeing/sleep` — Sleep, rest, recovery
+- `personal/wellbeing/nutrition` — Nutrition, diet, eating habits
+
+#### personal/relationships/ — Relationships
+- `personal/relationships/family` — Family relationships
+- `personal/relationships/friends` — Friendships, social life
+- `personal/relationships/communication` — Communication skills
+
+### Projects
+
+#### projects/active/ — Active Projects
+- `projects/active/side-project` — Side projects, personal ventures
+- `projects/active/learning` — Learning projects, courses
+- `projects/active/creative` — Creative projects, art, writing
+
+#### projects/planning/ — Project Planning
+- `projects/planning/ideas` — Project ideas, brainstorms
+- `projects/planning/roadmap` — Project roadmaps, milestones
+- `projects/planning/resources` — Resources, tools, requirements
+
+### Non-Technical
+
+#### non-tech/finance/ — Personal Finance
+- `non-tech/finance/investing` — Investing, portfolio management
+- `non-tech/finance/budgeting` — Budgeting, saving, spending
+- `non-tech/finance/planning` — Financial planning, retirement
+
+#### non-tech/philosophy/ — Philosophy & Thinking
+- `non-tech/philosophy/ethics` — Ethics, moral philosophy
+- `non-tech/philosophy/wisdom` — Wisdom traditions, stoicism
+- `non-tech/philosophy/mental-models` — Mental models, decision frameworks
+
+#### non-tech/hobbies/ — Hobbies & Interests
+- `non-tech/hobbies/reading` — Non-technical reading, fiction
+- `non-tech/hobbies/sports` — Sports, outdoor activities
+- `non-tech/hobbies/arts` — Arts, music, entertainment
+- `non-tech/hobbies/travel` — Travel, exploration
+
+#### non-tech/learning/ — General Learning
+- `non-tech/learning/history` — History, historical events
+- `non-tech/learning/science` — Non-CS science (physics, biology, etc.)
+- `non-tech/learning/language` — Language learning
 
 ---
 
@@ -2106,6 +2835,11 @@ created: {{date:YYYY-MM-DD}}
   - `sources/articles` -> `templates/article.md`
   - `sources/books` -> `templates/book.md`
   - `sources/code` -> `templates/code.md`
+  - `sources/ideas` -> `templates/idea.md`
+  - `sources/career` -> `templates/career.md`
+  - `sources/personal` -> `templates/personal.md`
+  - `sources/personal/reflections` -> `templates/reflection.md`
+  - `sources/projects` -> `templates/project.md`
   - `concepts` -> `templates/concept.md`
   - `daily` -> `templates/daily.md`
 
@@ -2267,7 +3001,7 @@ Dashboard sections (powered by Dataview queries):
 | Note | Purpose | When You'd Use It |
 |------|---------|-------------------|
 | `dashboard.md` | Central hub with live queries | Daily: check inbox, see what's due |
-| `tag-taxonomy.md` | Tag definitions and rules | When adding new tags, resolving confusion |
+| `tag-taxonomy.md` | **Auto-generated** from `config/tag-taxonomy.yaml` | Browsing available tags (do not edit directly) |
 | `workflows.md` | How-to documentation | Onboarding, remembering processes |
 | `plugin-setup.md` | Plugin configuration | Troubleshooting, setup on new machine |
 | `reviews/_queue.md` | Spaced repetition queue | Practice sessions |
@@ -2739,20 +3473,28 @@ import yaml
 import sys
 
 def validate_vault(vault_path: Path) -> bool:
-    """Validate Obsidian vault structure and configuration."""
+    """
+    Validate Obsidian vault structure and configuration.
+    
+    EXTENSIBILITY: This function dynamically reads expected folders and templates
+    from config/default.yaml. When you add a new content type to the config,
+    validation will automatically check for it.
+    """
     
     errors = []
     warnings = []
     
     print(f"🔍 Validating vault at: {vault_path}\n")
     
-    # Check folder structure
+    # Load content types from configuration
+    with open("config/default.yaml") as f:
+        config = yaml.safe_load(f)
+    
+    content_types = config.get("content_types", {})
+    
+    # Build list of required folders from content types
     required_folders = [
-        "sources/papers",
-        "sources/articles",
-        "sources/books",
-        "sources/code",
-        "sources/ideas",
+        # System folders (always required)
         "topics",
         "concepts",
         "exercises",
@@ -2762,6 +3504,13 @@ def validate_vault(vault_path: Path) -> bool:
         "meta",
     ]
     
+    # Add folders from content type registry
+    for type_key, type_config in content_types.items():
+        folder = type_config.get("folder")
+        if folder:
+            required_folders.append(folder)
+    
+    print("📁 Checking folder structure:")
     for folder in required_folders:
         folder_path = vault_path / folder
         if folder_path.exists():
@@ -2772,15 +3521,12 @@ def validate_vault(vault_path: Path) -> bool:
     
     print()
     
-    # Check templates
-    required_templates = [
-        "templates/paper.md",
-        "templates/article.md",
-        "templates/book.md",
-        "templates/code.md",
-        "templates/concept.md",
-        "templates/daily.md",
-    ]
+    # Build list of required templates from content types
+    required_templates = set()
+    for type_key, type_config in content_types.items():
+        template = type_config.get("template")
+        if template:
+            required_templates.add(template)
     
     print("📄 Checking templates:")
     for template in required_templates:
@@ -2978,35 +3724,59 @@ class TestRedisConnection:
 
 
 class TestVaultStructure:
-    """Test Obsidian vault setup."""
+    """
+    Test Obsidian vault setup.
+    
+    EXTENSIBILITY: These tests dynamically read expected folders and templates
+    from the content type registry. Adding a new content type to config will
+    automatically be tested.
+    """
     
     @pytest.fixture
     def vault_path(self):
         from app.config import settings
         return Path(settings.OBSIDIAN_VAULT_PATH)
     
+    @pytest.fixture
+    def content_registry(self):
+        from app.content_types import content_registry
+        return content_registry
+    
     def test_vault_exists(self, vault_path):
         assert vault_path.exists()
         assert vault_path.is_dir()
     
-    def test_required_folders(self, vault_path):
-        required = [
-            "sources/papers",
-            "sources/articles",
-            "templates",
-            "meta"
-        ]
-        for folder in required:
-            assert (vault_path / folder).exists(), f"Missing: {folder}"
+    def test_system_folders_exist(self, vault_path):
+        """Test that core system folders exist."""
+        system_folders = ["templates", "meta", "topics", "concepts", "daily"]
+        for folder in system_folders:
+            assert (vault_path / folder).exists(), f"Missing system folder: {folder}"
     
-    def test_templates_exist(self, vault_path):
-        templates = [
-            "templates/paper.md",
-            "templates/article.md",
-            "templates/book.md"
-        ]
-        for template in templates:
-            assert (vault_path / template).exists(), f"Missing: {template}"
+    def test_content_type_folders_exist(self, vault_path, content_registry):
+        """Dynamically test that all content type folders exist."""
+        for type_key in content_registry.all_types:
+            folder = content_registry.get_folder(type_key)
+            if folder:
+                assert (vault_path / folder).exists(), f"Missing folder for {type_key}: {folder}"
+    
+    def test_content_type_templates_exist(self, vault_path, content_registry):
+        """Dynamically test that all content type templates exist."""
+        for type_key in content_registry.all_types:
+            template = content_registry.get_template(type_key)
+            if template:
+                assert (vault_path / template).exists(), f"Missing template for {type_key}: {template}"
+    
+    def test_templates_have_valid_frontmatter(self, vault_path, content_registry):
+        """Verify all templates have required frontmatter fields."""
+        import frontmatter
+        
+        for type_key in content_registry.all_types:
+            template_path = content_registry.get_template(type_key)
+            if template_path:
+                full_path = vault_path / template_path
+                if full_path.exists():
+                    fm = frontmatter.load(full_path)
+                    assert "type" in fm.metadata, f"Template {template_path} missing 'type' field"
 
 
 class TestHealthEndpoints:
@@ -3212,7 +3982,300 @@ PHASE 1: FOUNDATION (this phase)
 
 ---
 
-## 10. Frequently Asked Questions
+## 10. Extensibility Guide
+
+The system is designed to be extended without code changes. This section documents how to add new content types, tags, and customize the system for your needs.
+
+### 10.1 Adding a New Content Type
+
+**Time required**: ~15-20 minutes
+
+To add a new content type (e.g., "podcast" for podcast notes):
+
+#### Step 1: Add to Configuration
+
+Edit `config/default.yaml` and add an entry to `content_types`:
+
+```yaml
+content_types:
+  # ... existing types ...
+  
+  podcast:
+    folder: "sources/podcasts"
+    template: "templates/podcast.md"        # Obsidian template (for Templater)
+    jinja_template: "podcast.md.j2"         # Backend Jinja2 template
+    description: "Podcast episode notes and takeaways"
+    icon: "🎙️"
+    file_types: ["url", "audio"]
+    subfolders:
+      - episodes
+      - series
+```
+
+#### Step 2: Create the Obsidian Template
+
+Create `templates/podcast.md` in your vault (for manual note creation via Templater):
+
+```markdown
+---
+type: podcast
+title: "{{title}}"
+podcast_name: ""
+episode: ""
+host: ""
+guests: []
+duration: ""
+tags: []
+status: unread
+listened: {{date:YYYY-MM-DD}}
+---
+
+## Summary
+
+
+## Key Takeaways
+1. 
+2. 
+3. 
+
+## Notable Quotes
+> "Quote"
+> — Speaker, timestamp
+
+## My Notes
+
+
+## Action Items
+- [ ] 
+
+## Related
+- [[Related Note]]
+```
+
+#### Step 3: Create the Jinja2 Template (for Backend)
+
+Create `config/templates/podcast.md.j2` (for backend note generation):
+
+```jinja2
+---
+type: podcast
+title: "{{ title }}"
+podcast_name: "{{ podcast_name }}"
+episode: "{{ episode }}"
+host: "{{ host }}"
+guests: [{{ guests | join(', ') }}]
+duration: "{{ duration }}"
+tags: [{{ tags | join(', ') }}]
+status: unread
+listened: {{ listened | datestamp }}
+created: {{ created | datestamp }}
+processed: {{ processed | datestamp }}
+---
+
+## Summary
+{{ summary }}
+
+## Key Takeaways
+{{ key_takeaways }}
+
+## Notable Quotes
+{{ quotes }}
+
+## My Notes
+{{ notes }}
+
+## Action Items
+{{ action_items }}
+
+## Related
+{{ connections }}
+```
+
+#### Step 4: Regenerate Vault Structure
+
+```bash
+python scripts/setup_vault.py
+```
+
+**That's it!** The system will now:
+- ✅ Create the `sources/podcasts/` folder structure
+- ✅ Recognize "podcast" as a valid content type
+- ✅ Use the Obsidian template for manual note creation (via Templater)
+- ✅ Use the Jinja2 template for backend-generated notes
+- ✅ Include podcasts in Dataview queries
+- ✅ Show podcasts in the frontend content type selector
+
+### 10.2 Adding New Tags
+
+**Time required**: ~5 minutes
+
+Tags are defined in `config/tag-taxonomy.yaml` (the single source of truth) and synced to the PostgreSQL `tags` table for validation.
+
+#### Step 1: Add to Taxonomy Configuration
+
+Edit `config/tag-taxonomy.yaml`:
+
+```markdown
+### Audio & Podcasts
+
+#### audio/podcasts/ — Podcast Content
+- `audio/podcasts/tech` — Technology podcasts
+- `audio/podcasts/business` — Business & entrepreneurship
+- `audio/podcasts/interview` — Interview format shows
+```
+
+#### Step 2: (Optional) Add to Database
+
+For strict tag validation, add to the `tags` table:
+
+```python
+# Via API or direct DB insert
+Tag(
+    name="audio/podcasts/tech",
+    category="domain",
+    description="Technology podcasts",
+    parent_id=<parent_tag_uuid>  # Optional
+)
+```
+
+### 10.3 Customizing Existing Content Types
+
+You can modify existing content types by editing `config/default.yaml`:
+
+```yaml
+content_types:
+  paper:
+    folder: "sources/papers"
+    template: "templates/paper.md"
+    # Add new subfolders
+    subfolders:
+      - ml
+      - systems
+      - security
+      - economics  # New category!
+```
+
+Re-run `python scripts/setup_vault.py` to create new folders.
+
+### 10.4 Creating Custom Templates
+
+Templates support Templater syntax for dynamic content:
+
+| Syntax | Output | Use Case |
+|--------|--------|----------|
+| `{{date:YYYY-MM-DD}}` | `2024-12-21` | Current date |
+| `{{date:dddd}}` | `Saturday` | Day of week |
+| `{{title}}` | User input | Note title |
+| `{{time:HH:mm}}` | `14:30` | Current time |
+
+**Template Best Practices:**
+1. Always include `type` in frontmatter
+2. Include `tags: []` for queryability
+3. Include `status` for workflow tracking
+4. Use `<!-- LLM-generated -->` comments for sections filled by AI
+5. Include `## Related` section for linking
+
+### 10.5 Extending the Tag Hierarchy
+
+The tag system uses a 3-level hierarchy: `domain/category/topic`
+
+**Adding a New Domain:**
+
+```yaml
+# In config/tag-taxonomy.yaml
+
+new-domain:
+  description: "New Domain Name"
+  categories:
+    category1:
+      description: "Category description"
+      topics:
+        - topic1: "Topic description"
+        - topic2: "Topic description"
+    category2:
+      description: "Another category"
+      topics:
+        - topic1: "Topic description"
+```
+
+After updating the YAML, regenerate the vault reference file:
+
+```bash
+python scripts/setup_vault.py --regenerate-taxonomy
+```
+
+This will update `meta/tag-taxonomy.md` with the new tags. The generated file looks like:
+
+```markdown
+### New Domain Name
+
+#### newdomain/category1/ — Description
+- `newdomain/category1/topic1` — Topic description
+- `newdomain/category1/topic2` — Topic description
+
+#### newdomain/category2/ — Description
+- `newdomain/category2/topic1` — Topic description
+```
+
+**Rules for New Tags:**
+1. Use lowercase with hyphens
+2. Follow the 3-level hierarchy
+3. Keep tag names concise (< 30 chars total)
+4. Add description for discoverability
+5. Ensure it's meaningfully different from existing tags
+
+### 10.6 API Extension Points
+
+For programmatic extensions, the system provides these hooks:
+
+```python
+# Register a custom content type handler
+from app.content_types import content_registry
+
+# Check if a type exists before processing
+if content_registry.validate_type("podcast"):
+    folder = content_registry.get_folder("podcast")
+    template = content_registry.get_template("podcast")
+
+# Get all user-selectable types for UI dropdowns
+types = content_registry.user_types  # Excludes system types
+
+# Reverse lookup: determine type from file path
+content_type = content_registry.type_for_folder("sources/podcasts/episode1.md")
+```
+
+### 10.7 Configuration Validation
+
+The system validates configuration at startup. If you add invalid configuration:
+
+```yaml
+content_types:
+  invalid_type:
+    # Missing required 'folder' field!
+    template: "templates/invalid.md"
+```
+
+The system will fail fast with a clear error:
+
+```
+ConfigurationError: Content type 'invalid_type' missing required field 'folder'
+```
+
+### 10.8 Extensibility Checklist
+
+When extending the system, verify:
+
+- [ ] Configuration added to `config/default.yaml` (with both `template` and `jinja_template` fields)
+- [ ] Obsidian template created in vault's `templates/` folder (for manual creation)
+- [ ] Jinja2 template created in `config/templates/` folder (for backend generation)
+- [ ] Both templates have required frontmatter (`type`, `tags`, `status`)
+- [ ] Vault setup script run to create folders (`python scripts/setup_vault.py`)
+- [ ] Tag taxonomy updated (if new tags needed)
+- [ ] (Optional) Templater folder mapping configured in Obsidian
+
+---
+
+## 11. Frequently Asked Questions
 
 ### Infrastructure Questions
 
@@ -3269,9 +4332,33 @@ OBSIDIAN_VAULT_PATH=/path/to/your/vault
 ```
 Everything else has sensible defaults.
 
+### Extensibility Questions
+
+**Q: How do I add a new content type (e.g., for podcasts or courses)?**
+
+A: Just two steps, no code changes needed:
+1. Add entry to `content_types` in `config/default.yaml`
+2. Create the template file in `templates/`
+Run `python scripts/setup_vault.py` to create folders. See Section 10.1 for details.
+
+**Q: Can I customize the folder structure?**
+
+A: Yes! The folder structure is entirely defined in `config/default.yaml`. Change folder paths, add subfolders, or reorganize as needed. The system reads this dynamically at runtime.
+
+**Q: What if I need a content type that doesn't fit the existing templates?**
+
+A: Create a custom template with whatever frontmatter and sections you need. The only requirements are:
+- `type: your_type_name` in frontmatter (for Dataview queries)
+- `tags: []` field (for tagging)
+The system handles everything else dynamically.
+
+**Q: Can I add my own tag domains beyond what's predefined?**
+
+A: Absolutely. Tags are not hardcoded. Add new domains to `config/tag-taxonomy.yaml` (the single source of truth) following the `domain/category/topic` convention. The tags will be synced to the PostgreSQL `tags` table for validation. The `meta/tag-taxonomy.md` file in the vault is auto-generated from this YAML config—run `python scripts/setup_vault.py --regenerate-taxonomy` after changes.
+
 ---
 
-## 11. Related Documents
+## 12. Related Documents
 
 | Document | Purpose | When to Read |
 |----------|---------|--------------|

@@ -22,6 +22,8 @@ Obsidian serves as the primary knowledge storage and human interface. All proces
 
 ## 2. Vault Structure
 
+> **EXTENSIBILITY**: The vault structure is defined in `config/default.yaml` and can be extended without code changes. See Section 9 for details on adding new content types.
+
 ```
 vault/
 ├── .obsidian/                    # Obsidian configuration (auto-managed)
@@ -30,6 +32,9 @@ vault/
 │   └── workspace.json            # Layout state
 │
 ├── sources/                      # PRIMARY: Ingested content by type
+│   │                             # (extensible via config/default.yaml)
+│   │
+│   │   # --- TECHNICAL CONTENT ---
 │   ├── papers/                   # Academic papers, research
 │   │   ├── 2024/                 # Organized by year
 │   │   └── _index.md             # Auto-generated index
@@ -37,10 +42,35 @@ vault/
 │   ├── books/                    # Book notes and highlights
 │   ├── code/                     # Repository analyses
 │   ├── ideas/                    # Fleeting notes, quick captures
-│   └── work/                     # Work-specific content
-│       ├── meetings/
-│       ├── proposals/
-│       └── projects/
+│   │
+│   │   # --- WORK & CAREER ---
+│   ├── work/                     # Work-specific content
+│   │   ├── meetings/
+│   │   ├── proposals/
+│   │   └── projects/
+│   ├── career/                   # Career development
+│   │   ├── goals/
+│   │   ├── interviews/
+│   │   ├── networking/
+│   │   └── skills/
+│   │
+│   │   # --- PERSONAL DEVELOPMENT ---
+│   ├── personal/                 # Personal development
+│   │   ├── goals/
+│   │   ├── reflections/
+│   │   ├── habits/
+│   │   └── wellbeing/
+│   ├── projects/                 # Personal projects
+│   │   ├── active/
+│   │   ├── ideas/
+│   │   └── archive/
+│   │
+│   │   # --- NON-TECHNICAL ---
+│   └── non-tech/                 # Non-technical learning
+│       ├── finance/
+│       ├── hobbies/
+│       ├── philosophy/
+│       └── misc/
 │
 ├── topics/                       # Topic-based index notes (auto-generated)
 │   ├── ml/
@@ -72,17 +102,22 @@ vault/
 │   ├── 2024-12-20.md
 │   └── ...
 │
-├── templates/                    # Note templates
+├── templates/                    # Note templates (one per content type)
 │   ├── paper.md
 │   ├── article.md
 │   ├── book.md
 │   ├── code.md
 │   ├── concept.md
+│   ├── idea.md
+│   ├── career.md                 # Career development template
+│   ├── personal.md               # Personal development template
+│   ├── project.md                # Personal project template
+│   ├── reflection.md             # Reflection/retrospective template
 │   ├── daily.md
 │   └── exercise.md
 │
 └── meta/                         # System configuration
-    ├── tag-taxonomy.md           # Controlled vocabulary
+    ├── tag-taxonomy.md           # AUTO-GENERATED from config/tag-taxonomy.yaml (do not edit)
     ├── workflows.md              # Process documentation
     └── dashboard.md              # Main system dashboard
 ```
@@ -318,62 +353,94 @@ created: {{date}}
 
 ## 4. Tagging System
 
+> **EXTENSIBILITY**: The tag taxonomy is defined in `config/tag-taxonomy.yaml` (single source of truth) and can be extended by adding new domains/categories. The `meta/tag-taxonomy.md` file in the vault is **auto-generated** from the YAML config—do not edit it directly.
+
 ### 4.1 Tag Taxonomy
 
 ```yaml
-# templates/meta/tag-taxonomy.md
+# config/tag-taxonomy.yaml (single source of truth)
+# Tag Hierarchy: domain/category/topic (3 levels)
 
-# Domain Tags (hierarchical)
+# TECHNICAL DOMAIN TAGS (hierarchical)
 domains:
   ml:
-    - ml/deep-learning
-    - ml/nlp
-    - ml/computer-vision
-    - ml/reinforcement-learning
-    - ml/mlops
+    - ml/architecture/transformers
+    - ml/architecture/llms
+    - ml/architecture/diffusion
+    - ml/technique/fine-tuning
+    - ml/technique/rlhf
+    - ml/application/agents
+    - ml/application/rag
   systems:
-    - systems/distributed
-    - systems/databases
-    - systems/performance
-    - systems/networking
+    - systems/distributed/consensus
+    - systems/distributed/replication
+    - systems/storage/databases
+    - systems/storage/caching
   engineering:
-    - engineering/architecture
-    - engineering/testing
-    - engineering/devops
-    - engineering/security
-  leadership:
-    - leadership/management
-    - leadership/communication
-    - leadership/strategy
-    - leadership/hiring
-  productivity:
-    - productivity/habits
-    - productivity/tools
-    - productivity/learning
-    - productivity/writing
+    - engineering/design/architecture
+    - engineering/design/api
+    - engineering/practices/testing
+    - engineering/practices/devops
 
-# Status Tags
+  # CAREER & PERSONAL DOMAIN TAGS
+  career:
+    - career/growth/goals
+    - career/growth/strategy
+    - career/skills/technical
+    - career/skills/soft
+    - career/networking/mentorship
+    - career/job-search/interviews
+  personal:
+    - personal/goals/life
+    - personal/goals/annual
+    - personal/growth/mindset
+    - personal/growth/habits
+    - personal/wellbeing/physical
+    - personal/wellbeing/mental
+    - personal/relationships/family
+  projects:
+    - projects/active/side-project
+    - projects/active/learning
+    - projects/planning/ideas
+    - projects/planning/roadmap
+
+  # NON-TECHNICAL DOMAIN TAGS
+  non-tech:
+    - non-tech/finance/investing
+    - non-tech/finance/budgeting
+    - non-tech/philosophy/mental-models
+    - non-tech/hobbies/reading
+    - non-tech/learning/history
+
+  # LEADERSHIP & PRODUCTIVITY (existing)
+  leadership:
+    - leadership/management/teams
+    - leadership/management/hiring
+    - leadership/skills/communication
+    - leadership/skills/strategy
+  productivity:
+    - productivity/learning/techniques
+    - productivity/systems/habits
+    - productivity/systems/time
+
+# Status Tags (flat)
 status:
   - status/actionable     # Has pending tasks
   - status/reference      # Useful for lookup
   - status/archive        # Historical interest only
   - status/review         # Needs review/update
+  - status/processing     # Being processed
 
-# Quality Tags
+# Quality Tags (flat)
 quality:
   - quality/foundational  # Must-know content
   - quality/deep-dive     # Comprehensive treatment
   - quality/overview      # Surface-level introduction
   - quality/practical     # Hands-on, applied
 
-# Source Tags
-source:
-  - source/paper
-  - source/article
-  - source/book
-  - source/video
-  - source/podcast
-  - source/course
+# NOTE: Source tags (source/paper, source/article) are NOT used.
+# The folder structure already encodes source type.
+# Use domain tags and status tags instead.
 ```
 
 ### 4.2 Tag Usage Rules
@@ -735,8 +802,10 @@ def start_vault_watcher(vault_path: Path, sync_callback):
 
 ## 9. Configuration
 
+> **EXTENSIBILITY**: Configuration uses a Content Type Registry pattern. Adding new content types requires only YAML changes, no code modifications.
+
 ```yaml
-# config/obsidian.yaml
+# config/default.yaml
 obsidian:
   vault_path: "/path/to/vault"
   
@@ -748,13 +817,67 @@ obsidian:
     reviews: "reviews"
     daily: "daily"
     templates: "templates"
+
+# CONTENT TYPE REGISTRY
+# Single source of truth for all content types.
+# To add a new type: add entry here + create template file.
+content_types:
+  # Technical content
+  paper:
+    folder: "sources/papers"
+    template: "templates/paper.md"
+    description: "Academic papers, research"
+    icon: "📄"
+  article:
+    folder: "sources/articles"
+    template: "templates/article.md"
+    description: "Web articles, blog posts"
+    icon: "📰"
+  book:
+    folder: "sources/books"
+    template: "templates/book.md"
+    description: "Book notes and highlights"
+    icon: "📚"
+  code:
+    folder: "sources/code"
+    template: "templates/code.md"
+    description: "Repository analyses"
+    icon: "💻"
+  idea:
+    folder: "sources/ideas"
+    template: "templates/idea.md"
+    description: "Quick captures, fleeting notes"
+    icon: "💡"
     
-  templates:
-    paper: "templates/paper.md"
-    article: "templates/article.md"
-    book: "templates/book.md"
-    code: "templates/code.md"
-    concept: "templates/concept.md"
+  # Career & personal
+  career:
+    folder: "sources/career"
+    template: "templates/career.md"
+    description: "Career development"
+    icon: "🎯"
+    subfolders: [goals, interviews, networking, skills]
+  personal:
+    folder: "sources/personal"
+    template: "templates/personal.md"
+    description: "Personal development"
+    icon: "🌱"
+    subfolders: [goals, reflections, habits, wellbeing]
+  project:
+    folder: "sources/projects"
+    template: "templates/project.md"
+    description: "Personal projects"
+    icon: "🚀"
+    subfolders: [active, ideas, archive]
+  
+  # System types (hidden from user selection)
+  concept:
+    folder: "concepts"
+    template: "templates/concept.md"
+    system: true
+  daily:
+    folder: "daily"
+    template: "templates/daily.md"
+    system: true
     
   sync:
     neo4j_enabled: true
@@ -769,9 +892,69 @@ obsidian:
 
 ---
 
-## 10. Related Documents
+## 10. Extensibility
+
+The vault system is designed to be extended without code changes.
+
+### Adding a New Content Type
+
+1. **Add to `config/default.yaml`**:
+   ```yaml
+   content_types:
+     podcast:
+       folder: "sources/podcasts"
+       template: "templates/podcast.md"
+       description: "Podcast notes"
+       icon: "🎙️"
+   ```
+
+2. **Create template** (`templates/podcast.md`):
+   ```markdown
+   ---
+   type: podcast
+   title: "{{title}}"
+   podcast_name: ""
+   episode: ""
+   tags: []
+   status: unread
+   ---
+   
+   ## Summary
+   
+   ## Key Takeaways
+   ```
+
+3. **Run vault setup**: `python scripts/setup_vault.py`
+
+The system will automatically:
+- Create the `sources/podcasts/` folder
+- Recognize "podcast" as a valid content type
+- Use the template for new notes
+- Include podcasts in Dataview queries
+
+### Adding New Tag Domains
+
+Edit `config/tag-taxonomy.yaml` (single source of truth):
+
+```yaml
+domains:
+  new-domain:
+    - new-domain/category/topic
+```
+
+### Template Requirements
+
+All templates must have these frontmatter fields:
+- `type: <content_type>` — For identification
+- `tags: []` — For taxonomy queries
+- `status: <status>` — For workflow tracking
+
+---
+
+## 11. Related Documents
 
 - `02_llm_processing_layer.md` — Note content generation
 - `04_knowledge_graph_neo4j.md` — Graph sync
 - `05_learning_system.md` — Review and exercise integration
+- `00_foundation_implementation.md` — Content type registry details
 

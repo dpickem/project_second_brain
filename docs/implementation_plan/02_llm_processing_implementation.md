@@ -17,12 +17,13 @@ This document provides a detailed implementation plan for the LLM Processing Lay
 
 | Task | Default Model | Rationale |
 |------|---------------|-----------|
-| Classification/Analysis | `openai/gpt-4o-mini` | Cost-efficient for structured output |
-| Summarization | `anthropic/claude-3-5-sonnet-20241022` | Excellent long-form understanding |
-| Extraction | `openai/gpt-4o` | Strong structured JSON output |
-| Connection Discovery | `anthropic/claude-3-5-sonnet-20241022` | Nuanced reasoning |
-| Question Generation | `openai/gpt-4o` | Creative yet precise |
-| Embeddings | `openai/text-embedding-3-small` | Cost-effective, high quality |
+| Classification/Analysis | `openai/gpt-5-mini` | Cost-efficient for structured output |
+| Summarization | `anthropic/claude-4-5-opus-202511` | Excellent long-form understanding |
+| Extraction | `openai/gpt-5.1-chat-latest` | Strong structured JSON output |
+| Connection Discovery | `anthropic/claude-4-5-opus-202511` | Nuanced reasoning |
+| Question Generation | `anthropic/claude-4-5-sonnet-202509` | Creative yet precise |
+| Vision/OCR | `mistral/mistral-ocr-2512` | SOTA for document AI |
+| Embeddings | `openai/text-embedding-3-large` | High quality, larger dimensions |
 
 Models can be swapped via configuration without code changes.
 
@@ -87,12 +88,13 @@ ANTHROPIC_API_KEY=...
 GOOGLE_API_KEY=...               # Optional: for Gemini fallback
 
 # LLM Configuration (model-agnostic via LiteLLM)
-LLM_MODEL_CLASSIFICATION=openai/gpt-4o-mini
-LLM_MODEL_SUMMARIZATION=anthropic/claude-3-5-sonnet-20241022
-LLM_MODEL_EXTRACTION=openai/gpt-4o
-LLM_MODEL_CONNECTIONS=anthropic/claude-3-5-sonnet-20241022
-LLM_MODEL_QUESTIONS=openai/gpt-4o
-LLM_MODEL_EMBEDDINGS=openai/text-embedding-3-small
+LLM_MODEL_CLASSIFICATION=openai/gpt-5-mini
+LLM_MODEL_SUMMARIZATION=anthropic/claude-4-5-opus-202511
+LLM_MODEL_EXTRACTION=openai/gpt-5.1-chat-latest
+LLM_MODEL_CONNECTIONS=anthropic/claude-4-5-opus-202511
+LLM_MODEL_QUESTIONS=anthropic/claude-4-5-sonnet-202509
+LLM_MODEL_VISION_OCR=mistral/mistral-ocr-2512
+LLM_MODEL_EMBEDDINGS=openai/text-embedding-3-large
 
 # LiteLLM Operational Controls
 LITELLM_BUDGET_MAX=200.0         # Monthly budget limit in USD
@@ -140,6 +142,7 @@ backend/
 │   │   │   │   ├── content_analysis.py
 │   │   │   │   ├── summarization.py
 │   │   │   │   ├── extraction.py
+│   │   │   │   ├── taxonomy_loader.py  # Loads tags from Obsidian vault
 │   │   │   │   ├── tagging.py
 │   │   │   │   ├── connections.py
 │   │   │   │   ├── followups.py
@@ -318,21 +321,23 @@ litellm.drop_params = True  # Drop unsupported params instead of erroring
 class LLMClient:
     """Unified LLM client with task-based model selection."""
     
-    # Model mapping by task (configurable via environment)
+    # Model mapping by task (Updated Dec 2025 with Mistral OCR 3)
     MODELS = {
         "classification": settings.LLM_MODEL_CLASSIFICATION,
         "summarization": settings.LLM_MODEL_SUMMARIZATION,
         "extraction": settings.LLM_MODEL_EXTRACTION,
         "connection_discovery": settings.LLM_MODEL_CONNECTIONS,
         "question_generation": settings.LLM_MODEL_QUESTIONS,
+        "vision_ocr": settings.LLM_MODEL_VISION_OCR,
         "embeddings": settings.LLM_MODEL_EMBEDDINGS,
     }
     
-    # Fallback models for each primary model
+    # Fallback models for automatic failover
     FALLBACKS = {
-        "anthropic/claude-3-5-sonnet-20241022": "openai/gpt-4o",
-        "openai/gpt-4o": "anthropic/claude-3-5-sonnet-20241022",
-        "openai/gpt-4o-mini": "anthropic/claude-3-5-haiku-20241022",
+        "mistral/mistral-ocr-2512": "google/gemini-3-pro-latest",  # Gemini is the closest runner-up for complex OCR
+        "anthropic/claude-4-5-opus-202511": "openai/gpt-5.1-chat-latest",
+        "openai/gpt-5.1-chat-latest": "anthropic/claude-4-5-sonnet-202509",
+        "openai/gpt-5-mini": "anthropic/claude-4-5-haiku-202510",
     }
     
     def __init__(self):
@@ -349,7 +354,7 @@ class LLMClient:
     
     def get_model_for_task(self, task: str) -> str:
         """Get the configured model for a specific task."""
-        return self.MODELS.get(task, "openai/gpt-4o")
+        return self.MODELS.get(task, "openai/gpt-5.1-chat-latest")
     
     @retry(
         stop=stop_after_attempt(3),
@@ -506,6 +511,8 @@ def get_llm_client() -> LLMClient:
 
 from neo4j import AsyncGraphDatabase, GraphDatabase
 from app.config import settings
+from app.models.content import UnifiedContent
+from app.models.processing import Concept
 from typing import Optional
 import logging
 
@@ -572,15 +579,20 @@ class Neo4jClient:
     
     async def create_content_node(
         self,
-        content_id: str,
-        title: str,
+        content: UnifiedContent,
         content_type: str,
         summary: str,
         embedding: list[float],
-        tags: list[str],
-        source_url: Optional[str] = None
+        tags: list[str]
     ) -> str:
         """Create a Content node in the knowledge graph.
+        
+        Args:
+            content: The unified content object from ingestion
+            content_type: Classified content type (paper, article, etc.)
+            summary: Generated summary for the content
+            embedding: Vector embedding for similarity search
+            tags: Assigned tags from processing
         
         Returns:
             The created node's ID
@@ -602,26 +614,31 @@ class Neo4jClient:
         async with self._async_driver.session() as session:
             result = await session.run(
                 query,
-                id=content_id,
-                title=title,
+                id=content.id,
+                title=content.title,
                 content_type=content_type,
                 summary=summary,
                 embedding=embedding,
                 tags=tags,
-                source_url=source_url
+                source_url=content.source_url
             )
             record = await result.single()
             return record["id"]
     
     async def create_concept_node(
         self,
-        concept_id: str,
-        name: str,
-        definition: str,
-        embedding: list[float],
-        importance: str
+        concept: Concept,
+        embedding: list[float]
     ) -> str:
-        """Create or merge a Concept node."""
+        """Create or merge a Concept node.
+        
+        Args:
+            concept: The extracted concept object
+            embedding: Vector embedding for similarity search
+        
+        Returns:
+            The created/merged node's ID
+        """
         query = """
         MERGE (c:Concept {name: $name})
         ON CREATE SET
@@ -639,11 +656,11 @@ class Neo4jClient:
         async with self._async_driver.session() as session:
             result = await session.run(
                 query,
-                id=concept_id,
-                name=name,
-                definition=definition,
+                id=concept.id,
+                name=concept.name,
+                definition=concept.definition,
                 embedding=embedding,
-                importance=importance
+                importance=concept.importance
             )
             record = await result.single()
             return record["id"]
@@ -1319,31 +1336,172 @@ async def extract_concepts(
 
 **Why this matters:** A controlled tag vocabulary ensures consistency across the knowledge base. Tags enable filtering, grouping, and discovering content by domain, status, or quality level.
 
+**Important:** The tag taxonomy is NOT hard-coded. It is loaded dynamically from `config/tag-taxonomy.yaml` (the single source of truth). This ensures:
+- Single source of truth for tags
+- Users can customize taxonomy in Obsidian
+- Changes propagate automatically to the processing pipeline
+
+```python
+# backend/app/services/processing/stages/taxonomy_loader.py
+
+from pathlib import Path
+from typing import Optional
+from dataclasses import dataclass, field
+import re
+import yaml
+import aiofiles
+import logging
+from functools import lru_cache
+
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TagTaxonomy:
+    """Loaded tag taxonomy with domain and meta tags."""
+    domains: list[str] = field(default_factory=list)
+    meta: list[str] = field(default_factory=list)
+    
+    def validate_domain_tag(self, tag: str) -> bool:
+        """Check if tag is in domain taxonomy."""
+        return tag in self.domains
+    
+    def validate_meta_tag(self, tag: str) -> bool:
+        """Check if tag is in meta taxonomy."""
+        return tag in self.meta
+    
+    def filter_valid_tags(self, tags: list[str]) -> tuple[list[str], list[str]]:
+        """Split tags into valid domain and meta tags."""
+        domain_tags = [t for t in tags if self.validate_domain_tag(t)]
+        meta_tags = [t for t in tags if self.validate_meta_tag(t)]
+        return domain_tags, meta_tags
+
+
+class TagTaxonomyLoader:
+    """Loads tag taxonomy from YAML configuration.
+    
+    Single source of truth: config/tag-taxonomy.yaml
+    
+    The taxonomy is cached and can be refreshed when the config file changes.
+    """
+    
+    _instance: Optional["TagTaxonomyLoader"] = None
+    _taxonomy: Optional[TagTaxonomy] = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    @classmethod
+    async def get_taxonomy(cls, force_reload: bool = False) -> TagTaxonomy:
+        """Get the current tag taxonomy, loading if necessary.
+        
+        Args:
+            force_reload: Force reload from config file
+        
+        Returns:
+            TagTaxonomy with domain and meta tags
+        """
+        if cls._taxonomy is None or force_reload:
+            cls._taxonomy = await cls._load_taxonomy()
+        return cls._taxonomy
+    
+    @classmethod
+    async def _load_taxonomy(cls) -> TagTaxonomy:
+        """Load taxonomy from single source of truth: config/tag-taxonomy.yaml."""
+        config_file = Path("config/tag-taxonomy.yaml")
+        
+        if config_file.exists():
+            try:
+                taxonomy = await cls._parse_yaml_taxonomy(config_file)
+                logger.info(f"Loaded taxonomy from config: {len(taxonomy.domains)} domains, {len(taxonomy.meta)} meta")
+                return taxonomy
+            except Exception as e:
+                logger.error(f"Failed to parse tag taxonomy config: {e}")
+                raise ValueError(f"Invalid tag taxonomy configuration: {e}")
+        
+        raise FileNotFoundError(
+            "Tag taxonomy config not found: config/tag-taxonomy.yaml. "
+            "This file is required - no fallback is used."
+        )
+    
+    @classmethod
+    async def _parse_yaml_taxonomy(cls, path: Path) -> TagTaxonomy:
+        """Parse tag taxonomy from YAML config file."""
+        async with aiofiles.open(path, "r", encoding="utf-8") as f:
+            content = await f.read()
+        
+        data = yaml.safe_load(content)
+        
+        domains = data.get("domains", [])
+        meta = data.get("status", []) + data.get("quality", [])
+        
+        return TagTaxonomy(domains=domains, meta=meta)
+    
+    @classmethod
+    def invalidate_cache(cls):
+        """Invalidate cached taxonomy (call when config file changes)."""
+        cls._taxonomy = None
+
+
+# Convenience function
+async def get_tag_taxonomy(force_reload: bool = False) -> TagTaxonomy:
+    """Get the current tag taxonomy."""
+    return await TagTaxonomyLoader.get_taxonomy(force_reload)
+```
+
+**Tag Taxonomy Config Format** (`config/tag-taxonomy.yaml`):
+```yaml
+# Single source of truth for tag taxonomy
+# No fallback - this file is required
+
+domains:
+  - ml/deep-learning
+  - ml/nlp
+  - ml/computer-vision
+  - ml/reinforcement-learning
+  - ml/mlops
+  - ml/transformers
+  - systems/distributed
+  - systems/databases
+  - systems/performance
+  - engineering/architecture
+  - engineering/testing
+  - engineering/devops
+  - leadership/management
+  - leadership/communication
+  - leadership/strategy
+  - productivity/habits
+  - productivity/tools
+  - productivity/workflows
+  - learning/techniques
+  - learning/note-taking
+
+status:
+  - status/actionable
+  - status/reference
+  - status/archive
+  - status/to-review
+
+quality:
+  - quality/foundational
+  - quality/deep-dive
+  - quality/overview
+```
+
 ```python
 # backend/app/services/processing/stages/tagging.py
 
 from app.models.processing import ContentAnalysis, TagAssignment
 from app.services.llm.client import LLMClient
+from app.services.processing.stages.taxonomy_loader import get_tag_taxonomy, TagTaxonomy
 import json
 import logging
 
 logger = logging.getLogger(__name__)
-
-TAG_TAXONOMY = {
-    "domains": [
-        "ml/deep-learning", "ml/nlp", "ml/computer-vision", 
-        "ml/reinforcement-learning", "ml/mlops", "ml/transformers",
-        "systems/distributed", "systems/databases", "systems/performance",
-        "engineering/architecture", "engineering/testing", "engineering/devops",
-        "leadership/management", "leadership/communication", "leadership/strategy",
-        "productivity/habits", "productivity/tools", "productivity/workflows",
-        "learning/techniques", "learning/note-taking",
-    ],
-    "meta": [
-        "status/actionable", "status/reference", "status/archive",
-        "quality/foundational", "quality/deep-dive", "quality/overview",
-    ]
-}
 
 TAGGING_PROMPT = """Assign tags to this content from the provided taxonomy.
 
@@ -1364,6 +1522,7 @@ Rules:
 1. Assign 1-3 domain tags (most specific that applies)
 2. Assign 1-2 meta tags
 3. ONLY use tags from the provided taxonomy
+4. If the taxonomy has a clear gap, suggest a new tag
 
 Return as JSON:
 {{
@@ -1379,9 +1538,25 @@ async def assign_tags(
     content_title: str,
     analysis: ContentAnalysis,
     summary: str,
-    llm_client: LLMClient
+    llm_client: LLMClient,
+    taxonomy: TagTaxonomy = None
 ) -> TagAssignment:
-    """Assign tags from controlled vocabulary."""
+    """Assign tags from controlled vocabulary.
+    
+    Args:
+        content_title: Title of the content
+        analysis: Content analysis result
+        summary: Generated summary
+        llm_client: LLM client for completion
+        taxonomy: Optional pre-loaded taxonomy (loads from vault if not provided)
+    
+    Returns:
+        TagAssignment with validated tags
+    """
+    # Load taxonomy from source of truth if not provided
+    if taxonomy is None:
+        taxonomy = await get_tag_taxonomy()
+    
     prompt = TAGGING_PROMPT.format(
         title=content_title,
         content_type=analysis.content_type,
@@ -1389,8 +1564,8 @@ async def assign_tags(
         complexity=analysis.complexity,
         key_topics=", ".join(analysis.key_topics[:10]),
         summary=summary[:2000] if summary else "No summary available",
-        domain_tags=", ".join(TAG_TAXONOMY["domains"]),
-        meta_tags=", ".join(TAG_TAXONOMY["meta"])
+        domain_tags=", ".join(taxonomy.domains),
+        meta_tags=", ".join(taxonomy.meta)
     )
     
     response = await llm_client.complete(
@@ -1403,13 +1578,21 @@ async def assign_tags(
     
     try:
         data = json.loads(response)
-        valid_domain_tags = [t for t in data.get("domain_tags", []) if t in TAG_TAXONOMY["domains"]]
-        valid_meta_tags = [t for t in data.get("meta_tags", []) if t in TAG_TAXONOMY["meta"]]
+        
+        # Validate tags against loaded taxonomy
+        valid_domain_tags = [t for t in data.get("domain_tags", []) if taxonomy.validate_domain_tag(t)]
+        valid_meta_tags = [t for t in data.get("meta_tags", []) if taxonomy.validate_meta_tag(t)]
+        
+        # Log if LLM suggested tags not in taxonomy
+        suggested_domains = data.get("domain_tags", [])
+        invalid_suggestions = [t for t in suggested_domains if t not in valid_domain_tags]
+        if invalid_suggestions:
+            logger.info(f"LLM suggested tags not in taxonomy: {invalid_suggestions}")
         
         return TagAssignment(
             domain_tags=valid_domain_tags,
             meta_tags=valid_meta_tags,
-            suggested_new_tags=data.get("suggested_new_tags", []),
+            suggested_new_tags=data.get("suggested_new_tags", []) + invalid_suggestions,
             reasoning=data.get("reasoning", "")
         )
     except (json.JSONDecodeError, ValueError) as e:
@@ -1418,12 +1601,15 @@ async def assign_tags(
 ```
 
 **Deliverables:**
-- [ ] `TAG_TAXONOMY` controlled vocabulary
-- [ ] `assign_tags()` function
-- [ ] Tag validation against taxonomy
-- [ ] Unit tests for tag validation
+- [ ] `TagTaxonomyLoader` class loading from `config/tag-taxonomy.yaml` (single source of truth)
+- [ ] `TagTaxonomy` dataclass with validation methods
+- [ ] Proper error handling if config file is missing (no fallback)
+- [ ] Cache invalidation for config file changes
+- [ ] `assign_tags()` function using dynamic taxonomy
+- [ ] Tag validation against loaded taxonomy
+- [ ] Unit tests for taxonomy loading and tag validation
 
-**Estimated Time:** 3 hours
+**Estimated Time:** 4 hours
 
 ---
 
@@ -2252,7 +2438,7 @@ async def create_knowledge_nodes(
     neo4j_client: Neo4jClient
 ) -> str:
     """Create knowledge graph nodes and relationships."""
-    # Generate embedding
+    # Generate embedding for content
     summary = result.summaries.get(SummaryLevel.STANDARD.value, content.title)
     embeddings = await llm_client.embed([f"{content.title}\n\n{summary}"])
     embedding = embeddings[0] if embeddings else []
@@ -2260,13 +2446,11 @@ async def create_knowledge_nodes(
     # Create content node
     all_tags = result.tags.domain_tags + result.tags.meta_tags
     content_node_id = await neo4j_client.create_content_node(
-        content_id=content.id,
-        title=content.title,
+        content=content,
         content_type=result.analysis.content_type,
         summary=summary[:2000],
         embedding=embedding,
-        tags=all_tags,
-        source_url=content.source_url
+        tags=all_tags
     )
     
     # Create concept nodes
@@ -2274,11 +2458,8 @@ async def create_knowledge_nodes(
     for concept in core_concepts:
         concept_emb = await llm_client.embed([f"{concept.name}: {concept.definition}"])
         await neo4j_client.create_concept_node(
-            concept_id=concept.id,
-            name=concept.name,
-            definition=concept.definition,
-            embedding=concept_emb[0] if concept_emb else [],
-            importance=concept.importance
+            concept=concept,
+            embedding=concept_emb[0] if concept_emb else []
         )
         await neo4j_client.create_relationship(
             source_id=content.id,
@@ -2415,6 +2596,7 @@ tests/
 │   ├── test_content_analysis.py   # Analysis stage
 │   ├── test_summarization.py      # Summary generation
 │   ├── test_extraction.py         # Concept extraction
+│   ├── test_taxonomy_loader.py    # Tag taxonomy loading
 │   ├── test_tagging.py            # Tag assignment
 │   ├── test_connections.py        # Connection discovery
 │   ├── test_questions.py          # Question generation
@@ -2443,7 +2625,10 @@ tests/
 | Summarization | Handle empty content gracefully | Medium |
 | Extraction | Extract core concepts with definitions | High |
 | Extraction | Parse JSON response correctly | High |
-| Tagging | Validate tags against taxonomy | High |
+| Taxonomy Loader | Parse tags from Obsidian markdown | High |
+| Taxonomy Loader | Fall back to YAML config | Medium |
+| Taxonomy Loader | Cache invalidation on file change | Medium |
+| Tagging | Validate tags against loaded taxonomy | High |
 | Tagging | Reject invalid tags | Medium |
 | Connections | Find similar content via embedding | High |
 | Connections | Evaluate connection strength | High |
@@ -2486,13 +2671,14 @@ pytest tests/integration/ -v --neo4j-url=bolt://localhost:7687
 from pydantic_settings import BaseSettings
 
 class ProcessingSettings(BaseSettings):
-    # LLM Models (format: provider/model-name)
-    LLM_MODEL_CLASSIFICATION: str = "openai/gpt-4o-mini"
-    LLM_MODEL_SUMMARIZATION: str = "anthropic/claude-3-5-sonnet-20241022"
-    LLM_MODEL_EXTRACTION: str = "openai/gpt-4o"
-    LLM_MODEL_CONNECTIONS: str = "anthropic/claude-3-5-sonnet-20241022"
-    LLM_MODEL_QUESTIONS: str = "openai/gpt-4o"
-    LLM_MODEL_EMBEDDINGS: str = "openai/text-embedding-3-small"
+    # LLM Models (format: provider/model-name) - Updated Dec 2025 with Mistral OCR 3
+    LLM_MODEL_CLASSIFICATION: str = "openai/gpt-5-mini"
+    LLM_MODEL_SUMMARIZATION: str = "anthropic/claude-4-5-opus-202511"
+    LLM_MODEL_EXTRACTION: str = "openai/gpt-5.1-chat-latest"
+    LLM_MODEL_CONNECTIONS: str = "anthropic/claude-4-5-opus-202511"
+    LLM_MODEL_QUESTIONS: str = "anthropic/claude-4-5-sonnet-202509"
+    LLM_MODEL_VISION_OCR: str = "mistral/mistral-ocr-2512"
+    LLM_MODEL_EMBEDDINGS: str = "openai/text-embedding-3-large"
     
     # Content Limits
     MAX_CONTENT_LENGTH: int = 100000
@@ -2511,6 +2697,11 @@ class ProcessingSettings(BaseSettings):
     OBSIDIAN_VAULT_PATH: str = "/path/to/vault"
     NOTE_SUBFOLDER_BY_TYPE: bool = True
     GENERATE_NEO4J_NODES: bool = True
+    
+    # Tag Taxonomy Settings
+    # Single source of truth for tag taxonomy
+    TAG_TAXONOMY_PATH: str = "config/tag-taxonomy.yaml"
+    TAG_TAXONOMY_CACHE_TTL: int = 300  # seconds before re-checking file
     
     # Quality Settings
     VALIDATE_OUTPUTS: bool = True

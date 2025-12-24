@@ -67,13 +67,35 @@ class ContentType(str, Enum):
     """
     Categorizes the origin/format of ingested content.
     Each type may have specialized processing pipelines.
+    
+    EXTENSIBILITY: This enum defines the built-in content types. Additional
+    types can be added to config/default.yaml without modifying this code.
+    The system validates against both this enum AND the config registry.
+    
+    To add a new type:
+    1. Add to config/default.yaml content_types section
+    2. Create corresponding template in templates/
+    3. Optionally add to this enum for type safety in code
     """
+    # Technical content
     PAPER = "paper"          # Academic papers (PDF, arXiv)
     ARTICLE = "article"      # Web articles, blog posts
     BOOK = "book"            # Book chapters or full books
     CODE = "code"            # Code repositories, snippets
     IDEA = "idea"            # Quick capture, fleeting notes
     VOICE_MEMO = "voice_memo"  # Transcribed audio recordings
+    
+    # Career & professional
+    CAREER = "career"        # Career development content
+    WORK = "work"            # Work-related content
+    
+    # Personal development
+    PERSONAL = "personal"    # Personal development content
+    PROJECT = "project"      # Personal project notes
+    REFLECTION = "reflection" # Reflections, retrospectives
+    
+    # Non-technical
+    NON_TECH = "non-tech"    # Non-technical learning
 
 class AnnotationType(str, Enum):
     """
