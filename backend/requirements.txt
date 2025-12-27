@@ -23,6 +23,7 @@ email-validator>=2.1.0
 sqlalchemy>=2.0.25
 alembic>=1.13.1
 asyncpg>=0.29.0
+greenlet>=3.0.0  # Required for SQLAlchemy async support
 psycopg2-binary>=2.9.9
 neo4j>=5.16.0
 redis>=5.0.1

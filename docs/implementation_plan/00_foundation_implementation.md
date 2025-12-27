@@ -3242,7 +3242,7 @@ SORT due_date ASC
 
 ---
 
-### Phase 1C: Integration & Testing (Days 8-10)
+### Phase 1C: Integration & Verification (Days 8-10)
 
 #### Task 1C.1: Backend Health Checks
 
@@ -3375,76 +3375,28 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
 
 ---
 
-#### Task 1C.2: Database Migration Test
+#### Task 1C.2: Database Verification
 
-**Purpose**: Verify the database is correctly set up and basic CRUD operations work.
+**Purpose**: Verify the database is correctly set up and migrations have run.
 
-**Why Test Scripts (Not Just Unit Tests)?**
+After running Alembic migrations, verify the database:
 
-Test scripts are **runnable verification tools** that:
-1. Can be run manually during development
-2. Serve as documentation ("this is how you verify the DB works")
-3. Are simpler than pytest fixtures for quick checks
-4. Work in the Docker environment
+```bash
+# Check tables exist
+docker-compose exec postgres psql -U secondbrain -d secondbrain -c "\dt"
 
-Create test script to verify database setup:
-
-```python
-# scripts/test_database.py
-
-import asyncio
-from app.db.base import engine, async_session_maker, init_db
-from app.db.models import Content, Tag, PracticeSession
-from sqlalchemy import select
-import uuid
-from datetime import datetime
-
-async def test_database():
-    """Test database connectivity and basic operations."""
-    
-    print("🔄 Testing database connection...")
-    
-    # Initialize database
-    await init_db()
-    print("✅ Database initialized")
-    
-    async with async_session_maker() as session:
-        # Test insert
-        test_tag = Tag(
-            id=uuid.uuid4(),
-            name="test/tag",
-            category="test",
-            description="Test tag for verification"
-        )
-        session.add(test_tag)
-        await session.commit()
-        print("✅ Insert successful")
-        
-        # Test query
-        result = await session.execute(
-            select(Tag).where(Tag.name == "test/tag")
-        )
-        tag = result.scalar_one_or_none()
-        assert tag is not None
-        print("✅ Query successful")
-        
-        # Test delete
-        await session.delete(tag)
-        await session.commit()
-        print("✅ Delete successful")
-    
-    print("\n✅ All database tests passed!")
-
-
-if __name__ == "__main__":
-    asyncio.run(test_database())
+# Run pytest database tests (see Section 4 for details)
+cd backend
+pytest tests/integration/test_database.py -v
 ```
 
-**Deliverables:**
-- [ ] Database test script
-- [ ] CRUD operation verification
+> **📋 See Section 4 (Testing Strategy)** for comprehensive database test implementation, including CRUD operations, relationship tests, and transaction handling.
 
-**Estimated Time:** 1 hour
+**Deliverables:**
+- [ ] Database tables verified
+- [ ] Integration tests pass (`pytest tests/integration/test_database.py`)
+
+**Estimated Time:** 30 minutes
 
 ---
 
@@ -3610,238 +3562,498 @@ if __name__ == "__main__":
 
 ---
 
-#### Task 1C.4: Integration Test Suite
+#### Task 1C.4: Run Test Suite
 
-**Purpose**: Automated tests that verify the entire stack works together.
+**Purpose**: Execute the automated test suite to verify all Phase 1 components work together.
 
-**Why Integration Tests (Not Just Unit Tests)?**
+The complete test suite is documented in **Section 4 (Testing Strategy)**. This task involves running those tests.
 
-| Unit Tests | Integration Tests |
-|------------|------------------|
-| Test code in isolation | Test components together |
-| Mock all dependencies | Use real PostgreSQL, Redis |
-| Fast (milliseconds) | Slower but realistic |
-| "Function returns correct value" | "API can save to DB and cache" |
+**Quick Start:**
 
-**Test Categories for Phase 1:**
+```bash
+# Start services (required for integration tests)
+docker-compose up -d postgres redis neo4j
 
-```text
-INTEGRATION TEST COVERAGE
-=========================
+# Run all tests
+cd backend
+pytest tests/ -v
 
-1. DATABASE CONNECTIVITY
-   - Can connect to PostgreSQL
-   - All tables exist (from migrations)
-   - Basic CRUD operations work
+# Or run unit tests only (no services needed)
+pytest tests/unit/ -v
 
-2. REDIS CONNECTIVITY
-   - Can connect to Redis
-   - Set/get operations work
-   - TTL expiration works
+# Run integration tests only
+pytest tests/integration/ -v
 
-3. VAULT STRUCTURE
-   - Required folders exist
-   - Templates present and valid
-   - Meta files have correct structure
-
-4. API ENDPOINTS
-   - Health endpoints return correct status
-   - Service degradation is detected
+# Run with coverage report
+pytest tests/ --cov=app --cov-report=html
 ```
 
-Create integration tests for Phase 1:
+**Test Coverage for Phase 1:**
 
-```python
-# tests/integration/test_foundation.py
+| Test File | What It Tests |
+|-----------|--------------|
+| `tests/unit/test_config.py` | Settings, environment variables, YAML config |
+| `tests/unit/test_content_types.py` | Content type registry |
+| `tests/unit/test_redis.py` | Cache, session store, task queue |
+| `tests/integration/test_database.py` | PostgreSQL models, CRUD, relationships |
+| `tests/integration/test_health.py` | Health check endpoints |
+| `tests/integration/test_vault.py` | Vault structure validation |
 
-import pytest
-import asyncio
-from pathlib import Path
-from sqlalchemy import text
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture
-async def db_session():
-    from app.db.base import async_session_maker
-    async with async_session_maker() as session:
-        yield session
-
-
-@pytest.fixture
-async def redis_client():
-    from app.db.redis import get_redis
-    client = await get_redis()
-    yield client
-
-
-class TestPostgreSQLConnection:
-    """Test PostgreSQL connectivity and operations."""
-    
-    @pytest.mark.asyncio
-    async def test_connection(self, db_session):
-        result = await db_session.execute(text("SELECT 1"))
-        assert result.scalar() == 1
-    
-    @pytest.mark.asyncio
-    async def test_tables_exist(self, db_session):
-        """Verify all required tables exist."""
-        tables = [
-            "content",
-            "annotations", 
-            "tags",
-            "practice_sessions",
-            "practice_attempts",
-            "spaced_rep_cards",
-            "mastery_snapshots"
-        ]
-        
-        for table in tables:
-            result = await db_session.execute(
-                text(f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table}')")
-            )
-            assert result.scalar() is True, f"Table {table} does not exist"
-
-
-class TestRedisConnection:
-    """Test Redis connectivity and operations."""
-    
-    @pytest.mark.asyncio
-    async def test_connection(self, redis_client):
-        assert await redis_client.ping()
-    
-    @pytest.mark.asyncio
-    async def test_set_get(self, redis_client):
-        await redis_client.set("test_key", "test_value", ex=60)
-        value = await redis_client.get("test_key")
-        assert value == "test_value"
-        await redis_client.delete("test_key")
-
-
-class TestVaultStructure:
-    """
-    Test Obsidian vault setup.
-    
-    EXTENSIBILITY: These tests dynamically read expected folders and templates
-    from the content type registry. Adding a new content type to config will
-    automatically be tested.
-    """
-    
-    @pytest.fixture
-    def vault_path(self):
-        from app.config import settings
-        return Path(settings.OBSIDIAN_VAULT_PATH)
-    
-    @pytest.fixture
-    def content_registry(self):
-        from app.content_types import content_registry
-        return content_registry
-    
-    def test_vault_exists(self, vault_path):
-        assert vault_path.exists()
-        assert vault_path.is_dir()
-    
-    def test_system_folders_exist(self, vault_path):
-        """Test that core system folders exist."""
-        system_folders = ["templates", "meta", "topics", "concepts", "daily"]
-        for folder in system_folders:
-            assert (vault_path / folder).exists(), f"Missing system folder: {folder}"
-    
-    def test_content_type_folders_exist(self, vault_path, content_registry):
-        """Dynamically test that all content type folders exist."""
-        for type_key in content_registry.all_types:
-            folder = content_registry.get_folder(type_key)
-            if folder:
-                assert (vault_path / folder).exists(), f"Missing folder for {type_key}: {folder}"
-    
-    def test_content_type_templates_exist(self, vault_path, content_registry):
-        """Dynamically test that all content type templates exist."""
-        for type_key in content_registry.all_types:
-            template = content_registry.get_template(type_key)
-            if template:
-                assert (vault_path / template).exists(), f"Missing template for {type_key}: {template}"
-    
-    def test_templates_have_valid_frontmatter(self, vault_path, content_registry):
-        """Verify all templates have required frontmatter fields."""
-        import frontmatter
-        
-        for type_key in content_registry.all_types:
-            template_path = content_registry.get_template(type_key)
-            if template_path:
-                full_path = vault_path / template_path
-                if full_path.exists():
-                    fm = frontmatter.load(full_path)
-                    assert "type" in fm.metadata, f"Template {template_path} missing 'type' field"
-
-
-class TestHealthEndpoints:
-    """Test health check endpoints."""
-    
-    @pytest.fixture
-    def client(self):
-        from fastapi.testclient import TestClient
-        from app.main import app
-        return TestClient(app)
-    
-    def test_health_endpoint(self, client):
-        response = client.get("/api/health")
-        assert response.status_code == 200
-        assert response.json()["status"] == "healthy"
-    
-    def test_detailed_health(self, client):
-        response = client.get("/api/health/detailed")
-        assert response.status_code == 200
-        data = response.json()
-        assert "services" in data
-        assert "postgres" in data["services"]
-        assert "redis" in data["services"]
-```
+> **📋 See Section 4 (Testing Strategy)** for complete test implementation details, fixtures, and test-writing guidelines.
 
 **Deliverables:**
-- [ ] PostgreSQL connection tests
-- [ ] Redis connection tests
-- [ ] Vault structure tests
-- [ ] Health endpoint tests
+- [ ] All unit tests pass (`pytest tests/unit/`)
+- [ ] All integration tests pass (`pytest tests/integration/`)
+- [ ] Coverage meets targets (see Section 4.7)
 
-**Estimated Time:** 3 hours
+**Estimated Time:** 1 hour (to run and verify)
 
 ---
 
 ## 4. Testing Strategy
 
-### 4.1 Test Structure
+This section provides a comprehensive testing strategy for Phase 1, covering unit tests, integration tests, fixtures, and best practices.
+
+### 4.1 Test Philosophy
+
+| Test Type | Purpose | Dependencies | Speed |
+|-----------|---------|--------------|-------|
+| **Unit Tests** | Test individual functions/classes in isolation | None (all mocked) | Fast (< 1s each) |
+| **Integration Tests** | Test component interactions with real services | Docker services running | Medium (1-5s each) |
+
+**Key Principles:**
+1. **Fast feedback**: Unit tests run without Docker, enabling quick iteration
+2. **Realistic validation**: Integration tests verify actual service interactions
+3. **Isolation**: Each test is independent—no shared state between tests
+4. **Maintainability**: Clear test organization and naming conventions
+
+### 4.2 Test Directory Structure
 
 ```text
-tests/
-|-- unit/
-|   |-- test_config.py         # Configuration loading
-|   |-- test_redis_cache.py    # Redis utilities
-|   +-- test_vault_utils.py    # Vault helper functions
-|-- integration/
-|   +-- test_foundation.py     # Full integration tests
-+-- fixtures/
-    +-- sample_vault/          # Test vault structure
+backend/tests/
+├── __init__.py                    # Package marker with test documentation
+├── conftest.py                    # Shared fixtures and configuration
+├── pytest.ini                     # Pytest configuration
+│
+├── unit/                          # Unit tests (no external dependencies)
+│   ├── __init__.py
+│   ├── test_config.py             # Settings and YAML config loading
+│   ├── test_content_types.py      # Content type registry
+│   └── test_redis.py              # Redis utilities (cache, session, queue)
+│
+└── integration/                   # Integration tests (require services)
+    ├── __init__.py
+    ├── conftest.py                # Integration-specific fixtures
+    ├── test_database.py           # PostgreSQL models and CRUD
+    ├── test_health.py             # Health check endpoints
+    └── test_vault.py              # Vault structure validation
 ```
 
-### 4.2 Test Commands
+### 4.3 Test Categories
+
+#### 4.3.1 Unit Tests
+
+**Configuration Tests (`test_config.py`)**
+- Settings default values
+- Environment variable overrides
+- POSTGRES_URL property construction
+- YAML configuration loading
+- Content type structure validation
+
+```python
+# Example: Test POSTGRES_URL construction
+def test_postgres_url_construction(self) -> None:
+    """POSTGRES_URL property should build correct connection string."""
+    settings = Settings(
+        POSTGRES_HOST="testhost",
+        POSTGRES_PORT=5433,
+        POSTGRES_USER="testuser",
+        POSTGRES_PASSWORD="testpass",
+        POSTGRES_DB="testdb",
+        ...
+    )
+    
+    expected = "postgresql+asyncpg://testuser:testpass@testhost:5433/testdb"
+    assert settings.POSTGRES_URL == expected
+```
+
+**Content Type Registry Tests (`test_content_types.py`)**
+- All content types loaded
+- User types vs system types filtering
+- Folder path resolution
+- Template path resolution
+- Type validation
+
+```python
+# Example: Test user types exclude system types
+def test_get_user_types_excludes_system_types(self, registry) -> None:
+    """get_user_types should not include system types."""
+    user_types = registry.get_user_types()
+    
+    # System types should be excluded
+    assert "concept" not in user_types
+    assert "daily" not in user_types
+    
+    # User types should be included
+    assert "paper" in user_types
+    assert "article" in user_types
+```
+
+**Redis Utilities Tests (`test_redis.py`)**
+- Cache key generation
+- Cache get/set/delete operations
+- Session store lifecycle
+- Task queue enqueue/dequeue
+- TTL handling
+
+```python
+# Example: Test session store with mock Redis
+@pytest.mark.asyncio
+async def test_create_session(self, session_store, mock_redis) -> None:
+    """create_session should store session data with TTL."""
+    with patch("app.db.redis.get_redis", return_value=mock_redis):
+        session_data = {"user_id": "123", "email": "test@example.com"}
+        
+        result = await session_store.create_session("session_id", session_data)
+        
+        assert result == "session_id"
+        mock_redis.setex.assert_called_once()
+```
+
+#### 4.3.2 Integration Tests
+
+**Database Tests (`test_database.py`)**
+- PostgreSQL connection
+- Table existence verification
+- Content CRUD operations
+- Annotation relationships
+- Tag uniqueness constraints
+- Practice session models
+- Spaced repetition cards
+- Transaction rollback behavior
+
+```python
+# Example: Test Content model creation
+@pytest.mark.asyncio
+async def test_create_content(self, clean_db: AsyncSession) -> None:
+    """Should create a content record."""
+    content = Content(
+        content_type="paper",
+        title="Test Paper: Neural Networks",
+        source_url="https://example.com/paper.pdf",
+        status=ContentStatus.PENDING,
+    )
+    
+    clean_db.add(content)
+    await clean_db.commit()
+    await clean_db.refresh(content)
+    
+    assert content.id is not None
+    assert content.title == "Test Paper: Neural Networks"
+```
+
+**Health Endpoint Tests (`test_health.py`)**
+- Basic health check (200 response)
+- Detailed health with dependencies
+- Readiness probe
+- Degraded status on failures
+- Response time validation
+
+```python
+# Example: Test detailed health endpoint
+def test_detailed_health_has_dependencies(self, test_client) -> None:
+    """Detailed health should include dependency statuses."""
+    response = test_client.get("/api/health/detailed")
+    data = response.json()
+    
+    assert "dependencies" in data
+    expected_deps = ["postgres", "redis", "neo4j", "obsidian_vault"]
+    for dep in expected_deps:
+        assert dep in data["dependencies"]
+```
+
+**Vault Validation Tests (`test_vault.py`)**
+- Valid vault passes validation
+- Missing folders fail validation
+- Template frontmatter validation
+- Obsidian configuration files
+- Meta files existence
+
+```python
+# Example: Test vault validation
+def test_valid_vault_passes_validation(
+    self, temp_vault: Path, sample_yaml_config: dict
+) -> None:
+    """A complete vault should pass validation."""
+    from validate_vault import validate_vault
+    
+    result = validate_vault(temp_vault, sample_yaml_config)
+    
+    assert result is True
+```
+
+### 4.4 Fixtures
+
+#### Shared Fixtures (`conftest.py`)
+
+| Fixture | Scope | Purpose |
+|---------|-------|---------|
+| `event_loop` | session | Async event loop for pytest-asyncio |
+| `setup_test_environment` | session | Set test environment variables |
+| `sample_yaml_config` | function | Sample YAML config for testing |
+| `mock_redis` | function | Mocked Redis client |
+| `mock_db_session` | function | Mocked database session |
+| `temp_vault` | function | Complete temporary vault |
+| `incomplete_vault` | function | Incomplete vault for failure tests |
+
+```python
+# Example: temp_vault fixture creates a complete test vault
+@pytest.fixture
+def temp_vault(tmp_path: Path) -> Path:
+    """Create a temporary vault directory structure for testing."""
+    vault_path = tmp_path / "test_vault"
+    vault_path.mkdir()
+    
+    # Create system folders
+    folders = [
+        "topics", "concepts", "templates", "meta",
+        "sources/papers", "sources/articles", ...
+    ]
+    for folder in folders:
+        (vault_path / folder).mkdir(parents=True, exist_ok=True)
+    
+    # Create .obsidian configuration
+    # Create sample templates
+    # Create meta files
+    
+    return vault_path
+```
+
+#### Integration Fixtures (`integration/conftest.py`)
+
+| Fixture | Scope | Purpose |
+|---------|-------|---------|
+| `db_session` | function | Real database session (rolled back) |
+| `clean_db` | function | Database session with cleaned tables |
+| `redis_client` | function | Real Redis client with test prefix |
+| `test_client` | function | FastAPI TestClient |
+
+### 4.5 Test Commands
 
 ```bash
+# ============================================
+# Running Tests
+# ============================================
+
 # Run all tests
 pytest tests/ -v
+
+# Run only unit tests (fast, no services needed)
+pytest tests/unit/ -v
+
+# Run only integration tests (requires Docker services)
+pytest tests/integration/ -v
+
+# Run specific test file
+pytest tests/unit/test_config.py -v
+
+# Run specific test class
+pytest tests/unit/test_config.py::TestSettings -v
+
+# Run specific test method
+pytest tests/unit/test_config.py::TestSettings::test_default_values -v
+
+# Run tests matching a pattern
+pytest tests/ -v -k "test_content"
+
+# ============================================
+# Coverage Reports
+# ============================================
 
 # Run with coverage
 pytest tests/ --cov=app --cov-report=html
 
-# Run only integration tests
+# Coverage with specific module
+pytest tests/ --cov=app.config --cov-report=term-missing
+
+# Generate XML coverage for CI
+pytest tests/ --cov=app --cov-report=xml
+
+# ============================================
+# Debugging & Development
+# ============================================
+
+# Run with verbose output and print statements
+pytest tests/ -v -s
+
+# Stop on first failure
+pytest tests/ -v -x
+
+# Run last failed tests
+pytest tests/ --lf
+
+# Run with pdb on failures
+pytest tests/ --pdb
+
+# Show local variables in tracebacks
+pytest tests/ -l
+
+# ============================================
+# Markers
+# ============================================
+
+# Run only tests marked as 'database'
+pytest tests/ -v -m database
+
+# Skip slow tests
+pytest tests/ -v -m "not slow"
+```
+
+### 4.6 Test Configuration (`pytest.ini`)
+
+```ini
+[pytest]
+# Test discovery
+testpaths = tests
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+
+# Async support
+asyncio_mode = auto
+
+# Markers for test categorization
+markers =
+    unit: Unit tests (no external dependencies)
+    integration: Integration tests (requires running services)
+    slow: Tests that take a long time to run
+    database: Tests that require PostgreSQL
+    redis: Tests that require Redis
+    vault: Tests that require a vault directory
+
+# Output configuration
+addopts = 
+    -v
+    --strict-markers
+    --tb=short
+    -ra
+
+# Warning filters
+filterwarnings =
+    ignore::DeprecationWarning
+```
+
+### 4.7 Test Coverage Goals
+
+| Module | Target Coverage | Priority |
+|--------|----------------|----------|
+| `app/config.py` | 90% | High |
+| `app/content_types.py` | 95% | High |
+| `app/db/redis.py` | 85% | High |
+| `app/db/models.py` | 80% | Medium |
+| `app/routers/health.py` | 90% | High |
+
+### 4.8 Running Tests in Docker
+
+For integration tests that require services:
+
+```bash
+# Start services
+docker-compose up -d postgres redis neo4j
+
+# Wait for services to be healthy
+docker-compose ps
+
+# Run integration tests
+cd backend
 pytest tests/integration/ -v
 
-# Run specific test class
-pytest tests/integration/test_foundation.py::TestPostgreSQLConnection -v
+# Or run all tests
+pytest tests/ -v
+
+# Stop services when done
+docker-compose down
+```
+
+### 4.9 CI/CD Integration
+
+For GitHub Actions or similar CI systems:
+
+```yaml
+# .github/workflows/test.yml (example)
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Run unit tests
+        run: |
+          cd backend
+          pytest tests/unit/ -v --cov=app --cov-report=xml
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Run integration tests
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          cd backend
+          pytest tests/integration/ -v
+```
+
+### 4.10 Writing New Tests
+
+When adding new functionality, follow these guidelines:
+
+1. **Create unit tests first**: They're faster to write and run
+2. **Use descriptive names**: `test_cache_get_returns_none_for_missing_key`
+3. **One assertion per test** (when practical)
+4. **Use fixtures**: Don't repeat setup code
+5. **Mock external dependencies**: Unit tests shouldn't hit real services
+6. **Test edge cases**: Empty inputs, None values, error conditions
+
+**Test Naming Convention:**
+```
+test_<method_name>_<scenario>_<expected_result>
+
+Examples:
+- test_get_folder_returns_correct_path
+- test_get_folder_returns_none_for_unknown_type
+- test_create_session_stores_data_with_ttl
 ```
 
 ---
@@ -3969,9 +4181,10 @@ PHASE 1: FOUNDATION (this phase)
 - [ ] Configure plugins
 - [ ] Create dashboard and meta notes
 
-### Phase 1C: Integration
+### Phase 1C: Integration & Verification
 - [ ] Add health check endpoints
-- [ ] Write integration tests
+- [ ] Run vault validation script
+- [ ] Execute test suite (see Section 4)
 - [ ] Run validation scripts
 - [ ] Document any issues
 
