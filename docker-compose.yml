@@ -1,36 +1,176 @@
-version: '3.8'
+# =============================================================================
+# Second Brain - Docker Compose Configuration
+# =============================================================================
+#
+# QUICK START:
+#   1. Copy .env.example to .env and fill in your values:
+#      cp .env.example .env
+#
+#   2. Start all services:
+#      docker-compose up -d
+#
+#   3. Check service status:
+#      docker-compose ps
+#
+#   4. View logs:
+#      docker-compose logs -f backend
+#
+#   5. Stop all services:
+#      docker-compose down
+#
+# REQUIRED ENVIRONMENT VARIABLES (set in .env):
+#   - DATA_DIR           : Root directory for all persistent data
+#   - POSTGRES_USER      : PostgreSQL username
+#   - POSTGRES_PASSWORD  : PostgreSQL password
+#   - POSTGRES_DB        : PostgreSQL database name
+#   - NEO4J_PASSWORD     : Neo4j password
+#
+# OPTIONAL ENVIRONMENT VARIABLES:
+#   - OPENAI_API_KEY     : For embeddings and LLM features
+#   - DEBUG              : Enable debug mode (true/false)
+#
+# USEFUL COMMANDS:
+#   # Rebuild after code changes
+#   docker-compose up -d --build
+#
+#   # Run database migrations
+#   docker-compose exec backend alembic upgrade head
+#
+#   # Open Neo4j browser
+#   open http://localhost:7474
+#
+#   # Connect to PostgreSQL
+#   docker-compose exec postgres psql -U $POSTGRES_USER -d $POSTGRES_DB
+#
+#   # View Redis data
+#   docker-compose exec redis redis-cli
+#
+# =============================================================================
 
 services:
+  # =============================================================================
+  # PostgreSQL - Relational database for learning records and content metadata
+  # =============================================================================
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ${DATA_DIR:?DATA_DIR is required}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Redis - Session caching, task queues, and temporary data
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - ${DATA_DIR:?DATA_DIR is required}/redis:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Neo4j - Knowledge graph database for concept relationships
+  # =============================================================================
   neo4j:
     image: neo4j:5
     environment:
-      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:?NEO4J_PASSWORD is required}
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "7474:7474"  # HTTP browser
+      - "7687:7687"  # Bolt protocol
     volumes:
-      - neo4j_data:/data
+      - ${DATA_DIR:?DATA_DIR is required}/neo4j:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # =============================================================================
+  # Backend API - FastAPI application
+  # =============================================================================
   backend:
     build: ./backend
     environment:
+      # PostgreSQL
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      # Redis
+      - REDIS_URL=redis://redis:6379/0
+      # Neo4j
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=${NEO4J_PASSWORD}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Obsidian vault (mounted at /vault in container)
+      - OBSIDIAN_VAULT_PATH=/vault
+      # OpenAI (optional)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # App settings
+      - DEBUG=${DEBUG:-false}
     depends_on:
-      - neo4j
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      # Mount Obsidian vault for reading/writing notes
+      - ${DATA_DIR:?DATA_DIR is required}/obsidian:/vault:rw
 
+  # =============================================================================
+  # Frontend - React/Vite application
+  # =============================================================================
   frontend:
     build: ./frontend
     environment:
-      - VITE_API_URL=http://backend:8000
+      - VITE_API_URL=http://localhost:8000
     depends_on:
       - backend
     ports:
       - "3000:3000"
 
-volumes:
-  neo4j_data:
+# =============================================================================
+# VARIABLE SYNTAX REFERENCE
+# =============================================================================
+# This file uses shell parameter expansion for environment variables:
+#
+#   ${VAR:?error}      Use $VAR, or fail with "error" if VAR is unset/empty
+#   ${VAR:-default}    Use $VAR, or "default" if VAR is unset/empty
+#   ${VAR}             Use $VAR (empty string if unset)
+#
+# Volume mount syntax:
+#
+#   ${DATA_DIR:?...}/neo4j:/data
+#   └──────┬───────┘└──┬──┘└─┬─┘
+#          │           │     └── Container path (where Neo4j sees files)
+#          │           └── Subdirectory on host
+#          └── Host base path (required, from .env)
+#
+# Data directory structure:
+#   ${DATA_DIR}/
+#   ├── postgres/   - PostgreSQL data files
+#   ├── redis/      - Redis append-only file
+#   ├── neo4j/      - Neo4j graph database
+#   └── obsidian/   - Obsidian vault (notes, templates, config)
+# =============================================================================

@@ -1,0 +1,353 @@
+# config/tag-taxonomy.yaml
+#
+# PURPOSE: Single source of truth for the tag taxonomy
+#
+# This file defines all valid tags in the Second Brain system.
+# The meta/tag-taxonomy.md file in the vault is AUTO-GENERATED from this.
+#
+# TAG HIERARCHY: domain/category/topic (up to 3 levels)
+#
+# TO ADD NEW TAGS:
+# 1. Edit this file
+# 2. Run: python scripts/setup_vault.py --regenerate-taxonomy
+# 3. The vault's meta/tag-taxonomy.md will be updated
+
+# =============================================================================
+# DOMAIN TAGS (Technical & Professional)
+# =============================================================================
+domains:
+  # ---------------------------------------------------------------------------
+  # Machine Learning
+  # ---------------------------------------------------------------------------
+  ml:
+    name: "Machine Learning"
+    categories:
+      architecture:
+        name: "Model Architectures"
+        topics:
+          - transformers: "Transformer architectures, attention mechanisms"
+          - llms: "Large language models (GPT, Claude, Llama)"
+          - diffusion: "Diffusion models, image/video generation"
+          - rnns: "Recurrent architectures (LSTM, GRU)"
+          - cnns: "Convolutional networks"
+          - gnns: "Graph neural networks"
+          - ssms: "State space models (Mamba, S4)"
+          - moe: "Mixture of experts, sparse models"
+      
+      modality:
+        name: "Input/Output Modalities"
+        topics:
+          - nlp: "Natural language processing"
+          - vision: "Computer vision, image understanding"
+          - multimodal: "Vision-language, audio-visual"
+          - speech: "Speech recognition, TTS"
+          - audio: "Audio processing, music"
+          - video: "Video understanding, generation"
+          - 3d: "3D vision, point clouds, NeRF"
+          - robotics: "Robot learning, embodied AI"
+      
+      technique:
+        name: "Methods & Techniques"
+        topics:
+          - attention: "Attention mechanisms, efficient attention"
+          - embeddings: "Vector representations, similarity"
+          - fine-tuning: "Adaptation, transfer learning, LoRA, PEFT"
+          - rlhf: "Reinforcement learning from human feedback"
+          - distillation: "Knowledge distillation, compression"
+          - quantization: "Model quantization, low-bit inference"
+          - pruning: "Network pruning, sparsity"
+          - pretraining: "Self-supervised learning, foundation models"
+      
+      training:
+        name: "Training & Optimization"
+        topics:
+          - optimization: "Optimizers, loss functions, regularization"
+          - scaling: "Scaling laws, compute-optimal training"
+          - distributed: "Distributed training, parallelism"
+          - data: "Datasets, data curation, synthetic data"
+          - augmentation: "Data augmentation techniques"
+          - curriculum: "Curriculum learning, data ordering"
+      
+      inference:
+        name: "Inference & Deployment"
+        topics:
+          - efficiency: "Efficient inference, batching, caching"
+          - serving: "Model serving, APIs, latency"
+          - mlops: "ML operations, experiment tracking"
+          - edge: "Edge deployment, mobile ML"
+      
+      application:
+        name: "Applications"
+        topics:
+          - agents: "AI agents, tool use, planning"
+          - rag: "Retrieval-augmented generation"
+          - code: "Code generation, program synthesis"
+          - reasoning: "Chain-of-thought, math reasoning"
+          - generation: "Text/image generation"
+          - search: "Semantic search, reranking"
+          - recommendation: "Recommender systems"
+      
+      safety:
+        name: "Evaluation & Safety"
+        topics:
+          - evaluation: "Benchmarks, metrics, leaderboards"
+          - interpretability: "Explainability, mechanistic interp"
+          - alignment: "AI alignment, RLHF safety"
+          - robustness: "Adversarial robustness, OOD detection"
+          - fairness: "Bias mitigation, fairness"
+      
+      theory:
+        name: "Theory & Foundations"
+        topics:
+          - learning: "Learning theory, generalization"
+          - information: "Information-theoretic ML"
+          - bayesian: "Bayesian methods, uncertainty"
+          - optimization-theory: "Optimization theory, convergence"
+
+  # ---------------------------------------------------------------------------
+  # Systems
+  # ---------------------------------------------------------------------------
+  systems:
+    name: "Systems"
+    categories:
+      distributed:
+        name: "Distributed Systems"
+        topics:
+          - consensus: "Consensus algorithms, Raft, Paxos"
+          - replication: "Data replication, consistency"
+          - sharding: "Partitioning, sharding strategies"
+      
+      storage:
+        name: "Storage & Databases"
+        topics:
+          - databases: "Database design, SQL/NoSQL"
+          - caching: "Caching strategies, Redis"
+          - filesystems: "File systems, object storage"
+      
+      infrastructure:
+        name: "Infrastructure"
+        topics:
+          - networking: "Network protocols, TCP/IP"
+          - cloud: "Cloud platforms, AWS/GCP/Azure"
+          - containers: "Docker, Kubernetes"
+      
+      reliability:
+        name: "Reliability & Performance"
+        topics:
+          - performance: "Optimization, profiling"
+          - observability: "Monitoring, logging, tracing"
+          - security: "Security, cryptography"
+
+  # ---------------------------------------------------------------------------
+  # Engineering
+  # ---------------------------------------------------------------------------
+  engineering:
+    name: "Software Engineering"
+    categories:
+      design:
+        name: "Software Design"
+        topics:
+          - architecture: "System design, patterns"
+          - api: "API design, REST, GraphQL"
+          - data-modeling: "Data modeling, schemas"
+      
+      practices:
+        name: "Development Practices"
+        topics:
+          - testing: "Testing strategies, TDD"
+          - devops: "CI/CD, infrastructure as code"
+          - code-review: "Code review, collaboration"
+      
+      languages:
+        name: "Languages & Frameworks"
+        topics:
+          - python: "Python ecosystem"
+          - typescript: "TypeScript/JavaScript"
+          - rust: "Rust, systems programming"
+          - go: "Go programming"
+
+  # ---------------------------------------------------------------------------
+  # Leadership
+  # ---------------------------------------------------------------------------
+  leadership:
+    name: "Leadership"
+    categories:
+      management:
+        name: "Team Management"
+        topics:
+          - teams: "Team dynamics, structure"
+          - hiring: "Recruitment, interviewing"
+          - feedback: "Feedback, performance"
+      
+      skills:
+        name: "Leadership Skills"
+        topics:
+          - communication: "Communication, presenting"
+          - strategy: "Strategic thinking, planning"
+          - decision-making: "Decision frameworks"
+
+  # ---------------------------------------------------------------------------
+  # Productivity
+  # ---------------------------------------------------------------------------
+  productivity:
+    name: "Productivity"
+    categories:
+      learning:
+        name: "Learning & Growth"
+        topics:
+          - techniques: "Learning methods, retention"
+          - reading: "Reading strategies"
+          - writing: "Writing skills"
+      
+      systems:
+        name: "Personal Systems"
+        topics:
+          - habits: "Habit formation"
+          - time: "Time management"
+          - tools: "Productivity tools"
+
+  # ---------------------------------------------------------------------------
+  # Career
+  # ---------------------------------------------------------------------------
+  career:
+    name: "Career"
+    categories:
+      growth:
+        name: "Career Growth"
+        topics:
+          - goals: "Career goals, planning, vision"
+          - strategy: "Career strategy, positioning"
+          - transitions: "Role changes, pivots, promotions"
+      
+      skills:
+        name: "Professional Skills"
+        topics:
+          - technical: "Technical skill development"
+          - soft: "Soft skills, interpersonal skills"
+          - domain: "Domain expertise, industry knowledge"
+      
+      networking:
+        name: "Professional Networking"
+        topics:
+          - relationships: "Professional relationships"
+          - mentorship: "Mentoring, being mentored"
+          - community: "Communities, conferences, events"
+      
+      job-search:
+        name: "Job Search & Interviews"
+        topics:
+          - interviews: "Interview preparation, experiences"
+          - negotiation: "Salary, offer negotiation"
+          - applications: "Resume, applications, portfolio"
+
+  # ---------------------------------------------------------------------------
+  # Personal Development
+  # ---------------------------------------------------------------------------
+  personal:
+    name: "Personal Development"
+    categories:
+      goals:
+        name: "Goals & Planning"
+        topics:
+          - life: "Life goals, vision, values"
+          - annual: "Annual goals, yearly planning"
+          - quarterly: "Quarterly objectives, OKRs"
+      
+      growth:
+        name: "Personal Growth"
+        topics:
+          - mindset: "Mindset, mental models, beliefs"
+          - habits: "Habit formation, routines, systems"
+          - reflection: "Self-reflection, journaling"
+          - creativity: "Creative pursuits, artistic expression"
+      
+      wellbeing:
+        name: "Health & Wellbeing"
+        topics:
+          - physical: "Physical health, fitness, exercise"
+          - mental: "Mental health, mindfulness, meditation"
+          - sleep: "Sleep, rest, recovery"
+          - nutrition: "Nutrition, diet, eating habits"
+      
+      relationships:
+        name: "Relationships"
+        topics:
+          - family: "Family relationships"
+          - friends: "Friendships, social life"
+          - communication: "Communication skills"
+
+  # ---------------------------------------------------------------------------
+  # Projects
+  # ---------------------------------------------------------------------------
+  projects:
+    name: "Projects"
+    categories:
+      active:
+        name: "Active Projects"
+        topics:
+          - side-project: "Side projects, personal ventures"
+          - learning-project: "Learning projects, courses"
+          - creative: "Creative projects, art, writing"
+      
+      planning:
+        name: "Project Planning"
+        topics:
+          - ideas: "Project ideas, brainstorms"
+          - roadmap: "Project roadmaps, milestones"
+          - resources: "Resources, tools, requirements"
+
+  # ---------------------------------------------------------------------------
+  # Non-Technical
+  # ---------------------------------------------------------------------------
+  non-tech:
+    name: "Non-Technical"
+    categories:
+      finance:
+        name: "Personal Finance"
+        topics:
+          - investing: "Investing, portfolio management"
+          - budgeting: "Budgeting, saving, spending"
+          - planning: "Financial planning, retirement"
+      
+      philosophy:
+        name: "Philosophy & Thinking"
+        topics:
+          - ethics: "Ethics, moral philosophy"
+          - wisdom: "Wisdom traditions, stoicism"
+          - mental-models: "Mental models, decision frameworks"
+      
+      hobbies:
+        name: "Hobbies & Interests"
+        topics:
+          - reading: "Non-technical reading, fiction"
+          - sports: "Sports, outdoor activities"
+          - arts: "Arts, music, entertainment"
+          - travel: "Travel, exploration"
+      
+      learning:
+        name: "General Learning"
+        topics:
+          - history: "History, historical events"
+          - science: "Non-CS science (physics, biology, etc.)"
+          - language: "Language learning"
+
+# =============================================================================
+# STATUS TAGS (Workflow State)
+# =============================================================================
+status:
+  - actionable: "Has pending tasks or follow-ups"
+  - reference: "Useful for lookup, evergreen"
+  - archive: "Historical only, rarely accessed"
+  - review: "Needs review or updating"
+  - processing: "Currently being ingested/summarized"
+
+# =============================================================================
+# QUALITY TAGS (Content Depth)
+# =============================================================================
+quality:
+  - foundational: "Must-know content, core concepts"
+  - deep-dive: "Comprehensive treatment"
+  - overview: "Surface-level introduction"
+  - practical: "Hands-on, actionable content"
+  - theoretical: "Research-focused, academic"
+

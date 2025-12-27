@@ -1,0 +1,69 @@
+---
+type: work
+title: "{{ title }}"
+category: "{{ category | default('') }}"
+project: "{{ project | default('') }}"
+tags: {{ tags | default([], true) | tojson }}
+status: {{ status | default('status/actionable') }}
+created: {{ created_date }}
+---
+
+## Summary
+{% if summary %}
+{{ summary }}
+{% else %}
+
+{% endif %}
+
+## Context
+{% if context %}
+{{ context }}
+{% else %}
+
+{% endif %}
+
+## Key Points
+{% if key_points %}
+{% for i, point in enumerate(key_points, 1) %}
+{{ i }}. {{ point }}
+{% endfor %}
+{% else %}
+1. 
+2. 
+3. 
+{% endif %}
+
+## Action Items
+{% if action_items %}
+{% for item in action_items %}
+- [ ] {{ item }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+## Decisions Made
+{% if decisions %}
+{{ decisions }}
+{% else %}
+
+{% endif %}
+
+## Follow-ups Needed
+{% if followups %}
+{% for followup in followups %}
+- [ ] {{ followup }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+## Related
+{% if related %}
+{% for note in related %}
+- [[{{ note }}]]
+{% endfor %}
+{% else %}
+- [[Related Note]]
+{% endif %}
+

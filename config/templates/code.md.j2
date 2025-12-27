@@ -1,0 +1,82 @@
+---
+type: code
+repo: "{{ title }}"
+url: "{{ url | default('') }}"
+language: "{{ language | default('') }}"
+stars: {{ stars | default('') }}
+tags: {{ tags | default([], true) | tojson }}
+created: {{ created_date }}
+---
+
+## Purpose
+{% if purpose %}
+{{ purpose }}
+{% else %}
+
+{% endif %}
+
+## Why I Saved This
+{% if why_saved %}
+{{ why_saved }}
+{% else %}
+
+{% endif %}
+
+## Architecture Overview
+{% if architecture %}
+{{ architecture }}
+{% else %}
+
+{% endif %}
+
+## Tech Stack
+{% if tech_stack %}
+- **Language**: {{ tech_stack.language | default('') }}
+- **Framework**: {{ tech_stack.framework | default('') }}
+- **Dependencies**: {{ tech_stack.dependencies | default('') }}
+{% else %}
+- **Language**: 
+- **Framework**: 
+- **Dependencies**: 
+{% endif %}
+
+## Notable Patterns
+{% if patterns %}
+{% for pattern in patterns %}
+### {{ pattern.name }}
+{{ pattern.description }}
+
+{% endfor %}
+{% else %}
+### Pattern Name
+
+{% endif %}
+
+## Key Learnings
+{% if learnings %}
+{% for i, learning in enumerate(learnings, 1) %}
+{{ i }}. {{ learning }}
+{% endfor %}
+{% else %}
+1. 
+2. 
+{% endif %}
+
+## Ideas to Apply
+{% if ideas %}
+{% for idea in ideas %}
+- [ ] {{ idea }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+## Related
+{% if related %}
+{% for repo in related %}
+- [[{{ repo }}]]
+{% endfor %}
+{% else %}
+- [[Related Repo]]
+{% endif %}
+

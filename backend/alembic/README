@@ -1,0 +1,223 @@
+# Alembic Database Migrations
+
+This directory contains Alembic migrations for the Second Brain PostgreSQL database.
+
+## What Are Migrations?
+
+Database migrations are version-controlled changes to your database schema. They allow you to:
+
+- **Track schema changes** alongside code changes in git
+- **Apply changes incrementally** without losing data
+- **Roll back** to previous schema versions if needed
+- **Synchronize schemas** across development, staging, and production environments
+
+Each migration is a Python file with two functions:
+- `upgrade()` - applies the change (e.g., create table, add column)
+- `downgrade()` - reverses the change (e.g., drop table, remove column)
+
+## Directory Structure
+
+```
+alembic/
+├── README              # This file
+├── env.py              # Alembic environment configuration
+├── script.py.mako      # Template for new migration files
+└── versions/           # Migration files (one per schema change)
+    ├── 001_initial_schema.py
+    ├── 002_add_user_preferences.py
+    └── ...
+```
+
+## Quick Reference
+
+```bash
+# Generate a new migration (after changing models in app/db/models.py)
+alembic revision --autogenerate -m "description of change"
+
+# Apply all pending migrations
+alembic upgrade head
+
+# Rollback one migration
+alembic downgrade -1
+
+# Rollback to a specific revision
+alembic downgrade <revision_id>
+
+# Show current revision
+alembic current
+
+# Show migration history
+alembic history --verbose
+
+# Show SQL that would be executed (dry run)
+alembic upgrade head --sql
+```
+
+## Common Workflows
+
+### Adding a New Table
+
+1. Define the model in `app/db/models.py`:
+   ```python
+   class NewTable(Base):
+       __tablename__ = "new_table"
+       id = Column(UUID, primary_key=True, default=uuid4)
+       name = Column(String(255), nullable=False)
+   ```
+
+2. Generate the migration:
+   ```bash
+   alembic revision --autogenerate -m "add new_table"
+   ```
+
+3. Review the generated migration in `versions/`
+
+4. Apply the migration:
+   ```bash
+   alembic upgrade head
+   ```
+
+### Adding a Column to Existing Table
+
+1. Add the column to the model in `app/db/models.py`
+
+2. Generate and review:
+   ```bash
+   alembic revision --autogenerate -m "add column_name to table_name"
+   ```
+
+3. Apply:
+   ```bash
+   alembic upgrade head
+   ```
+
+### Handling Data Migrations
+
+Sometimes you need to migrate data, not just schema. Edit the generated migration:
+
+```python
+def upgrade():
+    # Schema change
+    op.add_column('users', sa.Column('full_name', sa.String(255)))
+    
+    # Data migration
+    connection = op.get_bind()
+    connection.execute(
+        sa.text("UPDATE users SET full_name = first_name || ' ' || last_name")
+    )
+
+def downgrade():
+    op.drop_column('users', 'full_name')
+```
+
+## Best Practices
+
+### 1. Always Review Auto-generated Migrations
+
+Alembic's autogenerate is helpful but not perfect. Always review:
+- Correct table/column names
+- Proper data types
+- Necessary indexes
+- Foreign key constraints
+
+### 2. Write Reversible Migrations
+
+Always implement `downgrade()` so you can roll back if needed:
+
+```python
+def upgrade():
+    op.create_table('example', ...)
+
+def downgrade():
+    op.drop_table('example')
+```
+
+### 3. Use Descriptive Migration Names
+
+```bash
+# Good
+alembic revision --autogenerate -m "add email_verified column to users"
+alembic revision --autogenerate -m "create spaced_rep_cards table"
+
+# Bad
+alembic revision --autogenerate -m "update"
+alembic revision --autogenerate -m "fix"
+```
+
+### 4. Test Migrations Before Production
+
+```bash
+# Test upgrade
+alembic upgrade head
+
+# Test downgrade
+alembic downgrade -1
+
+# Test upgrade again
+alembic upgrade head
+```
+
+### 5. Never Edit Applied Migrations
+
+Once a migration has been applied to any environment, create a new migration for fixes.
+
+## Troubleshooting
+
+### "Target database is not up to date"
+
+Your database is behind the latest migration:
+```bash
+alembic upgrade head
+```
+
+### "Can't locate revision"
+
+The migration file might be missing or corrupted:
+```bash
+# Check current state
+alembic current
+
+# Check history
+alembic history
+```
+
+### "Revision not found"
+
+The alembic_version table points to a non-existent revision:
+```bash
+# Check what revision the DB thinks it's at
+SELECT * FROM alembic_version;
+
+# Stamp to a known revision (use with caution)
+alembic stamp <known_revision>
+```
+
+### Autogenerate Not Detecting Changes
+
+Ensure models are imported in `env.py`:
+```python
+from app.db.base import Base
+from app.db import models  # Import models to register them
+```
+
+## Environment Configuration
+
+Alembic reads the database URL from `app/config.py`:
+
+```python
+# In env.py
+from app.config import settings
+config.set_main_option("sqlalchemy.url", settings.POSTGRES_URL_SYNC)
+```
+
+For Docker environments, ensure the database is accessible before running migrations.
+
+## Running in Docker
+
+```bash
+# Run migrations in the backend container
+docker-compose exec backend alembic upgrade head
+
+# Generate migration in container
+docker-compose exec backend alembic revision --autogenerate -m "description"
+```

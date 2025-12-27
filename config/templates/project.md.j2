@@ -1,0 +1,124 @@
+---
+type: project
+title: "{{ title }}"
+status: {{ status | default('planning') }}
+priority: {{ priority | default('medium') }}
+started: {{ started_date | default(created_date) }}
+target_completion: {{ target_completion | default('') }}
+completed: {{ completed_date | default('') }}
+tags: {{ tags | default([], true) | tojson }}
+---
+
+## Vision
+<!-- What does success look like? -->
+{% if vision %}
+{{ vision }}
+{% else %}
+
+{% endif %}
+
+## Motivation
+<!-- Why am I doing this? -->
+{% if motivation %}
+{{ motivation }}
+{% else %}
+
+{% endif %}
+
+## Goals
+{% if goals %}
+{% for goal in goals %}
+- [ ] {{ goal }}
+{% endfor %}
+{% else %}
+- [ ] Primary goal
+- [ ] Secondary goal
+{% endif %}
+
+## Scope
+### In Scope
+{% if in_scope %}
+{% for item in in_scope %}
+- {{ item }}
+{% endfor %}
+{% else %}
+- 
+{% endif %}
+
+### Out of Scope
+{% if out_of_scope %}
+{% for item in out_of_scope %}
+- {{ item }}
+{% endfor %}
+{% else %}
+- 
+{% endif %}
+
+## Milestones
+| Milestone | Target | Status |
+|-----------|--------|--------|
+{% if milestones %}
+{% for milestone in milestones %}
+| {{ milestone.name }} | {{ milestone.target }} | {{ milestone.status | default('') }} |
+{% endfor %}
+{% else %}
+|           |        |        |
+{% endif %}
+
+## Tasks
+### To Do
+{% if tasks_todo %}
+{% for task in tasks_todo %}
+- [ ] {{ task }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+### In Progress
+{% if tasks_in_progress %}
+{% for task in tasks_in_progress %}
+- [ ] {{ task }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+### Done
+{% if tasks_done %}
+{% for task in tasks_done %}
+- [x] {{ task }}
+{% endfor %}
+{% else %}
+- [x] 
+{% endif %}
+
+## Resources
+- **Time**: {{ resources_time | default('') }}
+- **Budget**: {{ resources_budget | default('') }}
+- **Tools**: {{ resources_tools | default('') }}
+
+## Progress Log
+{% if progress_log %}
+{% for entry in progress_log %}
+### {{ entry.date }}
+{{ entry.content }}
+
+{% endfor %}
+{% else %}
+### {{ created_date }}
+- 
+{% endif %}
+
+## Lessons Learned
+{{ lessons_learned | default('') }}
+
+## Related
+{% if related %}
+{% for project in related %}
+- [[{{ project }}]]
+{% endfor %}
+{% else %}
+- [[Related Project]]
+{% endif %}
+

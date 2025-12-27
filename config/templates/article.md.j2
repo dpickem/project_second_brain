@@ -1,0 +1,60 @@
+---
+type: article
+title: "{{ title }}"
+source: "{{ source_url | default('') }}"
+author: "{{ author | default('') }}"
+published: {{ published_date | default('') }}
+tags: {{ tags | default([], true) | tojson }}
+status: {{ status | default('unread') }}
+created: {{ created_date }}
+processed: {{ processed_date | default('') }}
+---
+
+## Summary
+{% if summary %}
+{{ summary }}
+{% else %}
+<!-- LLM-generated summary -->
+{% endif %}
+
+## Key Takeaways
+{% if takeaways %}
+{% for i, takeaway in enumerate(takeaways, 1) %}
+{{ i }}. {{ takeaway }}
+{% endfor %}
+{% else %}
+1. 
+2. 
+{% endif %}
+
+## Highlights
+{% if highlights %}
+{% for highlight in highlights %}
+> {{ highlight }}
+
+{% endfor %}
+{% else %}
+> Highlight text
+{% endif %}
+
+## My Notes
+{{ notes | default('') }}
+
+## Action Items
+{% if action_items %}
+{% for item in action_items %}
+- [ ] {{ item }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+## Related
+{% if related %}
+{% for note in related %}
+- [[{{ note }}]]
+{% endfor %}
+{% else %}
+- [[Related Note]]
+{% endif %}
+

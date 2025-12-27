@@ -1,0 +1,80 @@
+---
+type: career
+title: "{{ title }}"
+category: "{{ category | default('') }}"
+tags: {{ tags | default([], true) | tojson }}
+status: {{ status | default('status/actionable') }}
+created: {{ created_date }}
+---
+
+## Overview
+{% if overview %}
+{{ overview }}
+{% else %}
+
+{% endif %}
+
+## Why This Matters
+{% if importance %}
+{{ importance }}
+{% else %}
+
+{% endif %}
+
+## Current State
+<!-- Where am I now? -->
+{% if current_state %}
+{{ current_state }}
+{% else %}
+
+{% endif %}
+
+## Target State
+<!-- Where do I want to be? -->
+{% if target_state %}
+{{ target_state }}
+{% else %}
+
+{% endif %}
+
+## Action Plan
+{% if action_plan %}
+{% for action in action_plan %}
+- [ ] {{ action }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+## Resources Needed
+{% if resources %}
+{% for resource in resources %}
+- {{ resource }}
+{% endfor %}
+{% else %}
+- 
+{% endif %}
+
+## Timeline
+| Milestone | Target Date | Status |
+|-----------|-------------|--------|
+{% if milestones %}
+{% for milestone in milestones %}
+| {{ milestone.name }} | {{ milestone.target_date }} | {{ milestone.status | default('') }} |
+{% endfor %}
+{% else %}
+|           |             |        |
+{% endif %}
+
+## Progress Notes
+{{ progress_notes | default('') }}
+
+## Related
+{% if related %}
+{% for note in related %}
+- [[{{ note }}]]
+{% endfor %}
+{% else %}
+- [[Related Note]]
+{% endif %}
+

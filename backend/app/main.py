@@ -5,7 +5,12 @@ from neo4j import GraphDatabase
 import os
 import openai
 
+from app.routers import health_router
+
 app = FastAPI(title="Second Brain API")
+
+# Include routers
+app.include_router(health_router.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -67,11 +72,13 @@ async def graph():
             if m.id not in seen:
                 nodes.append({"id": m.id, "labels": list(m.labels), **dict(m)})
                 seen.add(m.id)
-            rels.append({
-                "start": r.start_node.id,
-                "end": r.end_node.id,
-                "type": r.type,
-            })
+            rels.append(
+                {
+                    "start": r.start_node.id,
+                    "end": r.end_node.id,
+                    "type": r.type,
+                }
+            )
     return {"nodes": nodes, "relationships": rels}
 
 

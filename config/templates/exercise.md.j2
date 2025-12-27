@@ -1,0 +1,52 @@
+---
+type: exercise
+topic: "{{ topic | default('') }}"
+difficulty: {{ difficulty | default('intermediate') }}
+exercise_type: {{ exercise_type | default('free-recall') }}
+source_concept: "{{ source_concept | default('') }}"
+tags: {{ tags | default([], true) | tojson }}
+created: {{ created_date }}
+---
+
+## Question
+{% if question %}
+{{ question }}
+{% else %}
+
+{% endif %}
+
+## Expected Answer
+{% if expected_answer %}
+{{ expected_answer }}
+{% else %}
+
+{% endif %}
+
+## Hints
+{% if hints %}
+{% for hint in hints %}
+{{ loop.index }}. {{ hint }}
+{% endfor %}
+{% else %}
+1. 
+2. 
+{% endif %}
+
+## Related Concepts
+{% if related_concepts %}
+{% for concept in related_concepts %}
+- [[{{ concept }}]]
+{% endfor %}
+{% else %}
+- [[Concept]]
+{% endif %}
+
+## Source Material
+{% if sources %}
+{% for source in sources %}
+- [[{{ source }}]]
+{% endfor %}
+{% else %}
+- [[Source Note]]
+{% endif %}
+

@@ -1,0 +1,83 @@
+---
+type: concept
+name: "{{ title }}"
+domain: "{{ domain | default('') }}"
+complexity: {{ complexity | default('foundational') }}
+tags: {{ tags | default([], true) | tojson }}
+created: {{ created_date }}
+---
+
+## Definition
+{% if definition %}
+{{ definition }}
+{% else %}
+
+{% endif %}
+
+## Why It Matters
+{% if importance %}
+{{ importance }}
+{% else %}
+
+{% endif %}
+
+## Key Properties
+{% if properties %}
+{% for prop in properties %}
+- {{ prop }}
+{% endfor %}
+{% else %}
+- 
+{% endif %}
+
+## Examples
+{% if examples %}
+{% for example in examples %}
+### {{ example.title | default('Example ' ~ loop.index) }}
+{{ example.content }}
+
+{% endfor %}
+{% else %}
+### Example 1
+
+{% endif %}
+
+## Common Misconceptions
+{% if misconceptions %}
+{% for misconception in misconceptions %}
+- ❌ {{ misconception.wrong }}
+- ✅ {{ misconception.correct }}
+
+{% endfor %}
+{% else %}
+- ❌ Misconception
+- ✅ Correction
+{% endif %}
+
+## Prerequisites
+{% if prerequisites %}
+{% for prereq in prerequisites %}
+- [[{{ prereq }}]]
+{% endfor %}
+{% else %}
+- [[Prerequisite Concept]]
+{% endif %}
+
+## Related Concepts
+{% if related_concepts %}
+{% for concept in related_concepts %}
+- [[{{ concept.name }}]] — {{ concept.relationship }}
+{% endfor %}
+{% else %}
+- [[Related]] — Relationship
+{% endif %}
+
+## Sources
+{% if sources %}
+{% for source in sources %}
+- [[{{ source }}]]
+{% endfor %}
+{% else %}
+- [[Source Paper]]
+{% endif %}
+

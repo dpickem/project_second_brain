@@ -1,0 +1,327 @@
+# config/default.yaml
+#
+# PURPOSE: Application behavior configuration (NOT secrets)
+# 
+# This file defines HOW the application behaves:
+# - Folder structure for the Obsidian vault
+# - Template mappings for each content type  
+# - Database connection pool sizing
+# - Cache TTL values
+#
+# WHEN TO EDIT THIS FILE:
+# - Adding a new content type (new template, new folder)
+# - Tuning performance (pool sizes, TTLs)
+# - Changing organizational structure
+#
+# WHEN NOT TO EDIT THIS FILE:
+# - Changing database passwords -> use .env
+# - Changing hostnames for different environments -> use .env
+# - Changing API keys -> use .env
+
+app:
+  name: "Second Brain"        # Display name in logs and UI
+  debug: false                # Set via DEBUG env var in production
+
+# =============================================================================
+# DATA DIRECTORY CONFIGURATION
+# =============================================================================
+# All persistent data is stored under a single root directory:
+#   ${DATA_DIR}/
+#   ├── neo4j/      - Knowledge graph database
+#   ├── postgres/   - Learning records and content metadata  
+#   ├── redis/      - Session caching and task queues
+#   └── obsidian/   - Obsidian vault (notes, templates, etc.)
+#
+# This makes backup, sync, and migration easy.
+
+data:
+  root: "~/workspace/obsidian/second_brain"  # Override with DATA_DIR env var
+  subdirs:
+    neo4j: "neo4j"
+    postgres: "postgres"
+    redis: "redis"
+    obsidian: "obsidian"
+
+# =============================================================================
+# OBSIDIAN VAULT CONFIGURATION
+# =============================================================================
+# These settings tell the ingestion pipelines WHERE to write notes
+# and WHICH template to use for each content type.
+#
+# EXTENSIBILITY: This configuration is designed to be extended without code changes.
+# To add a new content type:
+#   1. Add entry to content_types below
+#   2. Create the template file in templates/
+#   3. (Optional) Add subfolder structure
+#   4. (Optional) Add tags to tag taxonomy
+# The system will automatically recognize and handle the new type.
+
+obsidian:
+  vault_path: "/vault"        # Overridden by OBSIDIAN_VAULT_PATH env var
+  
+  # System folders - created by setup script but not tied to content types
+  # These are folders the vault needs to function properly
+  system_folders:
+    # Index and organizational notes
+    - "topics"                # Topic-based index notes (auto-generated)
+    - "concepts"              # Standalone concept definitions (atomic notes)
+    
+    # Exercises with organizational subfolders
+    - "exercises/by-topic"    # Exercises grouped by topic
+    - "exercises/daily"       # Daily practice exercises
+    
+    # Spaced repetition system
+    - "reviews/due"           # Cards due for review
+    - "reviews/archive"       # Completed reviews
+    
+    # Daily journaling
+    - "daily"                 # Daily notes (YYYY-MM-DD.md)
+    
+    # System and configuration
+    - "templates"             # Note templates (used by Templater)
+    - "meta"                  # System config, dashboards, documentation
+    
+    # Assets
+    - "assets/images"         # Embedded images
+    - "assets/pdfs"           # Embedded PDF files
+  
+  # Obsidian app configuration (.obsidian/*.json)
+  app_config:
+    # Where new files are created by default
+    new_file_folder: "sources/ideas"
+    # Where attachments (images, PDFs) are stored
+    attachment_folder: "assets"
+    # Always update links when moving/renaming files
+    always_update_links: true
+    # Use wiki-style links [[note]] vs markdown [note](note.md)
+    use_markdown_links: false
+  
+  # Daily notes plugin configuration
+  daily_notes:
+    folder: "daily"
+    format: "YYYY-MM-DD"
+    template: "templates/daily.md"
+  
+  # Templates plugin configuration
+  templates:
+    folder: "templates"
+    date_format: "YYYY-MM-DD"
+    time_format: "HH:mm"
+  
+  # Core plugins to enable
+  core_plugins:
+    - "file-explorer"
+    - "global-search"
+    - "switcher"
+    - "graph"
+    - "backlink"
+    - "outgoing-link"
+    - "tag-pane"
+    - "page-preview"
+    - "daily-notes"
+    - "templates"
+    - "note-composer"
+    - "command-palette"
+    - "editor-status"
+    - "starred"
+    - "outline"
+    - "word-count"
+  
+  # Meta files configuration
+  meta:
+    folder: "meta"
+    tag_taxonomy_file: "tag-taxonomy.md"
+
+# =============================================================================
+# CONTENT TYPE REGISTRY
+# =============================================================================
+# This is the single source of truth for all content types in the system.
+# Each content type defines:
+#   - folder: Where notes are stored in the vault
+#   - template: Obsidian template path (for manual creation via Templater)
+#   - jinja_template: Jinja2 template filename (for backend note generation)
+#   - subfolders: Optional subfolders for organization
+#   - description: Human-readable description
+#   - icon: Optional emoji for UI display
+#   - file_types: What file types this content type accepts
+#   - system: If true, hidden from user content type selectors
+#
+# TWO TYPES OF TEMPLATES:
+#   - template: Plain Markdown in vault's templates/ folder, used by Templater
+#               plugin when user manually creates notes in Obsidian
+#   - jinja_template: Jinja2 template in config/templates/, used by backend
+#               when generating notes programmatically
+#
+# TO ADD A NEW CONTENT TYPE:
+# 1. Add a new entry below with unique key
+# 2. Create Obsidian template file in vault's templates/ folder
+# 3. Create Jinja2 template file in config/templates/
+# 4. Run `python scripts/setup_vault.py` to create folders
+# 5. The system will automatically handle ingestion, queries, and display
+
+content_types:
+  # ---------------------------------------------------------------------------
+  # TECHNICAL CONTENT
+  # ---------------------------------------------------------------------------
+  paper:
+    folder: "sources/papers"
+    template: "templates/paper.md"           # Obsidian template (for Templater)
+    jinja_template: "paper.md.j2"            # Backend Jinja2 template
+    description: "Academic papers, research publications"
+    icon: "📄"
+    file_types: ["pdf"]
+    
+  article:
+    folder: "sources/articles"
+    template: "templates/article.md"
+    jinja_template: "article.md.j2"
+    description: "Blog posts, news, essays, web content"
+    icon: "📰"
+    file_types: ["url", "html", "md"]
+    
+  book:
+    folder: "sources/books"
+    template: "templates/book.md"
+    jinja_template: "book.md.j2"
+    description: "Book notes and highlights"
+    icon: "📚"
+    file_types: ["pdf", "epub", "photo"]
+    
+  code:
+    folder: "sources/code"
+    template: "templates/code.md"
+    jinja_template: "code.md.j2"
+    description: "GitHub repositories, code analysis"
+    icon: "💻"
+    file_types: ["url", "git"]
+    
+  idea:
+    folder: "sources/ideas"
+    template: "templates/idea.md"
+    jinja_template: "idea.md.j2"
+    description: "Fleeting notes, quick captures"
+    icon: "💡"
+    file_types: ["text", "voice"]
+
+  # ---------------------------------------------------------------------------
+  # WORK & PROFESSIONAL
+  # ---------------------------------------------------------------------------
+  work:
+    folder: "sources/work"
+    template: "templates/work.md"
+    jinja_template: "work.md.j2"
+    description: "Work-related content"
+    icon: "💼"
+    subfolders:
+      - meetings
+      - proposals
+      - projects
+      
+  career:
+    folder: "sources/career"
+    template: "templates/career.md"
+    jinja_template: "career.md.j2"
+    description: "Career development content"
+    icon: "🎯"
+    subfolders:
+      - goals
+      - interviews
+      - networking
+      - skills
+
+  # ---------------------------------------------------------------------------
+  # PERSONAL DEVELOPMENT
+  # ---------------------------------------------------------------------------
+  personal:
+    folder: "sources/personal"
+    template: "templates/personal.md"
+    jinja_template: "personal.md.j2"
+    description: "Personal development content"
+    icon: "🌱"
+    subfolders:
+      - goals
+      - reflections
+      - habits
+      - wellbeing
+      
+  project:
+    folder: "sources/projects"
+    template: "templates/project.md"
+    jinja_template: "project.md.j2"
+    description: "Personal project notes"
+    icon: "🚀"
+    subfolders:
+      - active
+      - ideas
+      - archive
+      
+  reflection:
+    folder: "sources/personal/reflections"
+    template: "templates/reflection.md"
+    jinja_template: "reflection.md.j2"
+    description: "Periodic reflections, retrospectives"
+    icon: "🔮"
+
+  # ---------------------------------------------------------------------------
+  # NON-TECHNICAL
+  # ---------------------------------------------------------------------------
+  non-tech:
+    folder: "sources/non-tech"
+    template: "templates/personal.md"        # Reuse personal template
+    jinja_template: "personal.md.j2"
+    description: "Non-technical learning and interests"
+    icon: "🌍"
+    subfolders:
+      - finance
+      - hobbies
+      - philosophy
+      - misc
+
+  # ---------------------------------------------------------------------------
+  # SYSTEM CONTENT TYPES (used internally)
+  # ---------------------------------------------------------------------------
+  concept:
+    folder: "concepts"
+    template: "templates/concept.md"
+    jinja_template: "concept.md.j2"
+    description: "Atomic concept notes"
+    icon: "🧩"
+    system: true  # Not shown in content type selector
+    
+  daily:
+    folder: "daily"
+    template: "templates/daily.md"
+    jinja_template: "daily.md.j2"
+    description: "Daily notes"
+    icon: "📅"
+    system: true
+    
+  exercise:
+    folder: "exercises"
+    template: "templates/exercise.md"
+    jinja_template: "exercise.md.j2"
+    description: "Practice problems"
+    icon: "🏋️"
+    system: true
+
+# =============================================================================
+# DATABASE CONFIGURATION
+# =============================================================================
+# PostgreSQL connection pool configuration
+# These settings prevent overwhelming the database with connections
+database:
+  pool_size: 5               # Number of persistent connections to maintain
+                             # Higher = more concurrent queries, more memory
+  max_overflow: 10           # Extra connections allowed during spikes
+                             # pool_size + max_overflow = max total connections
+  pool_timeout: 30           # Seconds to wait for a connection before erroring
+
+# =============================================================================
+# REDIS CONFIGURATION
+# =============================================================================
+# Redis cache configuration  
+redis:
+  session_ttl: 3600          # Session expiration: 1 hour (seconds)
+                             # User must re-login after this
+  cache_ttl: 300             # Default cache TTL: 5 minutes
+                             # Balance between freshness and performance

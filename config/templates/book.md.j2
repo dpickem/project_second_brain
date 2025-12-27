@@ -1,0 +1,81 @@
+---
+type: book
+title: "{{ title }}"
+author: "{{ author | default('') }}"
+isbn: "{{ isbn | default('') }}"
+tags: {{ tags | default([], true) | tojson }}
+status: {{ status | default('reading') }}
+started: {{ started_date | default(created_date) }}
+finished: {{ finished_date | default('') }}
+rating: {{ rating | default('') }}
+---
+
+## Overview
+{% if overview %}
+{{ overview }}
+{% else %}
+
+{% endif %}
+
+## Key Themes
+{% if themes %}
+{% for theme in themes %}
+### {{ theme.name }}
+{{ theme.description | default('') }}
+
+{% endfor %}
+{% else %}
+### Theme 1
+
+{% endif %}
+
+## Highlights by Chapter
+{% if chapters %}
+{% for chapter in chapters %}
+### Chapter {{ chapter.number }}: {{ chapter.title }}
+{% for highlight in chapter.highlights %}
+> {{ highlight.text }}
+> — Page {{ highlight.page }}
+
+{% endfor %}
+{% endfor %}
+{% else %}
+### Chapter 1: Title
+> Highlight
+> — Page X
+
+{% endif %}
+
+## Favorite Quotes
+{% if quotes %}
+{% for quote in quotes %}
+> "{{ quote.text }}"
+> — {{ author }}, p. {{ quote.page }}
+
+{% endfor %}
+{% else %}
+> "Quote"
+> — Author, p. X
+{% endif %}
+
+## How This Changed My Thinking
+{{ reflection | default('') }}
+
+## Action Items
+{% if action_items %}
+{% for item in action_items %}
+- [ ] {{ item }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+## Related Books
+{% if related_books %}
+{% for book in related_books %}
+- [[{{ book }}]]
+{% endfor %}
+{% else %}
+- [[Other Book]]
+{% endif %}
+

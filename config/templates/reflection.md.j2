@@ -1,0 +1,96 @@
+---
+type: reflection
+title: "{{ title }}"
+period: "{{ period | default('') }}"
+tags: {{ tags | default([], true) | tojson }}
+created: {{ created_date }}
+---
+
+## What Went Well
+{% if went_well %}
+{% for i, item in enumerate(went_well, 1) %}
+{{ i }}. {{ item }}
+{% endfor %}
+{% else %}
+1. 
+2. 
+3. 
+{% endif %}
+
+## What Could Be Better
+{% if could_be_better %}
+{% for i, item in enumerate(could_be_better, 1) %}
+{{ i }}. {{ item }}
+{% endfor %}
+{% else %}
+1. 
+2. 
+3. 
+{% endif %}
+
+## Key Learnings
+{% if learnings %}
+{% for learning in learnings %}
+- {{ learning }}
+{% endfor %}
+{% else %}
+- 
+{% endif %}
+
+## Surprises
+<!-- What unexpected things happened? -->
+{% if surprises %}
+{{ surprises }}
+{% else %}
+
+{% endif %}
+
+## Gratitude
+<!-- What am I thankful for? -->
+{% if gratitude %}
+{% for i, item in enumerate(gratitude, 1) %}
+{{ i }}. {{ item }}
+{% endfor %}
+{% else %}
+1. 
+2. 
+3. 
+{% endif %}
+
+## Energy & Mood
+<!-- How did I feel during this period? -->
+{% if energy_mood %}
+{{ energy_mood }}
+{% else %}
+
+{% endif %}
+
+## Priorities for Next Period
+{% if priorities %}
+{% for i, priority in enumerate(priorities, 1) %}
+{{ i }}. {{ priority }}
+{% endfor %}
+{% else %}
+1. 
+2. 
+3. 
+{% endif %}
+
+## Adjustments to Make
+{% if adjustments %}
+{% for adjustment in adjustments %}
+- [ ] {{ adjustment }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+## Questions to Explore
+{% if questions %}
+{% for question in questions %}
+- {{ question }}
+{% endfor %}
+{% else %}
+- 
+{% endif %}
+

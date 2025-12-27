@@ -1,0 +1,67 @@
+---
+type: daily
+date: {{ date }}
+---
+
+# {{ date_display | default(date) }}
+
+## 📥 Inbox
+<!-- Quick captures, ideas, todos that need processing -->
+{% if inbox %}
+{% for item in inbox %}
+- {{ item }}
+{% endfor %}
+{% else %}
+
+{% endif %}
+
+## 📚 Learning
+### Today's Practice
+- [ ] Complete review queue ([[reviews/_queue]])
+
+### Notes Processed
+<!-- Links to notes processed today -->
+{% if notes_processed %}
+{% for note in notes_processed %}
+- [[{{ note }}]]
+{% endfor %}
+{% else %}
+
+{% endif %}
+
+## ✅ Tasks
+### Must Do
+{% if tasks_must %}
+{% for task in tasks_must %}
+- [ ] {{ task }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+### Should Do
+{% if tasks_should %}
+{% for task in tasks_should %}
+- [ ] {{ task }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+### Could Do
+{% if tasks_could %}
+{% for task in tasks_could %}
+- [ ] {{ task }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+## 📝 Journal
+<!-- Reflection, thoughts, learnings -->
+{{ journal | default('') }}
+
+## 🔗 Quick Links
+- [[meta/dashboard|Dashboard]]
+- [[reviews/_queue|Review Queue]]
+

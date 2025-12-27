@@ -1,0 +1,62 @@
+---
+type: personal
+title: "{{ title }}"
+area: "{{ area | default('') }}"
+tags: {{ tags | default([], true) | tojson }}
+status: {{ status | default('status/actionable') }}
+created: {{ created_date }}
+---
+
+## Summary
+{% if summary %}
+{{ summary }}
+{% else %}
+
+{% endif %}
+
+## Why This Matters to Me
+{% if importance %}
+{{ importance }}
+{% else %}
+
+{% endif %}
+
+## Key Insights
+{% if insights %}
+{% for i, insight in enumerate(insights, 1) %}
+{{ i }}. {{ insight }}
+{% endfor %}
+{% else %}
+1. 
+2. 
+3. 
+{% endif %}
+
+## How This Applies to My Life
+{% if application %}
+{{ application }}
+{% else %}
+
+{% endif %}
+
+## Action Items
+{% if action_items %}
+{% for item in action_items %}
+- [ ] {{ item }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+## Reflections
+{{ reflections | default('') }}
+
+## Related
+{% if related %}
+{% for note in related %}
+- [[{{ note }}]]
+{% endfor %}
+{% else %}
+- [[Related Note]]
+{% endif %}
+

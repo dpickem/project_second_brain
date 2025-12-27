@@ -1,0 +1,98 @@
+---
+type: paper
+title: "{{ title }}"
+authors: {{ authors | default([], true) | tojson }}
+year: {{ year | default('') }}
+venue: "{{ venue | default('') }}"
+doi: "{{ doi | default('') }}"
+tags: {{ tags | default([], true) | tojson }}
+status: {{ status | default('unread') }}
+has_handwritten_notes: {{ has_handwritten_notes | default(false) | lower }}
+created: {{ created_date }}
+processed: {{ processed_date | default('') }}
+---
+
+## Summary
+{% if summary %}
+{{ summary }}
+{% else %}
+<!-- LLM-generated summary will be inserted here -->
+{% endif %}
+
+## Key Findings
+{% if key_findings %}
+{% for finding in key_findings %}
+- {{ finding }}
+{% endfor %}
+{% else %}
+- 
+{% endif %}
+
+## Core Concepts
+{% if concepts %}
+{% for concept in concepts %}
+- **{{ concept.name }}**: {{ concept.definition }}
+{% endfor %}
+{% else %}
+- **Concept**: Definition
+{% endif %}
+
+## My Highlights
+{% if highlights %}
+{% for highlight in highlights %}
+> {{ highlight.text }}
+> — Page {{ highlight.page }}
+
+{% endfor %}
+{% else %}
+> Highlight text
+> — Page X
+{% endif %}
+
+## My Handwritten Notes
+{% if handwritten_notes %}
+{% for note in handwritten_notes %}
+> [!note] Page {{ note.page }}
+> {{ note.text }}
+> *Context: "{{ note.context }}"*
+
+{% endfor %}
+{% else %}
+> [!note] Page X
+> Transcription
+> *Context: "surrounding text"*
+{% endif %}
+
+## Mastery Questions
+{% if mastery_questions %}
+{% for question in mastery_questions %}
+- [ ] {{ question }}
+{% endfor %}
+{% else %}
+- [ ] Question 1
+- [ ] Question 2
+{% endif %}
+
+## Follow-up Tasks
+{% if tasks %}
+{% for task in tasks %}
+- [ ] {{ task }}
+{% endfor %}
+{% else %}
+- [ ] Task #research
+{% endif %}
+
+## Connections
+{% if connections %}
+{% for conn in connections %}
+- [[{{ conn.note }}]] — {{ conn.relationship }}
+{% endfor %}
+{% else %}
+- [[Related Note]] — Relationship explanation
+{% endif %}
+
+---
+
+## Detailed Notes
+{{ detailed_notes | default('') }}
+

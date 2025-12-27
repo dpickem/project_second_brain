@@ -1,0 +1,47 @@
+---
+type: idea
+title: "{{ title }}"
+tags: {{ tags | default([], true) | tojson }}
+status: {{ status | default('status/actionable') }}
+created: {{ created_date }}
+---
+
+## Idea
+{% if idea %}
+{{ idea }}
+{% else %}
+
+{% endif %}
+
+## Context
+{% if context %}
+{{ context }}
+{% else %}
+
+{% endif %}
+
+## Why It Matters
+{% if importance %}
+{{ importance }}
+{% else %}
+
+{% endif %}
+
+## Next Steps
+{% if next_steps %}
+{% for step in next_steps %}
+- [ ] {{ step }}
+{% endfor %}
+{% else %}
+- [ ] 
+{% endif %}
+
+## Related
+{% if related %}
+{% for note in related %}
+- [[{{ note }}]]
+{% endfor %}
+{% else %}
+- [[Related Note]]
+{% endif %}
+

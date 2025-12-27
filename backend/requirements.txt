@@ -64,7 +64,7 @@ python-frontmatter>=1.1.0
 watchdog>=4.0.0
 ebooklib>=0.18
 youtube-transcript-api>=0.6.2
-openai-whisper>=20231117
+# openai-whisper>=20231117  # Heavy dependency (torch) - install separately if needed
 
 # ==========================================
 # Knowledge Hub / Obsidian
