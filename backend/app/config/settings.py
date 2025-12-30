@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # Celery
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
+
     # Neo4j
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USER: str = "neo4j"
@@ -55,8 +59,47 @@ class Settings(BaseSettings):
     # Obsidian
     OBSIDIAN_VAULT_PATH: str = "/vault"
 
+    # File uploads - temporary staging area for raw uploads, NOT the vault's assets/.
+    # Uploads may fail processing or be rejected; only successful content goes to vault.
+    # Flow: Upload → UPLOAD_DIR → Pipeline → Vault assets/ (if successful)
+    UPLOAD_DIR: str = "/tmp/second_brain_uploads"
+
     # OpenAI
     OPENAI_API_KEY: str = ""
+
+    # Mistral (for OCR)
+    MISTRAL_API_KEY: str = ""
+
+    # Anthropic
+    ANTHROPIC_API_KEY: str = ""
+
+    # External API Tokens
+    RAINDROP_ACCESS_TOKEN: str = ""
+    GITHUB_ACCESS_TOKEN: str = ""
+
+    # OCR Configuration (model-agnostic via LiteLLM)
+    # Format: provider/model-name
+    # Examples: mistral/mistral-ocr-2512, openai/gpt-5.1-chat-latest, anthropic/claude-4-5-sonnet-202509
+    OCR_MODEL: str = "mistral/mistral-ocr-2512"
+    OCR_MAX_TOKENS: int = 4000
+    OCR_USE_JSON_MODE: bool = True
+
+    # Text model for metadata inference, note expansion
+    TEXT_MODEL: str = "openai/gpt-5-mini"
+
+    # LiteLLM spend management
+    LITELLM_BUDGET_MAX: float = 100.0  # Monthly budget in USD
+    LITELLM_BUDGET_ALERT: float = 80.0  # Alert at 80% usage
+
+    # Pipeline settings
+    PDF_HANDWRITING_DETECTION: bool = True
+    PDF_IMAGE_DPI: int = 300
+    PDF_MAX_FILE_SIZE_MB: int = 50
+
+    VOICE_EXPAND_NOTES: bool = True
+
+    # Langfuse observability (optional)
+    LANGFUSE_ENABLED: bool = False
 
     class Config:
         env_file = ".env"
@@ -75,7 +118,7 @@ settings = get_settings()
 @lru_cache()
 def load_yaml_config() -> dict[str, Any]:
     """Load application configuration from config/default.yaml."""
-    config_path = Path(__file__).parent.parent.parent / "config" / "default.yaml"
+    config_path = Path(__file__).parent.parent.parent.parent / "config" / "default.yaml"
 
     if not config_path.exists():
         return {}

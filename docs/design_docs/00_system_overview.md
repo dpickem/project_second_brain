@@ -282,7 +282,7 @@ client = ai.Client()
 
 # All providers use same interface
 response = client.chat.completions.create(
-    model="anthropic:claude-3-5-sonnet-20241022",
+    model="anthropic/claude-4-5-sonnet-202509",
     messages=[...]
 )
 ```

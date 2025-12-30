@@ -1,77 +1,131 @@
+"""
+Second Brain API
+
+FastAPI application for the Second Brain knowledge management system.
+Provides endpoints for content ingestion, processing, and retrieval.
+
+Components:
+- Health check endpoints
+- Quick capture API (text, URL, photo, voice, PDF)
+- Ingestion management (sync triggers, queue stats)
+- Content retrieval and graph exploration
+
+Run with: uvicorn app.main:app --reload
+"""
+
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from neo4j import GraphDatabase
-import os
-import openai
 
-from app.routers import health_router
+from app.routers import health_router, capture_router, ingestion_router
+from app.config import settings
 
-app = FastAPI(title="Second Brain API")
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG if settings.DEBUG else logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
-# Include routers
-app.include_router(health_router.router)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler for startup/shutdown."""
+    # Startup
+    logger.info("Starting Second Brain API...")
+
+    # Start scheduler for periodic syncs
+    try:
+        from app.services.scheduler import start_scheduler
+
+        start_scheduler()
+        logger.info("Scheduler started")
+    except Exception as e:
+        logger.warning(f"Failed to start scheduler: {e}")
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down Second Brain API...")
+
+    try:
+        from app.services.scheduler import stop_scheduler
+
+        stop_scheduler()
+    except Exception:
+        pass
+
+    # Close Neo4j driver
+    if _driver:
+        _driver.close()
+
+
+app = FastAPI(
+    title="Second Brain API",
+    description="Knowledge management and learning system API",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Configure appropriately for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://neo4j:7687")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
-if not NEO4J_PASSWORD:
-    raise ValueError("NEO4J_PASSWORD environment variable must be set")
+# Include routers
+app.include_router(health_router.router)
+app.include_router(capture_router.router)
+app.include_router(ingestion_router.router)
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if OPENAI_API_KEY:
-    openai.api_key = OPENAI_API_KEY
-
-_driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-
-
-class IngestRequest(BaseModel):
-    text: str
-
-
-@app.post("/ingest")
-async def ingest(data: IngestRequest):
-    embedding = None
-    if OPENAI_API_KEY:
-        response = await openai.Embedding.acreate(
-            model="text-embedding-3-small",
-            input=data.text,
+# Neo4j driver (initialized if password is configured)
+_driver = None
+if settings.NEO4J_PASSWORD:
+    try:
+        _driver = GraphDatabase.driver(
+            settings.NEO4J_URI,
+            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
         )
-        embedding = response["data"][0]["embedding"]
-    with _driver.session() as session:
-        session.run(
-            "CREATE (c:Chunk {content: $content, embedding: $embedding})",
-            content=data.text,
-            embedding=embedding,
-        )
-    return {"status": "ok"}
+        logger.info("Neo4j driver initialized")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Neo4j driver: {e}")
 
 
 @app.get("/graph")
 async def graph():
+    """
+    Get all nodes and relationships from Neo4j.
+
+    Returns a graph structure with nodes and relationships.
+    """
+    if not _driver:
+        return {"nodes": [], "relationships": [], "message": "Neo4j not configured"}
+
     with _driver.session() as session:
         result = session.run("MATCH (n)-[r]->(m) RETURN n,r,m")
         nodes = []
         rels = []
         seen = set()
+
         for record in result:
             n = record["n"]
             m = record["m"]
             r = record["r"]
+
             if n.id not in seen:
                 nodes.append({"id": n.id, "labels": list(n.labels), **dict(n)})
                 seen.add(n.id)
+
             if m.id not in seen:
                 nodes.append({"id": m.id, "labels": list(m.labels), **dict(m)})
                 seen.add(m.id)
+
             rels.append(
                 {
                     "start": r.start_node.id,
@@ -79,9 +133,20 @@ async def graph():
                     "type": r.type,
                 }
             )
+
     return {"nodes": nodes, "relationships": rels}
 
 
 @app.get("/")
 async def root():
-    return {"message": "Second Brain API"}
+    """Root endpoint with API information."""
+    return {
+        "name": "Second Brain API",
+        "version": "0.1.0",
+        "docs": "/docs",
+        "endpoints": {
+            "capture": "/api/capture",
+            "ingestion": "/api/ingestion",
+            "health": "/api/health",
+        },
+    }

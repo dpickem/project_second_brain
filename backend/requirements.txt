@@ -33,6 +33,7 @@ redis>=5.0.1
 # ==========================================
 celery>=5.3.6
 flower>=2.0.1
+apscheduler>=3.10.0          # Scheduled job runner
 
 # ==========================================
 # LLM Integration & Processing
@@ -43,12 +44,21 @@ anthropic>=0.18.0
 tiktoken>=0.7.0
 tenacity>=8.2.3
 aisuite
+langchain-text-splitters>=0.2.0  # Text chunking for RAG pipelines
 
 # ==========================================
 # OCR & Document Processing
 # ==========================================
 mistralai>=0.1.0
 pillow>=10.2.0
+pymupdf>=1.24.0              # PDF text extraction (fitz)
+pdf2image>=1.17.0            # PDF to image conversion
+python-magic>=0.4.27         # File type detection
+
+# ==========================================
+# Audio Processing
+# ==========================================
+mutagen>=1.47.0                # Audio metadata extraction (duration, etc.)
 
 # ==========================================
 # Content Ingestion
@@ -65,6 +75,7 @@ python-frontmatter>=1.1.0
 watchdog>=4.0.0
 ebooklib>=0.18
 youtube-transcript-api>=0.6.2
+trafilatura>=1.6.0           # Web article extraction
 # openai-whisper>=20231117  # Heavy dependency (torch) - install separately if needed
 
 # ==========================================

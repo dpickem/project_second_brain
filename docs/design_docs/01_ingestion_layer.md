@@ -212,7 +212,7 @@ from pathlib import Path
 import hashlib
 
 class PDFProcessor:
-    def __init__(self, llm_client, vision_model: str = "google:gemini-2.0-flash"):
+    def __init__(self, llm_client, vision_model: str = "gemini/gemini-3-flash-preview"):
         self.llm_client = llm_client
         self.vision_model = vision_model
     
@@ -386,7 +386,7 @@ pdf_processor:
     
   handwriting_detection:
     enabled: true
-    vision_model: "google:gemini-2.0-flash"
+    vision_model: "gemini/gemini-3-flash-preview"
     image_dpi: 300
     batch_size: 5  # Pages to process in parallel
     
@@ -595,7 +595,7 @@ scheduler.add_job(run_raindrop_sync, 'cron', hour=6)  # Run at 6 AM daily
 # pipelines/book_ocr.py
 
 class BookOCRPipeline:
-    def __init__(self, llm_client, vision_model: str = "google:gemini-2.0-flash"):
+    def __init__(self, llm_client, vision_model: str = "gemini/gemini-3-flash-preview"):
         self.llm_client = llm_client
         self.vision_model = vision_model
     
@@ -851,7 +851,7 @@ Provide:
 """
         
         response = await self.llm_client.chat.completions.create(
-            model="anthropic:claude-3-5-sonnet-20241022",
+            model="anthropic/claude-4-5-sonnet-202509",
             messages=[{"role": "user", "content": prompt}]
         )
         
@@ -925,7 +925,7 @@ Instructions:
 Return only the expanded note, no commentary."""
         
         response = await self.llm_client.chat.completions.create(
-            model="openai:gpt-4o",
+            model="openai/gpt-5.1-chat-latest",
             messages=[{"role": "user", "content": prompt}]
         )
         
@@ -1173,8 +1173,8 @@ ingestion:
     analyze_structure: true
     
   ocr:
-    default_model: "google:gemini-2.0-flash"
-    fallback_model: "openai:gpt-4o"
+    default_model: "gemini/gemini-3-flash-preview"
+    fallback_model: "openai/gpt-5.1-chat-latest"
     image_dpi: 300
     
   voice:

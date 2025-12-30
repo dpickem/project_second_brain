@@ -93,9 +93,9 @@ class LLMClient:
     
     # Fallback models for automatic failover
     FALLBACKS = {
-        "anthropic/claude-3-5-sonnet-20241022": "openai/gpt-4o",
-        "openai/gpt-4o": "anthropic/claude-3-5-sonnet-20241022",
-        "openai/gpt-4o-mini": "anthropic/claude-3-5-haiku-20241022",
+        "anthropic/claude-4-5-sonnet-202509": "openai/gpt-5.1-chat-latest",
+        "openai/gpt-5.1-chat-latest": "anthropic/claude-4-5-sonnet-202509",
+        "openai/gpt-5-mini": "anthropic/claude-4-5-haiku-202509",
     }
     
     def __init__(self):
@@ -111,7 +111,7 @@ class LLMClient:
     
     def get_model(self, task: str) -> str:
         """Get the configured model for a specific task."""
-        return self.MODELS.get(task, "openai/gpt-4o")
+        return self.MODELS.get(task, "openai/gpt-5.1-chat-latest")
     
     async def complete(
         self,
@@ -176,11 +176,11 @@ def get_llm_client() -> LLMClient:
 ```bash
 # LLM Configuration (model-agnostic via LiteLLM)
 # Format: provider/model-name
-LLM_MODEL_CLASSIFICATION=openai/gpt-4o-mini
-LLM_MODEL_SUMMARIZATION=anthropic/claude-3-5-sonnet-20241022
-LLM_MODEL_EXTRACTION=openai/gpt-4o
-LLM_MODEL_CONNECTIONS=anthropic/claude-3-5-sonnet-20241022
-LLM_MODEL_QUESTIONS=openai/gpt-4o
+LLM_MODEL_CLASSIFICATION=openai/gpt-5-mini
+LLM_MODEL_SUMMARIZATION=anthropic/claude-4-5-sonnet-202509
+LLM_MODEL_EXTRACTION=openai/gpt-5.1-chat-latest
+LLM_MODEL_CONNECTIONS=anthropic/claude-4-5-sonnet-202509
+LLM_MODEL_QUESTIONS=openai/gpt-5.1-chat-latest
 LLM_MODEL_EMBEDDINGS=openai/text-embedding-3-small
 
 # Cost tracking
@@ -196,7 +196,7 @@ LITELLM_LOG_COSTS=true
 | **OpenAI GPT-4o-mini** | Classification, simple tasks | Cost-efficient | Less nuanced |
 | **Google Gemini** | Long context, multimodal | Very long context window (1M tokens) | Rate limits |
 
-> **Note**: Vision/OCR tasks (e.g., `mistral/pixtral-large-latest`) are configured in the **Ingestion Layer** (`01_ingestion_layer.md`), not in this processing layer.
+> **Note**: Vision/OCR tasks (e.g., `mistral/mistral-ocr-2512`) are configured in the **Ingestion Layer** (`01_ingestion_layer.md`), not in this processing layer.
 
 ---
 
@@ -1156,11 +1156,11 @@ processing:
   # These are defaults - override via environment variables:
   #   LLM_MODEL_CLASSIFICATION, LLM_MODEL_SUMMARIZATION, etc.
   models:
-    classification: "openai/gpt-4o-mini"      # Cost-efficient for structured output
-    summarization: "anthropic/claude-3-5-sonnet-20241022"  # Best for long-form understanding
-    extraction: "openai/gpt-4o"               # Strong structured JSON output
-    connection_discovery: "anthropic/claude-3-5-sonnet-20241022"  # Nuanced reasoning
-    question_generation: "openai/gpt-4o"      # Creative yet precise
+    classification: "openai/gpt-5-mini"      # Cost-efficient for structured output
+    summarization: "anthropic/claude-4-5-sonnet-202509"  # Best for long-form understanding
+    extraction: "openai/gpt-5.1-chat-latest"               # Strong structured JSON output
+    connection_discovery: "anthropic/claude-4-5-sonnet-202509"  # Nuanced reasoning
+    question_generation: "openai/gpt-5.1-chat-latest"      # Creative yet precise
     embeddings: "openai/text-embedding-3-small"  # Cost-effective, high quality
     
   # Output settings

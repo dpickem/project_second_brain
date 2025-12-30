@@ -69,7 +69,7 @@ litellm>=1.40.0           # Model-agnostic LLM interface with spend tracking & r
 | Raindrop.io API | Bookmark sync | Raindrop pipeline |
 | GitHub API | Repository analysis | GitHub pipeline |
 
-> **Model-Agnostic OCR**: The system uses [LiteLLM](https://docs.litellm.ai/) to provide a unified interface to 100+ LLM providers. Set `OCR_MODEL` to any vision-capable model (e.g., `mistral/pixtral-large-latest`, `openai/gpt-4o`, `anthropic/claude-3-5-sonnet-20241022`, `gemini/gemini-2.0-flash`). Default is Mistral OCR for best structured extraction performance.
+> **Model-Agnostic OCR**: The system uses [LiteLLM](https://docs.litellm.ai/) to provide a unified interface to 100+ LLM providers. Set `OCR_MODEL` to any vision-capable model (e.g., `mistral/mistral-ocr-2512`, `openai/gpt-5.1-chat-latest`, `anthropic/claude-4-5-sonnet-202509`, `gemini/gemini-3-flash-preview`). Default is Mistral OCR for best structured extraction performance.
 
 ### LLM Abstraction Layer: LiteLLM vs AISuite
 
@@ -115,9 +115,9 @@ OBSIDIAN_VAULT_PATH=/path/to/vault
 UPLOAD_DIR=/path/to/uploads
 
 # OCR Configuration (model-agnostic via LiteLLM)
-OCR_MODEL=mistral/pixtral-large-latest  # Format: provider/model-name
-                                         # Alternatives: openai/gpt-4o, anthropic/claude-3-5-sonnet-20241022
-                                         #               gemini/gemini-2.0-flash, azure/gpt-4-vision
+OCR_MODEL=mistral/mistral-ocr-2512  # Format: provider/model-name
+                                         # Alternatives: openai/gpt-5.1-chat-latest, anthropic/claude-4-5-sonnet-202509
+                                         #               gemini/gemini-3-flash-preview, azure/gpt-5-vision
 OCR_MAX_TOKENS=4000
 OCR_USE_JSON_MODE=true           # Request structured JSON output
 
@@ -500,7 +500,7 @@ import re
 class PDFProcessor(BasePipeline):
     def __init__(
         self, 
-        ocr_model: str = "mistral:pixtral-large-latest",
+        ocr_model: str = "mistral/mistral-ocr-2512",
         ocr_max_tokens: int = 4000,
         use_json_mode: bool = True
     ):
@@ -872,11 +872,11 @@ Model-agnostic vision completion wrapper using LiteLLM.
 
 LiteLLM provides a unified interface to 100+ LLM providers using
 the format "provider/model-name". Supported providers include:
-- Mistral: mistral/pixtral-large-latest
-- OpenAI: openai/gpt-4o, openai/gpt-4o-mini
-- Anthropic: anthropic/claude-3-5-sonnet-20241022
-- Google: gemini/gemini-2.0-flash
-- Azure: azure/gpt-4-vision
+- Mistral: mistral/mistral-ocr-2512
+- OpenAI: openai/gpt-5.1-chat-latest, openai/gpt-5-mini
+- Anthropic: anthropic/claude-4-5-sonnet-202509
+- Google: gemini/gemini-3-flash-preview
+- Azure: azure/gpt-5-vision
 
 Key features over simpler abstractions (e.g., AISuite):
 - Built-in spend tracking and cost logging
@@ -912,7 +912,7 @@ def vision_completion_sync(
     
     Args:
         model: LiteLLM model identifier (format: "provider/model-name")
-               e.g., "mistral/pixtral-large-latest", "openai/gpt-4o"
+               e.g., "mistral/mistral-ocr-2512", "openai/gpt-5.1-chat-latest"
         prompt: Text prompt for the vision model
         image_data: Base64-encoded image data
         max_tokens: Maximum tokens in response
@@ -925,7 +925,7 @@ def vision_completion_sync(
     
     Example:
         >>> response = vision_completion_sync(
-        ...     model="mistral/pixtral-large-latest",
+        ...     model="mistral/mistral-ocr-2512",
         ...     prompt="Extract all text from this image",
         ...     image_data=base64_image,
         ...     json_mode=True
@@ -1236,10 +1236,10 @@ import json
 class BookOCRPipeline(BasePipeline):
     def __init__(
         self, 
-        ocr_model: str = "mistral:pixtral-large-latest",
+        ocr_model: str = "mistral/mistral-ocr-2512",
         ocr_max_tokens: int = 4000,
         use_json_mode: bool = True,
-        text_model: str = "openai:gpt-4o-mini"  # For metadata inference
+        text_model: str = "openai/gpt-5-mini"  # For metadata inference
     ):
         super().__init__()
         self.ocr_model = ocr_model
@@ -1608,7 +1608,7 @@ Instructions:
 Return only the expanded note."""
         
         response = await self.llm_client.chat.completions.create(
-            model="openai:gpt-4o-mini",
+            model="openai/gpt-5-mini",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2000
         )
@@ -1769,7 +1769,7 @@ Provide:
 5. **Notable Patterns**: Interesting implementations"""
         
         response = await self.llm_client.chat.completions.create(
-            model="anthropic:claude-3-5-sonnet-20241022",
+            model="anthropic/claude-4-5-sonnet-202509",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2000
         )
@@ -2294,6 +2294,12 @@ tests/
 | Capture API | Upload PDF | High |
 | Capture API | Capture text note | High |
 | Capture API | Invalid file type rejection | High |
+| Cost Tracking | Log single usage to database | High |
+| Cost Tracking | Batch log multiple usages | High |
+| Cost Tracking | Daily cost aggregation | High |
+| Cost Tracking | Monthly cost report with breakdown | Medium |
+| Cost Tracking | Content-specific cost attribution | Medium |
+| Cost Tracking | Budget limit checking and alerts | High |
 
 ### 4.3 Running Tests
 
@@ -2310,9 +2316,376 @@ pytest tests/unit/test_pdf_processor.py -v
 
 ---
 
-## 5. Configuration
+## 5. LLM Cost Tracking
 
-### 5.1 Pipeline Configuration
+### 5.1 Overview
+
+LLM API calls are a significant operational cost in the ingestion layer. Vision API calls (OCR, handwriting detection) typically cost $0.01-0.03 per image, and text completion calls add up during metadata inference and note expansion. Without proper tracking, costs can escalate unexpectedly, especially during batch processing or debugging sessions.
+
+**Our cost tracking system provides:**
+
+- **Per-request cost logging**: Every LLM API call is logged with cost, tokens, latency, and attribution
+- **Database persistence**: All usage data stored in PostgreSQL for analysis and reporting
+- **Pipeline attribution**: Costs are linked to specific pipelines (book_ocr, pdf_processor, etc.)
+- **Content attribution**: Costs can be associated with specific content items
+- **Operation tagging**: Each API call is tagged with its purpose (page_extraction, handwriting_detection, etc.)
+- **Aggregated summaries**: Daily and monthly cost breakdowns for budgeting
+- **Budget alerts**: Warning logs when approaching or exceeding budget limits
+
+### 5.2 Database Schema
+
+Two tables support cost tracking:
+
+```sql
+-- Individual LLM API call records
+CREATE TABLE llm_usage_logs (
+    id SERIAL PRIMARY KEY,
+    request_id VARCHAR(64) NOT NULL,          -- UUID for deduplication
+    
+    -- Model information
+    model VARCHAR(100) NOT NULL,              -- e.g., "mistral/mistral-ocr-2512"
+    provider VARCHAR(50) NOT NULL,            -- e.g., "mistral", "openai"
+    
+    -- Request details
+    request_type VARCHAR(20) NOT NULL,        -- "vision", "text", "embedding"
+    prompt_tokens INTEGER,
+    completion_tokens INTEGER,
+    total_tokens INTEGER,
+    
+    -- Cost tracking (in USD)
+    cost_usd FLOAT,
+    input_cost_usd FLOAT,
+    output_cost_usd FLOAT,
+    
+    -- Attribution context
+    pipeline VARCHAR(50),                     -- "book_ocr", "pdf_processor", etc.
+    content_id INTEGER REFERENCES content(id),
+    operation VARCHAR(100),                   -- "handwriting_detection", etc.
+    
+    -- Performance metrics
+    latency_ms INTEGER,
+    success BOOLEAN DEFAULT TRUE,
+    error_message TEXT,
+    
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Pre-aggregated summaries for fast reporting
+CREATE TABLE llm_cost_summaries (
+    id SERIAL PRIMARY KEY,
+    period_type VARCHAR(10) NOT NULL,         -- "daily", "monthly"
+    period_start TIMESTAMP NOT NULL,
+    period_end TIMESTAMP NOT NULL,
+    
+    total_cost_usd FLOAT DEFAULT 0,
+    total_requests INTEGER DEFAULT 0,
+    total_tokens INTEGER DEFAULT 0,
+    
+    cost_by_model JSONB,                      -- {"mistral/mistral-ocr-2512": 5.23, ...}
+    cost_by_pipeline JSONB,                   -- {"book_ocr": 3.45, ...}
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for common queries
+CREATE INDEX ix_llm_usage_logs_model ON llm_usage_logs(model);
+CREATE INDEX ix_llm_usage_logs_pipeline ON llm_usage_logs(pipeline);
+CREATE INDEX ix_llm_usage_logs_content_id ON llm_usage_logs(content_id);
+CREATE INDEX ix_llm_usage_logs_created_at ON llm_usage_logs(created_at);
+```
+
+### 5.3 LLMUsage Dataclass
+
+Every completion function returns an `LLMUsage` dataclass alongside the response:
+
+```python
+# backend/app/pipelines/utils/ocr_client.py
+
+@dataclass
+class LLMUsage:
+    """Structured LLM usage data for cost tracking."""
+    request_id: str              # UUID for this request
+    model: str                   # e.g., "mistral/mistral-ocr-2512"
+    provider: str                # e.g., "mistral"
+    request_type: str            # "vision", "text", "embedding"
+    
+    # Token usage
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+    
+    # Cost in USD
+    cost_usd: Optional[float] = None
+    input_cost_usd: Optional[float] = None
+    output_cost_usd: Optional[float] = None
+    
+    # Attribution context
+    pipeline: Optional[str] = None
+    content_id: Optional[int] = None
+    operation: Optional[str] = None
+    
+    # Performance
+    latency_ms: Optional[int] = None
+    success: bool = True
+    error_message: Optional[str] = None
+```
+
+### 5.4 OCR Client Integration
+
+All completion functions now return `tuple[str, LLMUsage]`:
+
+```python
+# backend/app/pipelines/utils/ocr_client.py
+
+async def vision_completion(
+    model: str,
+    prompt: str,
+    image_data: str,
+    max_tokens: int = 4000,
+    json_mode: bool = False,
+    image_format: str = "png",
+    temperature: float = 0.1,
+    # Cost tracking context
+    pipeline: Optional[str] = None,
+    content_id: Optional[int] = None,
+    operation: Optional[str] = None,
+) -> tuple[str, LLMUsage]:
+    """
+    Vision completion with cost tracking.
+    
+    Returns:
+        Tuple of (response_text, LLMUsage with cost/token info)
+    """
+    # ... implementation extracts cost from LiteLLM response
+```
+
+**Example usage in pipelines:**
+
+```python
+# In a pipeline method
+response, usage = await vision_completion(
+    model=self.ocr_model,
+    prompt=prompt,
+    image_data=image_data,
+    max_tokens=4000,
+    json_mode=True,
+    pipeline="book_ocr",
+    content_id=content_id,
+    operation="page_extraction",
+)
+
+# Accumulate for batch logging
+self._usage_records.append(usage)
+```
+
+### 5.5 Cost Tracking Service
+
+The `CostTracker` service handles database persistence:
+
+```python
+# backend/app/services/cost_tracking.py
+
+class CostTracker:
+    @staticmethod
+    async def log_usage(usage: LLMUsage) -> LLMUsageLog:
+        """Log a single LLM usage record to the database."""
+        
+    @staticmethod
+    async def log_usages_batch(usages: list[LLMUsage]) -> list[LLMUsageLog]:
+        """Log multiple usages in a single transaction (for batch operations)."""
+        
+    @staticmethod
+    async def get_daily_cost(date: datetime = None) -> dict:
+        """Get total cost for a specific day with model/pipeline breakdown."""
+        
+    @staticmethod
+    async def get_monthly_cost(year: int = None, month: int = None) -> dict:
+        """Get total cost for a month with daily and model breakdown."""
+        
+    @staticmethod
+    async def get_content_cost(content_id: int) -> dict:
+        """Get total LLM cost for processing a specific content item."""
+        
+    @staticmethod
+    async def check_budget_limit(limit_usd: float, period: str = "monthly") -> dict:
+        """Check if current spend is within budget limit."""
+```
+
+### 5.6 Pipeline Integration Pattern
+
+Each pipeline that uses LLM calls follows this pattern:
+
+```python
+class BookOCRPipeline(BasePipeline):
+    PIPELINE_NAME = "book_ocr"
+    
+    def __init__(self, ..., track_costs: bool = True):
+        self.track_costs = track_costs
+        self._usage_records: list[LLMUsage] = []
+    
+    async def process(self, image_paths: list[Path], content_id: int = None):
+        # Reset usage records
+        self._usage_records = []
+        self._content_id = content_id
+        
+        # ... processing logic ...
+        
+        # At the end: batch log all accumulated costs
+        if self.track_costs and self._usage_records:
+            total_cost = sum(u.cost_usd or 0 for u in self._usage_records)
+            self.logger.info(f"Total LLM cost: ${total_cost:.4f}")
+            await CostTracker.log_usages_batch(self._usage_records)
+        
+        return UnifiedContent(
+            ...,
+            metadata={
+                "llm_cost_usd": total_cost,
+                "llm_api_calls": len(self._usage_records),
+            }
+        )
+    
+    async def _process_page(self, image, page_num: int):
+        response, usage = await vision_completion(
+            model=self.ocr_model,
+            prompt=prompt,
+            image_data=image_data,
+            pipeline=self.PIPELINE_NAME,
+            content_id=self._content_id,
+            operation="page_extraction",
+        )
+        self._usage_records.append(usage)
+        return response
+```
+
+### 5.7 Cost Reports
+
+The `CostTracker` provides structured reports:
+
+```python
+# Daily cost report
+>>> await CostTracker.get_daily_cost()
+{
+    "date": "2025-01-15T00:00:00",
+    "total_cost_usd": 12.45,
+    "request_count": 342,
+    "total_tokens": 456789,
+    "by_model": {
+        "mistral/mistral-ocr-2512": {"cost": 8.23, "count": 245},
+        "openai/gpt-4-mini": {"cost": 4.22, "count": 97}
+    },
+    "by_pipeline": {
+        "book_ocr": {"cost": 7.50, "count": 200},
+        "pdf_processor": {"cost": 3.45, "count": 100},
+        "voice_transcribe": {"cost": 1.50, "count": 42}
+    }
+}
+
+# Monthly cost report
+>>> await CostTracker.get_monthly_cost(2025, 1)
+{
+    "year": 2025,
+    "month": 1,
+    "total_cost_usd": 234.56,
+    "request_count": 5678,
+    "by_day": [
+        {"date": "2025-01-01", "cost": 8.50, "count": 180},
+        {"date": "2025-01-02", "cost": 12.30, "count": 256},
+        ...
+    ],
+    "by_model": {...}
+}
+
+# Content-specific cost
+>>> await CostTracker.get_content_cost(content_id=42)
+{
+    "content_id": 42,
+    "total_cost_usd": 0.45,
+    "request_count": 15,
+    "by_operation": [
+        {"operation": "page_extraction", "model": "mistral/mistral-ocr-2512", "cost": 0.35, "count": 12},
+        {"operation": "metadata_inference", "model": "openai/gpt-4-mini", "cost": 0.10, "count": 3}
+    ]
+}
+```
+
+### 5.8 Budget Management
+
+Check budget limits with automatic logging:
+
+```python
+# Check monthly budget
+>>> await CostTracker.check_budget_limit(limit_usd=100.0, period="monthly")
+{
+    "period": "monthly",
+    "current_spend_usd": 78.45,
+    "limit_usd": 100.0,
+    "remaining_usd": 21.55,
+    "percentage_used": 78.45,
+    "is_over_budget": False
+}
+
+# When approaching limit (≥80%), logs:
+# WARNING: Budget alert: monthly spend at 78.5% ($78.45 of $100.00)
+
+# When over limit, logs:
+# WARNING: BUDGET EXCEEDED: monthly spend $105.23 exceeds limit $100.00
+```
+
+### 5.9 Configuration
+
+```bash
+# .env additions for cost tracking
+
+# Enable cost logging (default: true)
+COST_TRACKING_ENABLED=true
+
+# Budget limits
+LLM_BUDGET_DAILY=20.0              # Daily budget limit in USD
+LLM_BUDGET_MONTHLY=100.0           # Monthly budget limit in USD
+LLM_BUDGET_ALERT_THRESHOLD=0.8     # Alert at 80% of budget
+```
+
+### 5.10 Testing Cost Tracking
+
+```python
+# tests/unit/test_cost_tracking.py
+
+async def test_log_usage():
+    """Test logging a single usage record."""
+    usage = LLMUsage(
+        model="mistral/mistral-ocr-2512",
+        provider="mistral",
+        request_type="vision",
+        cost_usd=0.025,
+        total_tokens=1500,
+        pipeline="book_ocr",
+        operation="page_extraction",
+    )
+    
+    log = await CostTracker.log_usage(usage)
+    assert log.id is not None
+    assert log.cost_usd == 0.025
+
+async def test_daily_cost_aggregation():
+    """Test daily cost aggregation."""
+    summary = await CostTracker.get_daily_cost()
+    assert "total_cost_usd" in summary
+    assert "by_model" in summary
+    assert "by_pipeline" in summary
+
+async def test_budget_alert():
+    """Test budget limit checking."""
+    result = await CostTracker.check_budget_limit(10.0, "daily")
+    assert "is_over_budget" in result
+    assert "percentage_used" in result
+```
+
+---
+
+## 6. Configuration
+
+### 6.1 Pipeline Configuration
 
 ```python
 # backend/app/config/pipelines.py
@@ -2328,11 +2701,11 @@ class PipelineSettings(BaseSettings):
     
     # Vision OCR - Model-agnostic via LiteLLM (format: provider/model-name)
     # Supported models include:
-    #   - mistral/pixtral-large-latest (default - best for structured docs)
-    #   - openai/gpt-4o, openai/gpt-4o-mini
-    #   - anthropic/claude-3-5-sonnet-20241022
-    #   - gemini/gemini-2.0-flash
-    OCR_MODEL: str = "mistral/pixtral-large-latest"
+    #   - mistral/mistral-ocr-2512 (default - best for structured docs)
+    #   - openai/gpt-4.1-chat-latest, openai/gpt-4-mini
+    #   - anthropic/claude-sonnet-4-20250514
+    #   - gemini/gemini-2.5-flash
+    OCR_MODEL: str = "mistral/mistral-ocr-2512"
     OCR_MAX_TOKENS: int = 4000
     OCR_USE_JSON_MODE: bool = True
     OCR_TIMEOUT_SECONDS: int = 60
@@ -2343,7 +2716,10 @@ class PipelineSettings(BaseSettings):
     LITELLM_BUDGET_ALERT: float = 80.0  # Alert at 80% usage
     
     # Text model for metadata inference, note expansion, etc.
-    TEXT_MODEL: str = "openai/gpt-4o-mini"
+    TEXT_MODEL: str = "openai/gpt-4-mini"
+    
+    # Cost tracking
+    COST_TRACKING_ENABLED: bool = True
     
     # Raindrop
     RAINDROP_SYNC_INTERVAL_HOURS: int = 6
@@ -2370,7 +2746,7 @@ class PipelineSettings(BaseSettings):
 
 ---
 
-## 6. Timeline Summary
+## 7. Timeline Summary
 
 | Week | Phase | Tasks | Deliverables |
 |------|-------|-------|--------------|
@@ -2385,7 +2761,7 @@ class PipelineSettings(BaseSettings):
 
 ---
 
-## 7. Success Criteria
+## 8. Success Criteria
 
 ### Functional Requirements
 
@@ -2409,7 +2785,7 @@ class PipelineSettings(BaseSettings):
 
 ---
 
-## 8. Risk Assessment
+## 9. Risk Assessment
 
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
@@ -2421,11 +2797,11 @@ class PipelineSettings(BaseSettings):
 | OCR accuracy on poor images | Medium | Medium | Image preprocessing, confidence thresholds |
 | LiteLLM compatibility | Low | Low | Pin LiteLLM version, test model updates in staging |
 
-> **Model-Agnostic Advantage**: The LiteLLM abstraction allows switching OCR providers via configuration without code changes. If one provider has issues, simply update `OCR_MODEL` to use an alternative (e.g., switch from `mistral/pixtral-large-latest` to `openai/gpt-4o` or `anthropic/claude-3-5-sonnet-20241022`). LiteLLM also supports automatic fallbacks if configured.
+> **Model-Agnostic Advantage**: The LiteLLM abstraction allows switching OCR providers via configuration without code changes. If one provider has issues, simply update `OCR_MODEL` to use an alternative (e.g., switch from `mistral/mistral-ocr-2512` to `openai/gpt-5.1-chat-latest` or `anthropic/claude-4-5-sonnet-202509`). LiteLLM also supports automatic fallbacks if configured.
 
 ---
 
-## 9. Dependencies on Other Phases
+## 10. Dependencies on Other Phases
 
 ### Required Before Phase 2
 
@@ -2438,9 +2814,9 @@ class PipelineSettings(BaseSettings):
 
 ---
 
-## 10. Open Questions
+## 11. Open Questions
 
-1. ~~**Handwriting OCR Model Selection**: Should we default to Gemini (cheaper) or GPT-4V (potentially more accurate)?~~ **RESOLVED**: Model-agnostic design via LiteLLM. Default is `mistral/pixtral-large-latest` for best accuracy; configurable via `OCR_MODEL`.
+1. ~~**Handwriting OCR Model Selection**: Should we default to Gemini (cheaper) or GPT-4V (potentially more accurate)?~~ **RESOLVED**: Model-agnostic design via LiteLLM. Default is `mistral/mistral-ocr-2512` for best accuracy; configurable via `OCR_MODEL`.
 1. ~~**Model Cost Tracking**: How should we track and alert on OCR usage costs across different providers?~~ **RESOLVED**: LiteLLM provides built-in spend tracking and budget alerts. Configure via `LITELLM_BUDGET_MAX` and `LITELLM_BUDGET_ALERT`.
 2. **Raindrop Collections**: Sync all collections or allow user to specify?
 3. **File Size Limits**: What's the maximum PDF/audio file size to accept?

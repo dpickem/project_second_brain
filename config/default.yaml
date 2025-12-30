@@ -153,11 +153,17 @@ obsidian:
 #               when generating notes programmatically
 #
 # TO ADD A NEW CONTENT TYPE:
-# 1. Add a new entry below with unique key
-# 2. Create Obsidian template file in vault's templates/ folder
-# 3. Create Jinja2 template file in config/templates/
-# 4. Run `python scripts/setup_vault.py` to create folders
-# 5. The system will automatically handle ingestion, queries, and display
+# 1. Add a new entry below with unique key (e.g., "podcast")
+# 2. Add the type to the ContentType enum in backend/app/models/content.py
+#    for type safety in Python code (e.g., PODCAST = "podcast")
+# 3. Create Obsidian template file in vault's templates/ folder
+# 4. Create Jinja2 template file in config/templates/
+# 5. Run `python scripts/setup_vault.py` to create folders
+# 6. The system will automatically handle ingestion, queries, and display
+#
+# NOTE: The ContentType enum in backend/app/models/content.py should stay in
+# sync with this configuration. The enum provides compile-time type checking
+# while this YAML provides runtime configuration for folders and templates.
 
 content_types:
   # ---------------------------------------------------------------------------

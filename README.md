@@ -615,10 +615,10 @@ client = ai.Client()
 
 # Switch providers with a single string change
 MODELS = {
-    "summarization": "anthropic:claude-3-5-sonnet-20241022",
-    "exercise_generation": "openai:gpt-4o",
-    "vision_ocr": "google:gemini-2.0-flash",
-    "embeddings": "openai:text-embedding-3-small",
+    "summarization": "anthropic/claude-4-5-sonnet-202509",
+    "exercise_generation": "openai/gpt-5.1-chat-latest",
+    "vision_ocr": "mistral/mistral-ocr-2512",
+    "embeddings": "openai/text-embedding-3-large",
 }
 
 async def generate_exercise(topic: str, difficulty: str, mastery_level: float):
@@ -660,7 +660,7 @@ def get_related_concepts(concept_id: str) -> list:
     return related
 
 response = client.chat.completions.create(
-    model="openai:gpt-4o",
+    model="openai/gpt-5.1-chat-latest",
     messages=[{"role": "user", "content": "How does Raft relate to Paxos?"}],
     tools=[search_knowledge_graph, get_related_concepts],
     max_turns=3  # Automatic tool execution
@@ -679,7 +679,7 @@ obsidian_mcp = MCPClient(
 )
 
 response = client.chat.completions.create(
-    model="anthropic:claude-3-5-sonnet-20241022",
+    model="anthropic/claude-4-5-sonnet-202509",
     messages=[{"role": "user", "content": "Find all notes about distributed systems"}],
     tools=obsidian_mcp.get_callable_tools(),
     max_turns=3
