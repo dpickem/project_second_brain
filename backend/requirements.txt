@@ -51,8 +51,9 @@ langchain-text-splitters>=0.2.0  # Text chunking for RAG pipelines
 # ==========================================
 mistralai>=0.1.0
 pillow>=10.2.0
-pymupdf>=1.24.0              # PDF text extraction (fitz)
-pdf2image>=1.17.0            # PDF to image conversion
+pillow-heif>=0.16.0          # HEIC/HEIF support (iOS photos)
+pdfplumber>=0.11.0           # PDF annotation extraction (highlights, comments)
+pymupdf>=1.24.0              # Robust PDF annotation extraction (alternative to pdfplumber)
 python-magic>=0.4.27         # File type detection
 
 # ==========================================
@@ -68,8 +69,6 @@ aiohttp>=3.9.3
 aiofiles>=23.2.1
 beautifulsoup4>=4.12.3
 lxml>=5.1.0
-pypdf>=4.0.1
-pdfplumber>=0.10.4
 markdown>=3.5.2
 python-frontmatter>=1.1.0
 watchdog>=4.0.0

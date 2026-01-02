@@ -69,7 +69,7 @@ litellm>=1.40.0           # Model-agnostic LLM interface with spend tracking & r
 | Raindrop.io API | Bookmark sync | Raindrop pipeline |
 | GitHub API | Repository analysis | GitHub pipeline |
 
-> **Model-Agnostic OCR**: The system uses [LiteLLM](https://docs.litellm.ai/) to provide a unified interface to 100+ LLM providers. Set `OCR_MODEL` to any vision-capable model (e.g., `mistral/mistral-ocr-2512`, `openai/gpt-5.1-chat-latest`, `anthropic/claude-4-5-sonnet-202509`, `gemini/gemini-3-flash-preview`). Default is Mistral OCR for best structured extraction performance.
+> **Model-Agnostic OCR**: The system uses [LiteLLM](https://docs.litellm.ai/) to provide a unified interface to 100+ LLM providers. Set `OCR_MODEL` to any vision-capable model (e.g., `mistral/mistral-ocr-latest`, `openai/gpt-5.1-chat-latest`, `anthropic/claude-4-5-sonnet-202509`, `gemini/gemini-3-flash-preview`). Default is Mistral OCR for best structured extraction performance.
 
 ### LLM Abstraction Layer: LiteLLM vs AISuite
 
@@ -115,7 +115,7 @@ OBSIDIAN_VAULT_PATH=/path/to/vault
 UPLOAD_DIR=/path/to/uploads
 
 # OCR Configuration (model-agnostic via LiteLLM)
-OCR_MODEL=mistral/mistral-ocr-2512  # Format: provider/model-name
+OCR_MODEL=mistral/mistral-ocr-latest  # Format: provider/model-name
                                          # Alternatives: openai/gpt-5.1-chat-latest, anthropic/claude-4-5-sonnet-202509
                                          #               gemini/gemini-3-flash-preview, azure/gpt-5-vision
 OCR_MAX_TOKENS=4000
@@ -500,7 +500,7 @@ import re
 class PDFProcessor(BasePipeline):
     def __init__(
         self, 
-        ocr_model: str = "mistral/mistral-ocr-2512",
+        ocr_model: str = "mistral/mistral-ocr-latest",
         ocr_max_tokens: int = 4000,
         use_json_mode: bool = True
     ):
@@ -872,7 +872,7 @@ Model-agnostic vision completion wrapper using LiteLLM.
 
 LiteLLM provides a unified interface to 100+ LLM providers using
 the format "provider/model-name". Supported providers include:
-- Mistral: mistral/mistral-ocr-2512
+- Mistral: mistral/mistral-ocr-latest
 - OpenAI: openai/gpt-5.1-chat-latest, openai/gpt-5-mini
 - Anthropic: anthropic/claude-4-5-sonnet-202509
 - Google: gemini/gemini-3-flash-preview
@@ -912,7 +912,7 @@ def vision_completion_sync(
     
     Args:
         model: LiteLLM model identifier (format: "provider/model-name")
-               e.g., "mistral/mistral-ocr-2512", "openai/gpt-5.1-chat-latest"
+               e.g., "mistral/mistral-ocr-latest", "openai/gpt-5.1-chat-latest"
         prompt: Text prompt for the vision model
         image_data: Base64-encoded image data
         max_tokens: Maximum tokens in response
@@ -925,7 +925,7 @@ def vision_completion_sync(
     
     Example:
         >>> response = vision_completion_sync(
-        ...     model="mistral/mistral-ocr-2512",
+        ...     model="mistral/mistral-ocr-latest",
         ...     prompt="Extract all text from this image",
         ...     image_data=base64_image,
         ...     json_mode=True
@@ -1236,7 +1236,7 @@ import json
 class BookOCRPipeline(BasePipeline):
     def __init__(
         self, 
-        ocr_model: str = "mistral/mistral-ocr-2512",
+        ocr_model: str = "mistral/mistral-ocr-latest",
         ocr_max_tokens: int = 4000,
         use_json_mode: bool = True,
         text_model: str = "openai/gpt-5-mini"  # For metadata inference
@@ -2343,7 +2343,7 @@ CREATE TABLE llm_usage_logs (
     request_id VARCHAR(64) NOT NULL,          -- UUID for deduplication
     
     -- Model information
-    model VARCHAR(100) NOT NULL,              -- e.g., "mistral/mistral-ocr-2512"
+    model VARCHAR(100) NOT NULL,              -- e.g., "mistral/mistral-ocr-latest"
     provider VARCHAR(50) NOT NULL,            -- e.g., "mistral", "openai"
     
     -- Request details
@@ -2381,7 +2381,7 @@ CREATE TABLE llm_cost_summaries (
     total_requests INTEGER DEFAULT 0,
     total_tokens INTEGER DEFAULT 0,
     
-    cost_by_model JSONB,                      -- {"mistral/mistral-ocr-2512": 5.23, ...}
+    cost_by_model JSONB,                      -- {"mistral/mistral-ocr-latest": 5.23, ...}
     cost_by_pipeline JSONB,                   -- {"book_ocr": 3.45, ...}
     
     created_at TIMESTAMP DEFAULT NOW(),
@@ -2406,7 +2406,7 @@ Every completion function returns an `LLMUsage` dataclass alongside the response
 class LLMUsage:
     """Structured LLM usage data for cost tracking."""
     request_id: str              # UUID for this request
-    model: str                   # e.g., "mistral/mistral-ocr-2512"
+    model: str                   # e.g., "mistral/mistral-ocr-latest"
     provider: str                # e.g., "mistral"
     request_type: str            # "vision", "text", "embedding"
     
@@ -2571,7 +2571,7 @@ The `CostTracker` provides structured reports:
     "request_count": 342,
     "total_tokens": 456789,
     "by_model": {
-        "mistral/mistral-ocr-2512": {"cost": 8.23, "count": 245},
+        "mistral/mistral-ocr-latest": {"cost": 8.23, "count": 245},
         "openai/gpt-4-mini": {"cost": 4.22, "count": 97}
     },
     "by_pipeline": {
@@ -2603,7 +2603,7 @@ The `CostTracker` provides structured reports:
     "total_cost_usd": 0.45,
     "request_count": 15,
     "by_operation": [
-        {"operation": "page_extraction", "model": "mistral/mistral-ocr-2512", "cost": 0.35, "count": 12},
+        {"operation": "page_extraction", "model": "mistral/mistral-ocr-latest", "cost": 0.35, "count": 12},
         {"operation": "metadata_inference", "model": "openai/gpt-4-mini", "cost": 0.10, "count": 3}
     ]
 }
@@ -2654,7 +2654,7 @@ LLM_BUDGET_ALERT_THRESHOLD=0.8     # Alert at 80% of budget
 async def test_log_usage():
     """Test logging a single usage record."""
     usage = LLMUsage(
-        model="mistral/mistral-ocr-2512",
+        model="mistral/mistral-ocr-latest",
         provider="mistral",
         request_type="vision",
         cost_usd=0.025,
@@ -2701,11 +2701,11 @@ class PipelineSettings(BaseSettings):
     
     # Vision OCR - Model-agnostic via LiteLLM (format: provider/model-name)
     # Supported models include:
-    #   - mistral/mistral-ocr-2512 (default - best for structured docs)
+    #   - mistral/mistral-ocr-latest (default - best for structured docs)
     #   - openai/gpt-4.1-chat-latest, openai/gpt-4-mini
     #   - anthropic/claude-sonnet-4-20250514
     #   - gemini/gemini-2.5-flash
-    OCR_MODEL: str = "mistral/mistral-ocr-2512"
+    OCR_MODEL: str = "mistral/mistral-ocr-latest"
     OCR_MAX_TOKENS: int = 4000
     OCR_USE_JSON_MODE: bool = True
     OCR_TIMEOUT_SECONDS: int = 60
@@ -2797,7 +2797,7 @@ class PipelineSettings(BaseSettings):
 | OCR accuracy on poor images | Medium | Medium | Image preprocessing, confidence thresholds |
 | LiteLLM compatibility | Low | Low | Pin LiteLLM version, test model updates in staging |
 
-> **Model-Agnostic Advantage**: The LiteLLM abstraction allows switching OCR providers via configuration without code changes. If one provider has issues, simply update `OCR_MODEL` to use an alternative (e.g., switch from `mistral/mistral-ocr-2512` to `openai/gpt-5.1-chat-latest` or `anthropic/claude-4-5-sonnet-202509`). LiteLLM also supports automatic fallbacks if configured.
+> **Model-Agnostic Advantage**: The LiteLLM abstraction allows switching OCR providers via configuration without code changes. If one provider has issues, simply update `OCR_MODEL` to use an alternative (e.g., switch from `mistral/mistral-ocr-latest` to `openai/gpt-5.1-chat-latest` or `anthropic/claude-4-5-sonnet-202509`). LiteLLM also supports automatic fallbacks if configured.
 
 ---
 
@@ -2816,7 +2816,7 @@ class PipelineSettings(BaseSettings):
 
 ## 11. Open Questions
 
-1. ~~**Handwriting OCR Model Selection**: Should we default to Gemini (cheaper) or GPT-4V (potentially more accurate)?~~ **RESOLVED**: Model-agnostic design via LiteLLM. Default is `mistral/mistral-ocr-2512` for best accuracy; configurable via `OCR_MODEL`.
+1. ~~**Handwriting OCR Model Selection**: Should we default to Gemini (cheaper) or GPT-4V (potentially more accurate)?~~ **RESOLVED**: Model-agnostic design via LiteLLM. Default is `mistral/mistral-ocr-latest` for best accuracy; configurable via `OCR_MODEL`.
 1. ~~**Model Cost Tracking**: How should we track and alert on OCR usage costs across different providers?~~ **RESOLVED**: LiteLLM provides built-in spend tracking and budget alerts. Configure via `LITELLM_BUDGET_MAX` and `LITELLM_BUDGET_ALERT`.
 2. **Raindrop Collections**: Sync all collections or allow user to specify?
 3. **File Size Limits**: What's the maximum PDF/audio file size to accept?

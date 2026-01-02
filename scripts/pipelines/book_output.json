@@ -1,0 +1,147 @@
+{
+  "id": "664480dd-c923-4f18-ae13-2c55b98c1903",
+  "source_type": "book",
+  "source_url": null,
+  "source_file_path": null,
+  "title": "The Software Engineer\u2019s Guidebook",
+  "authors": [
+    "Gergely Orosz"
+  ],
+  "created_at": "2026-01-01T22:44:17.801254",
+  "ingested_at": "2026-01-01T22:44:17.801334",
+  "full_text": "[Page 1 (Software Engineer's Guidebook)]\nSoftware Engineer's Guidebook | 1\n\nCAREER PATHS\n\nWhen it comes to careers, everyone's path is different. Some career elements are easy to be specific about, like where you work, your job title, and total compensation. However, many other important things are harder to measure, such as what working with colleagues is like, opportunities for professional growth, and work/life balance.\n\nCareer paths are diverse, and there's no simple way to define what a \"good\" career path looks like, as this varies from person to person. The best you can do is figure out which career path is interesting and achievable for you.\n\nThe routes people take into software engineering also vary; there are more common ways, like graduating from university with a computer science-related degree, and there are also self-taught engineers and career switchers. I worked with a colleague who'd been a chemical engineer for twenty years before teaching themself to code and becoming a developer.\n\nIn this chapter, we cover career-related topics:\n1. Types of tech companies\n2. Typical software engineering career paths\n3. Compensation, and company \"tiers\"\n4. Cost centers, profit centers\n5. Alternative ways to think about career progress\n\n1. Types of Companies\n\nThere's no way to categorize companies definitively, but they do share some common characteristics from the software engineer's point of view. Common types of companies are:\n\nBig Tech\n\nLarge, publicly traded tech businesses like Apple, Google, Microsoft, and Amazon. These typically employ tens of thousands of software engineers, and their market caps are in the billions of dollars.\n\nBig Tech engineering jobs are usually the most sought-after, due to their top-of-the-market compensation, career growth opportunities beyond the staff engineer level, and the chance to do work that impacts hundreds of millions of customers. There could also be the opportunity\n\n---\n\n[Page 3]\nFor the first few years of my developer career, I didn\u2019t care too much about career-related stuff. I assumed that if I worked hard and delivered good work, the rewards would follow. At developer agencies, promotions were rare and career development was much more limited, but I didn\u2019t feel like I missed out on anything while my title and level stayed the same at the first few places I worked.\n\nIt was when I moved to larger companies like JP Morgan and Microsoft that I noticed it\u2019s not always those who work hardest or deliver the highest quality work, who are awarded the biggest bonuses and win prized promotions. When I became an engineering manager at Uber, I had a team of engineers who required regular performance feedback and support in their professional growth, such as getting promoted to the next level.\n\nThis chapter summarizes observations of how different companies function, and career advice I gave to engineers on my team.\n\nSomething I wish I\u2019d had a better understanding of much sooner is the different types of companies you can work at as a developer \u2013 from well-known Big Tech giants, through startups, all the way to more traditional businesses, consultancies, and academia. Crucially, it can get increasingly hard to transition between different categories of workplace \u2013 which may be an unwelcome surprise a decade into working in one segment.\n\nThe other thing I missed out on was how to own your career. It was only when I became a manager that I realized what a difference it makes when a developer takes ownership of their career path \u2013 which also greatly helps their manager to advocate for them.\n\nMost engineers I met assumed their manager would take care of most things career-related, and that glowing performance reviews and promotions would materialize as if from thin air. Perhaps this may conceivably happen at some small companies and startups, but at larger tech companies additional work is needed for career recognition. In most cases, it\u2019s not much additional work; it\u2019s just that many engineers don\u2019t know which additional activities to do.\n\nThe observations, concepts, and approaches in this chapter are applicable to all seniority levels, from entry-level engineer, all the way to staff-and-above.\n\n---\n\n[Page 6 (Ch. 1: Career Paths)]\n6 | The Software Engineer's Guidebook\nto work with best-in-class coworkers from across the industry.\n\nMedium to large tech companies\nTech-first companies with software engineering at the core of their business. These compa-nies are smaller than Big Tech and may employ hundreds or thousands of software engineers. Examples include Atlassian, Dropbox, Shopify, Snap, and Uber.\nThese companies tend to offer similar compensation to Big Tech, and career paths beyond staff engineer level. The user bases are usually somewhat smaller, but engineers' work can still impact tens of millions of customers.\n\nScaleups\nVenture-funded, later-stage companies with product-market fits, which are investing in growth. These businesses may be making a loss on purpose, in order to invest in growing market share. Examples include Airtable, Klarna, and Notion.\nThese places usually move fast under high pressure to grow the business in order to justify a valuation, capitalize on future funding rounds, or prepare to go public.\nA subset of scaleups is \"unicorns:\" businesses with a private valuation of $1B or more. In the 2010s, there were relatively few unicorns, and being one signaled a company might be the next big thing. Today, unicorns are much more common, so being one is less of a differentiator.\n\nStartups\nVenture-funded companies which have raised smaller rounds of funding, and are aiming for a product-market fit. This involves building a product that attracts customer demand.\nStartups are inherently risky; they often lack meaningful revenue and are dependent on raising new rounds of funding to operate - for which a product-market fit is needed.\nAn example of a successful startup that graduated to a scaleup was Airbnb in 2011. Founded in 2008, the company won seed investment from Y Combinator. By 2010, Airbnb's product had gained traction, and it raised $7.2M Series A. In 2011, the company raised a $112M Series B, as investors saw its potential.\nAn example of a startup that didn't make it past the startup stage is Secret, an anonymous sharing app. Founded in 2013, Secret allowed users to share their secrets, incognito. The company enjoyed good traction and raised $35M in funding over two years. However, in 2015, it shut down and part of its funds were returned to investors.\n\nCareer Paths | 7\nStartups tend to offer the most freedom to software engineers, but also the least stability. These companies can also be demanding in work-life balance terms, as their existence de-pends on achieving a product-market fit before the money runs out. Meanwhile, founders greatly influence the environment of a startup. Some put a \"work hard, play hard\" culture in place, while others focus on a sustainable working culture. Startups offer the most variety of work, labor force, and growth opportunities.\nStartups which offer employees equity are high-risk/high-reward places. If the business thrives and eventually exits via a public offering or acquisition, early employees with sig-nificant quantities of stock do very well financially. This happened at Airbnb when the company went public with a market cap of $86B in 2020, and at home automation startup Nest, which Google acquired for $3.2B in 2014.\n\nTraditional, non-tech companies with tech divisions\nThese places have a core business with little to do with technology, which is just another di-vision. Some are more than 50 years old and were founded before the software development era. Others are in sectors where technology is not a main source of value.\nExamples of such companies include IKEA (home furnishing), JPMorgan Chase & Co (fi-nancial services), Pfizer (pharmaceutical), Toyota (automotive), and Walmart (retail).\nMany such companies have embarked on digitalization and aim to make software develop-ment more strategic to their businesses. However, the reality is that tech is more of a cost center than a profit center at these places, and these places tend to offer lower compensation than Big Tech and many scaleups.\nOn the other hand, traditional companies tend to offer more job stability and a better work-life balance than most tech-first companies. The downside for software engineers is usually fewer career options than in Big Tech and at scaleups, and career paths above staff engineer are also rare.\n\nTraditional but technology-heavy companies\nAn interesting subset of more traditional companies are those where technology is central to their offering in the form of hardware, software services, or both. These companies were often standout successes in their early days, and are now mature, reliable, and profitable busi-nesses. However, with their age and slowdown in growth comes a more rigid organizational structure that is different from younger technology companies.\nExamples of such companies include Broadcom, Cisco, Intel, Nokia and Ericsson. Hardware-heavy businesses can frequently be in this category.\nThese companies are commonly seen as less desirable to work at than Big Tech or scaleups.\n\n---\n\n[[Image: IMG_8798.HEIC]]\nThe Software Engineer\u2019s Guidebook\nby Gergely Orosz\n\nCopyright \u00a9 2023 Gergely Orosz. All rights reserved.\nPublished by Pragmatic Engineer BV, Amsterdam, Netherlands.\nEdited by Dominic Gover.\n\nNo part of this book may be reproduced or used in any form or manner without written permission of the copyright owner or publisher, except for the use of brief quotations in a book review. For more information, please contact: engguidebook@pragmaticengineer.com\n\nThe Pragmatic Engineer logo is a licensed trademark of Pragmatic Engineer BV.\n\nISBN: 9789083381824\nFirst Edition: August 2023, version 1.10\n\nengguidebook.com",
+  "annotations": [
+    {
+      "id": "1bb39ebb-d4c1-44f5-bf15-92ebafedb2b3",
+      "type": "digital_highlight",
+      "content": "Big Tech engineering jobs are usually the most sought-after, due to their top-of-the-market compensation, career growth opportunities beyond the staff engineer level, and the chance to do work that impacts hundreds of millions of customers.",
+      "page_number": 1,
+      "position": {
+        "location": "bottom",
+        "style": "underline",
+        "chapter": {
+          "number": null,
+          "title": "Software Engineer's Guidebook"
+        }
+      },
+      "context": null,
+      "confidence": null
+    },
+    {
+      "id": "6e9094f7-e163-4c54-924f-f6e0681d395e",
+      "type": "digital_highlight",
+      "content": "When I became an engineering manager at Uber, I had a team of engineers who required regular performance feedback and support in their professional growth, such as getting promoted to the next level.",
+      "page_number": 3,
+      "position": {
+        "location": "top",
+        "style": "underline"
+      },
+      "context": null,
+      "confidence": null
+    },
+    {
+      "id": "e036d9cc-4267-4760-876c-922e2cb438b8",
+      "type": "digital_highlight",
+      "content": "it can get increasingly hard to transition between different categories of workplace \u2013 which may be an unwelcome surprise a decade into working in one segment.",
+      "page_number": 3,
+      "position": {
+        "location": "middle",
+        "style": "underline"
+      },
+      "context": null,
+      "confidence": null
+    },
+    {
+      "id": "09f88955-4a4d-4369-b958-687afa298b12",
+      "type": "digital_highlight",
+      "content": "I realized what a difference it makes when a developer takes ownership of their career path \u2013 which also greatly helps their manager to advocate for them.",
+      "page_number": 3,
+      "position": {
+        "location": "middle",
+        "style": "underline"
+      },
+      "context": null,
+      "confidence": null
+    },
+    {
+      "id": "51f1a3fa-8279-48e7-b289-836872172d32",
+      "type": "digital_highlight",
+      "content": "but at larger tech companies additional work is needed for career recognition. In most cases, it\u2019s not much additional work; it\u2019s just that many engineers don\u2019t know which additional activities to do.",
+      "page_number": 3,
+      "position": {
+        "location": "bottom",
+        "style": "underline"
+      },
+      "context": null,
+      "confidence": null
+    },
+    {
+      "id": "d0c1d8da-8fe0-4b75-926a-d6fc6fcf1ede",
+      "type": "handwritten_note",
+      "content": "own your career path",
+      "page_number": 3,
+      "position": {
+        "location": "right-margin",
+        "note_type": "note"
+      },
+      "context": "I realized what a difference it makes when a developer takes ownership of their career path",
+      "confidence": null
+    },
+    {
+      "id": "82ee66d9-6be7-4fc8-9fb0-2c57e1015eb0",
+      "type": "digital_highlight",
+      "content": "On the other hand, traditional companies tend to offer more job stability and a better work-life balance than most tech-first companies.",
+      "page_number": 6,
+      "position": {
+        "location": "bottom",
+        "style": "underline",
+        "chapter": {
+          "number": "1",
+          "title": "Career Paths"
+        }
+      },
+      "context": null,
+      "confidence": null
+    },
+    {
+      "id": "ff864a58-4ba3-469c-ac2b-e9f44c438c51",
+      "type": "digital_highlight",
+      "content": "The downside for software engineers is usually fewer career options than in Big Tech and at scaleups, and career paths above staff engineer are also rare.",
+      "page_number": 6,
+      "position": {
+        "location": "bottom",
+        "style": "underline",
+        "chapter": {
+          "number": "1",
+          "title": "Career Paths"
+        }
+      },
+      "context": null,
+      "confidence": null
+    }
+  ],
+  "raw_file_hash": null,
+  "asset_paths": [
+    "/Users/dpickem/workspace/project_second_brain/test_data/book/IMG_8798.HEIC",
+    "/Users/dpickem/workspace/project_second_brain/test_data/book/IMG_8799.HEIC",
+    "/Users/dpickem/workspace/project_second_brain/test_data/book/IMG_8800.HEIC",
+    "/Users/dpickem/workspace/project_second_brain/test_data/book/IMG_8801.jpeg"
+  ],
+  "processing_status": "pending",
+  "error_message": null,
+  "obsidian_path": null,
+  "tags": [],
+  "metadata": {
+    "chapters": {
+      "1": "Career Paths"
+    },
+    "isbn": "9789083381824",
+    "total_pages_processed": 4,
+    "pages_with_errors": 0,
+    "page_errors": null,
+    "metadata_inferred": true,
+    "metadata_inference_error": null,
+    "llm_cost_usd": 0.0115055,
+    "llm_api_calls": 5
+  }
+}

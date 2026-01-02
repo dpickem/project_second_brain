@@ -59,12 +59,12 @@ from app.pipelines.utils.image_utils import (
     preprocess_for_ocr,
     auto_rotate,
 )
-from app.pipelines.utils.ocr_client import (
+from app.pipelines.utils.vlm_client import (
     vision_completion,
     get_default_ocr_model,
 )
 from app.pipelines.utils.cost_types import LLMUsage
-from app.pipelines.utils.text_client import text_completion
+from app.pipelines.utils.text_client import text_completion, get_default_text_model
 from app.pipelines.utils.text_utils import extract_json_from_response
 from app.services.cost_tracking import CostTracker
 
@@ -87,7 +87,11 @@ PAGE_SEPARATOR = "\n\n---\n\n"  # Separator between pages in full_text output
 # Metadata inference
 METADATA_MAX_TOKENS = 500  # Max tokens for metadata inference (small output)
 METADATA_TEMPERATURE = 0.2  # Low temp for factual extraction
-METADATA_TEXT_LIMIT = 2000  # Max chars of page text to send for inference
+METADATA_TEXT_LIMIT = 4000  # Max chars of page text to send for inference
+METADATA_PAGES_TO_USE = 3  # Number of pages to use for metadata inference
+
+# Retry configuration for JSON parsing failures
+MAX_JSON_PARSE_RETRIES = 2  # Number of retries when JSON parsing fails
 
 
 # =============================================================================
@@ -180,10 +184,10 @@ class BookOCRPipeline(BasePipeline):
         Initialize Book OCR pipeline.
 
         Args:
-            ocr_model: Vision model for OCR (e.g., "mistral/pixtral-large-latest").
+            ocr_model: Vision model for OCR (e.g., "gemini/gemini-3-flash-preview").
                        Defaults to settings.OCR_MODEL.
-            text_model: Text model for metadata inference (e.g., "openai/gpt-4o-mini").
-                       If None, metadata inference is skipped.
+            text_model: Text model for metadata inference (e.g., "gemini/gemini-3-flash-preview").
+                       Defaults to settings.TEXT_MODEL.
             ocr_max_tokens: Maximum tokens for OCR responses.
             use_json_mode: Request structured JSON output from vision model.
             track_costs: Whether to log LLM costs to database.
@@ -192,7 +196,7 @@ class BookOCRPipeline(BasePipeline):
         """
         super().__init__()
         self.ocr_model = ocr_model or get_default_ocr_model()
-        self.text_model = text_model
+        self.text_model = text_model or get_default_text_model()
         self.ocr_max_tokens = ocr_max_tokens
         self.use_json_mode = use_json_mode
         self.track_costs = track_costs
@@ -342,7 +346,19 @@ class BookOCRPipeline(BasePipeline):
 
         page_results = valid_results
 
-        # Sort by extracted page number
+        # Infer metadata BEFORE sorting - use original photo order
+        # Copyright/ISBN pages often have no page number and would sort to the end
+        if not book_metadata and page_results:
+            # Build text from first few pages in ORIGINAL order (as photographed)
+            metadata_texts = []
+            for result in page_results[:METADATA_PAGES_TO_USE]:
+                if result.full_text and not result.has_error:
+                    metadata_texts.append(result.full_text)
+            if metadata_texts:
+                combined_text = "\n\n---\n\n".join(metadata_texts)
+                book_metadata = await self._infer_metadata(combined_text)
+
+        # Sort by extracted page number for final output
         # Tuple key: (is_none, page_num) ensures None values sort last
         page_results.sort(
             key=lambda x: (
@@ -379,10 +395,6 @@ class BookOCRPipeline(BasePipeline):
                         "title": chapter.title,
                     }
                 all_annotations.append(annot)
-
-        # Infer metadata if not provided
-        if not book_metadata and full_text_parts:
-            book_metadata = await self._infer_metadata(full_text_parts[0])
 
         if not book_metadata:
             book_metadata = BookMetadata()
@@ -461,20 +473,16 @@ class BookOCRPipeline(BasePipeline):
 
     async def _process_page(self, image: Image.Image) -> PageResult:
         """
-        Process a single book page photo using vision OCR.
+        Process a book page using a vision chat model (Gemini, GPT-4o, Claude).
 
-        Extracts:
-        - Page number from image corners/headers/footers
-        - Chapter info from running headers
-        - Full printed text (complete transcription)
-        - Highlights and underlines (marked passages)
-        - Handwritten margin notes
+        These models can follow structured prompts to extract page numbers,
+        chapters, highlights, and margin notes in addition to the text.
 
         Args:
-            image: PIL Image to process (should be preprocessed).
+            image: PIL Image to process.
 
         Returns:
-            PageResult dict with extracted content and annotations.
+            PageResult with structured extraction.
         """
         image_data = image_to_base64(image)
 
@@ -492,9 +500,22 @@ class BookOCRPipeline(BasePipeline):
 
 3. ALL printed text (complete transcription)
 
-4. HIGHLIGHTED or MARKED passages (underlined, circled, highlighted)
+4. UNDERLINED TEXT - CRITICAL: Carefully scan EVERY line of text for underlines.
+   Underlines indicate important passages the reader wanted to remember.
+   Look for:
+   - Straight lines drawn beneath text (pen, pencil, or ruler-drawn)
+   - Wavy or irregular underlines
+   - Single underlines or double underlines
+   - Partial underlines (even a few words underlined matter)
+   - Faint or light pencil underlines (look closely!)
+   
+   For EACH underlined passage, extract the COMPLETE text that is underlined.
+   Do not skip any underlined text, even if it seems minor.
 
-5. HANDWRITTEN MARGIN NOTES (in margins, whitespace, between lines)
+5. OTHER MARKINGS: Highlighted text (color), circled words, bracketed passages, 
+   vertical lines in margins next to text, asterisks or stars next to text.
+
+6. HANDWRITTEN MARGIN NOTES (in margins, whitespace, between lines)
 
 Return JSON:
 {
@@ -509,7 +530,7 @@ Return JSON:
   "spread_pages": null,
   "full_text": "complete printed text...",
   "highlights": [
-    {"text": "highlighted passage", "type": "highlight|underline|circle", "location": "top|middle|bottom"}
+    {"text": "the exact underlined or highlighted passage", "type": "underline|highlight|circle|bracket|vertical_line|star", "location": "top|middle|bottom", "style": "pen|pencil|marker|ruler"}
   ],
   "margin_notes": [
     {"text": "handwritten note", "location": "left-margin|right-margin|top|bottom", "related_text": "nearby printed text or null", "type": "note|question|definition"}
@@ -526,7 +547,10 @@ For two-page spreads, use:
 
 If no chapter info visible, use: "chapter": null
 
-Important:
+CRITICAL INSTRUCTIONS:
+- UNDERLINES ARE HIGH PRIORITY: Scan every paragraph carefully for any lines drawn under text
+- Even faint pencil marks count - look closely at the space just below each line of text
+- Capture the FULL underlined phrase, not just partial words
 - Page number extraction is critical - check all corners and headers/footers
 - Chapter info often appears in running headers/footers - check both top and bottom
 - Use null for page_number or chapter only if truly not visible
@@ -535,27 +559,50 @@ Important:
 - Include ALL handwritten content including brief marks like "!" or "?"
 """
 
-        try:
-            response, usage = await vision_completion(
-                model=self.ocr_model,
-                prompt=prompt,
-                image_data=image_data,
-                max_tokens=self.ocr_max_tokens,
-                json_mode=self.use_json_mode,
-                pipeline=self.PIPELINE_NAME,
-                content_id=getattr(self, "_content_id", None),
-                operation="page_extraction",
-            )
+        last_error: Optional[str] = None
 
-            # Track usage for batch logging (thread-safe)
-            async with self._usage_lock:
-                self._usage_records.append(usage)
+        for attempt in range(1, MAX_JSON_PARSE_RETRIES + 2):  # +2 for initial + retries
+            try:
+                response, usage = await vision_completion(
+                    model=self.ocr_model,
+                    prompt=prompt,
+                    image_data=image_data,
+                    max_tokens=self.ocr_max_tokens,
+                    json_mode=self.use_json_mode,
+                    pipeline=self.PIPELINE_NAME,
+                    content_id=getattr(self, "_content_id", None),
+                    operation="page_extraction",
+                )
 
-            return self._parse_page_response(response)
+                # Track usage for batch logging (thread-safe)
+                async with self._usage_lock:
+                    self._usage_records.append(usage)
 
-        except Exception as e:
-            self.logger.error(f"Page OCR failed: {e}")
-            return PageResult.from_error(error=f"OCR failed: {e}")
+                # Try to parse the response
+                result = self._parse_page_response(response)
+
+                # Check if parsing succeeded
+                if not result.has_error:
+                    return result
+
+                # JSON parsing failed - retry if we have attempts left
+                last_error = result.error
+                if attempt <= MAX_JSON_PARSE_RETRIES:
+                    self.logger.warning(
+                        f"JSON parse failed (attempt {attempt}/{MAX_JSON_PARSE_RETRIES + 1}), "
+                        f"retrying..."
+                    )
+                    continue
+
+                # No more retries, return the error
+                return result
+
+            except Exception as e:
+                self.logger.error(f"Page OCR failed: {e}")
+                return PageResult.from_error(error=f"OCR failed: {e}")
+
+        # Should not reach here, but just in case
+        return PageResult.from_error(error=last_error or "Unknown error")
 
     def _parse_page_response(self, response_text: str) -> PageResult:
         """

@@ -11,7 +11,7 @@ Usage:
     max_size = pipeline_settings.PDF_MAX_FILE_SIZE_MB
 
 Environment Variables:
-    PIPELINE_OCR_MODEL - Vision model for OCR (default: mistral/mistral-ocr-2512)
+    PIPELINE_OCR_MODEL - Vision model for OCR (default: mistral/mistral-ocr-latest)
     PIPELINE_TEXT_MODEL - Text model for inference (default: openai/gpt-5-mini)
     PIPELINE_PDF_HANDWRITING_DETECTION - Enable handwriting detection (default: True)
     etc.
@@ -39,11 +39,13 @@ class PipelineSettings(BaseSettings):
     # ===========================================
     # Format: provider/model-name
     # Supported models include (Updated Dec 2025):
-    #   - mistral/mistral-ocr-2512 (default - Mistral OCR 3, best for structured docs)
+    #   - mistral/mistral-ocr-latest (default - SOTA for document OCR, uses litellm.ocr API)
+    #   - gemini/gemini-2.5-flash (Google's vision model, uses chat completion API)
+    #   - openai/gpt-4o (OpenAI's vision model, uses chat completion API)
     #   - openai/gpt-5.1-chat-latest, openai/gpt-5-mini
     #   - anthropic/claude-4-5-opus-202511, anthropic/claude-4-5-sonnet-202509
     #   - gemini/gemini-3-flash-preview
-    OCR_MODEL: str = "mistral/mistral-ocr-2512"
+    OCR_MODEL: str = "mistral/mistral-ocr-latest"
     OCR_MAX_TOKENS: int = 4000
     OCR_USE_JSON_MODE: bool = True
     OCR_TIMEOUT_SECONDS: int = 60

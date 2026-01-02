@@ -196,7 +196,7 @@ LITELLM_LOG_COSTS=true
 | **OpenAI GPT-4o-mini** | Classification, simple tasks | Cost-efficient | Less nuanced |
 | **Google Gemini** | Long context, multimodal | Very long context window (1M tokens) | Rate limits |
 
-> **Note**: Vision/OCR tasks (e.g., `mistral/mistral-ocr-2512`) are configured in the **Ingestion Layer** (`01_ingestion_layer.md`), not in this processing layer.
+> **Note**: Vision/OCR tasks (e.g., `mistral/mistral-ocr-latest`) are configured in the **Ingestion Layer** (`01_ingestion_layer.md`), not in this processing layer.
 
 ---
 

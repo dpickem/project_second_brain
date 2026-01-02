@@ -617,7 +617,7 @@ client = ai.Client()
 MODELS = {
     "summarization": "anthropic/claude-4-5-sonnet-202509",
     "exercise_generation": "openai/gpt-5.1-chat-latest",
-    "vision_ocr": "mistral/mistral-ocr-2512",
+    "vision_ocr": "mistral/mistral-ocr-latest",
     "embeddings": "openai/text-embedding-3-large",
 }
 

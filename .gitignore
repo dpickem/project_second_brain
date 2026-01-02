@@ -8,5 +8,8 @@ frontend/dist
 # Prototype output
 prototypes/ocr_results/
 
+# Test data
+test_data/
+
 # macOS
 .DS_Store

@@ -1,15 +1,19 @@
 """
 PDF Processor Pipeline
 
-Extracts text, highlights, comments, and handwritten annotations from PDFs.
-Supports academic papers, ebooks, and annotated documents.
+Extracts text, structure, and annotations from PDFs using a hybrid approach:
+- OCR (Mistral OCR) for text extraction and handwritten note detection
+- pdfplumber for PDF annotation extraction (highlights, comments, underlines)
 
 Features:
-- Text extraction with PyMuPDF (fast, layout-aware)
-- Digital annotation extraction with pdfplumber (highlights, comments)
-- Handwritten annotation OCR with Vision LLM
-- Metadata extraction (title, authors, date)
+- Full document OCR with Mistral OCR (SOTA for document AI)
+- Markdown-formatted text extraction preserving structure
+- Table and figure detection
+- Handwritten note detection via OCR image analysis
+- Highlight and comment extraction via pdfplumber
+- Metadata extraction (title, authors from OCR)
 - Deduplication via file hash
+- LLM cost tracking
 
 Usage:
     from app.pipelines import PDFProcessor
@@ -18,17 +22,9 @@ Usage:
     content = await processor.process(Path("paper.pdf"))
 """
 
-from PIL.Image import Image
-import re
 from datetime import datetime
-from itertools import batched
 from pathlib import Path
 from typing import Any, Optional
-
-import fitz  # PyMuPDF
-import pdfplumber
-from pdf2image import convert_from_path
-from PIL import Image
 
 from app.models.content import (
     Annotation,
@@ -38,28 +34,33 @@ from app.models.content import (
 )
 from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
 from app.pipelines.utils.cost_types import LLMUsage
-from app.pipelines.utils.image_utils import image_to_base64
-from app.pipelines.utils.ocr_client import (
+from app.pipelines.utils.mistral_ocr_client import (
     get_default_ocr_model,
-    vision_completion_multi_image,
+    ocr_pdf_document_annotated,
+    MistralOCRResult,
+)
+from app.pipelines.utils.pdf_utils import (
+    extract_annotations as extract_pdf_annotations,
+    get_annotation_text,
 )
 from app.pipelines.utils.text_client import (
     get_default_text_model,
     text_completion,
 )
-from app.pipelines.utils.text_utils import extract_json_from_response
 from app.services.cost_tracking import CostTracker
 
 
 class PDFProcessor(BasePipeline):
     """
-    PDF processing pipeline for extracting text and annotations.
+    PDF processing pipeline using OCR for all text extraction.
+
+    Uses Mistral OCR (or configured OCR model) to process entire PDF documents,
+    extracting text with preserved structure, tables, and figures.
 
     Handles:
-    - Printed text extraction
-    - Digital highlights and comments
-    - Handwritten margin notes (via Vision LLM)
-    - PDF metadata (title, authors, date)
+    - Full document OCR with markdown output
+    - Structure preservation (headings, lists, tables)
+    - Content type classification (paper/book/article)
     - LLM cost tracking for all API calls
 
     Routing:
@@ -74,43 +75,25 @@ class PDFProcessor(BasePipeline):
         self,
         ocr_model: Optional[str] = None,
         text_model: Optional[str] = None,
-        ocr_max_tokens: int = 4000,
-        use_json_mode: bool = True,
-        enable_handwriting_detection: bool = True,
         max_file_size_mb: int = 50,
-        image_dpi: int = 300,
-        handwriting_batch_size: int = 5,
+        include_images: bool = False,
         track_costs: bool = True,
     ) -> None:
         """
         Initialize PDF processor.
 
         Args:
-            ocr_model: Vision model for handwriting OCR. Defaults to value from
-                environment variable via get_default_ocr_model().
-            text_model: Text model for content type classification. Defaults to value
-                from environment variable via get_default_text_model().
-            ocr_max_tokens: Maximum tokens for OCR responses. Defaults to 4000.
-            use_json_mode: Whether to request structured JSON from OCR. Defaults to True.
-            enable_handwriting_detection: Whether to detect handwritten notes. Defaults to True.
+            ocr_model: OCR model for document processing. Defaults to settings.OCR_MODEL.
+            text_model: Text model for content type classification. Defaults to settings.TEXT_MODEL.
             max_file_size_mb: Maximum allowed PDF file size in megabytes. Defaults to 50.
-            image_dpi: DPI resolution for page-to-image conversion. Defaults to 300.
-            handwriting_batch_size: Number of pages to process per VLM call. Higher values
-                reduce API calls but may hit token limits. Defaults to 5.
+            include_images: Whether to include extracted images in OCR response. Defaults to False.
             track_costs: Whether to log LLM costs to database. Defaults to True.
-
-        Returns:
-            None
         """
         super().__init__()
         self.ocr_model = ocr_model or get_default_ocr_model()
         self.text_model = text_model or get_default_text_model()
-        self.ocr_max_tokens = ocr_max_tokens
-        self.use_json_mode = use_json_mode
-        self.enable_handwriting_detection = enable_handwriting_detection
         self.max_file_size_mb = max_file_size_mb
-        self.image_dpi = image_dpi
-        self.handwriting_batch_size = handwriting_batch_size
+        self.include_images = include_images
         self.track_costs = track_costs
         self._usage_records: list[LLMUsage] = []
         self._content_id: Optional[str] = None
@@ -119,24 +102,18 @@ class PDFProcessor(BasePipeline):
         """
         Check if this pipeline can handle the input.
 
-        Validates that the input is a PipelineInput with content_type PDF
-        and a path ending with .pdf extension.
-
         Args:
             input_data: The pipeline input to validate.
 
         Returns:
-            bool: True if this pipeline can process the input, False otherwise.
+            bool: True if this pipeline can process the input.
         """
         if not isinstance(input_data, PipelineInput):
             return False
-
         if input_data.content_type != PipelineContentType.PDF:
             return False
-
         if input_data.path is None:
             return False
-
         return input_data.path.suffix.lower() == ".pdf"
 
     async def process(
@@ -149,17 +126,16 @@ class PDFProcessor(BasePipeline):
 
         Args:
             input_data: PipelineInput containing the path to the PDF file.
-            content_id: Optional content ID for cost attribution and tracking.
+            content_id: Optional content ID for cost attribution.
 
         Returns:
-            UnifiedContent: Extracted text, metadata, and annotations from the PDF.
+            UnifiedContent: Extracted text and metadata from the PDF.
 
         Raises:
             ValueError: If input_data.path is None.
         """
         if input_data.path is None:
             raise ValueError("PipelineInput.path is required for PDF processing")
-
         return await self.process_path(input_data.path, content_id)
 
     async def process_path(
@@ -168,28 +144,26 @@ class PDFProcessor(BasePipeline):
         content_id: Optional[str] = None,
     ) -> UnifiedContent:
         """
-        Process a PDF file (direct path interface).
+        Process a PDF file using OCR.
 
         Performs the full PDF processing pipeline:
         1. Validates file size and existence
         2. Calculates file hash for deduplication
-        3. Extracts PDF metadata (title, authors, date)
-        4. Extracts printed text content
-        5. Extracts digital annotations (highlights, comments)
-        6. Optionally detects and transcribes handwritten annotations
-        7. Logs LLM costs if tracking is enabled
+        3. Runs OCR on entire document
+        4. Extracts metadata from OCR result
+        5. Classifies content type
+        6. Logs LLM costs if tracking is enabled
 
         Args:
-            pdf_path: Path to the PDF file to process.
-            content_id: Optional content ID for cost attribution and tracking.
+            pdf_path: Path to the PDF file.
+            content_id: Optional content ID for cost attribution.
 
         Returns:
-            UnifiedContent: Complete extracted content including text, metadata,
-                and all annotations (digital and handwritten).
+            UnifiedContent: Complete extracted content.
         """
         pdf_path = Path(pdf_path)
 
-        # Reset usage records for this processing run
+        # Reset usage records
         self._usage_records = []
         self._content_id = content_id
 
@@ -205,37 +179,62 @@ class PDFProcessor(BasePipeline):
             self.logger.info(f"Duplicate PDF detected: {pdf_path}")
             return existing
 
-        self.logger.info(f"Processing PDF: {pdf_path}")
+        self.logger.info(f"Processing PDF with OCR: {pdf_path}")
 
-        # Step 1: Extract metadata
-        metadata = self._extract_metadata(pdf_path)
-
-        # Step 2: Extract text
-        full_text = self._extract_text(pdf_path)
-
-        # Step 3: Extract digital annotations
-        digital_annotations = self._extract_digital_annotations(pdf_path)
-
-        # Step 4: Detect handwritten annotations (if enabled)
-        handwritten_annotations: list[Annotation] = []
-        if self.enable_handwriting_detection:
-            handwritten_annotations = await self._extract_handwritten_annotations(
-                pdf_path
-            )
-
-        # Combine all annotations
-        all_annotations = digital_annotations + handwritten_annotations
-
-        # Determine content type (paper vs article vs book)
-        content_type = await self._infer_content_type(metadata, full_text)
-
-        self.logger.info(
-            f"Extracted {len(full_text)} chars, "
-            f"{len(digital_annotations)} digital annotations, "
-            f"{len(handwritten_annotations)} handwritten annotations"
+        # Run OCR on entire document
+        ocr_result = await ocr_pdf_document_annotated(
+            pdf_path=pdf_path,
+            model=self.ocr_model,
+            include_images=self.include_images,
+            pipeline=self.PIPELINE_NAME,
+            content_id=self._content_id,
+            operation="document_ocr",
         )
 
-        # Log all accumulated LLM costs to database
+        # Track OCR usage
+        if ocr_result.usage:
+            self._usage_records.append(ocr_result.usage)
+
+        # Extract metadata from document annotation (if available)
+        doc_ann = ocr_result.document_annotation
+        title = (doc_ann.title if doc_ann else "") or pdf_path.stem
+        authors = doc_ann.authors if doc_ann else []
+
+        # Extract annotations from both OCR (handwritten, figures) and PDF structure (highlights)
+        ocr_annotations = self._extract_ocr_annotations(ocr_result)
+        pdf_annotations = self._extract_pdf_annotations(pdf_path)
+        annotations = ocr_annotations + pdf_annotations
+
+        # Classify content type
+        content_type = await self._infer_content_type(title, ocr_result.full_text)
+
+        # Count annotation types
+        highlight_count = sum(
+            1 for a in annotations if a.type == AnnotationType.DIGITAL_HIGHLIGHT
+        )
+        handwritten_count = sum(
+            1 for a in annotations if a.type == AnnotationType.HANDWRITTEN_NOTE
+        )
+        comment_count = sum(
+            1 for a in annotations if a.type == AnnotationType.TYPED_COMMENT
+        )
+        diagram_count = sum(
+            1 for a in annotations if a.type == AnnotationType.DIAGRAM
+        )
+        underline_count = sum(
+            1 for a in annotations if a.type == AnnotationType.UNDERLINE
+        )
+
+        self.logger.info(
+            f"OCR extracted {len(ocr_result.full_text)} chars from {len(ocr_result.pages)} pages"
+        )
+        self.logger.info(
+            f"Found {len(annotations)} annotations: "
+            f"{highlight_count} highlights, {handwritten_count} handwritten, "
+            f"{comment_count} comments, {diagram_count} diagrams/figures, {underline_count} underlines"
+        )
+
+        # Log accumulated costs
         if self.track_costs and self._usage_records:
             total_cost = sum(u.cost_usd or 0 for u in self._usage_records)
             self.logger.info(
@@ -247,384 +246,237 @@ class PDFProcessor(BasePipeline):
         return UnifiedContent(
             source_type=content_type,
             source_file_path=str(pdf_path),
-            title=metadata.get("title", pdf_path.stem),
-            authors=metadata.get("authors", []),
-            created_at=metadata.get("created", datetime.now()),
-            full_text=full_text,
-            annotations=all_annotations,
+            title=title,
+            authors=authors,
+            created_at=datetime.now(),
+            full_text=ocr_result.full_text,
+            annotations=annotations,
             raw_file_hash=file_hash,
             asset_paths=[str(pdf_path)],
             metadata={
+                "ocr_model": self.ocr_model,
+                "page_count": len(ocr_result.pages),
+                "summary": doc_ann.summary if doc_ann else None,
+                "languages": doc_ann.languages if doc_ann else None,
                 "llm_cost_usd": sum(u.cost_usd or 0 for u in self._usage_records),
                 "llm_api_calls": len(self._usage_records),
+                "annotation_counts": {
+                    "highlights": highlight_count,
+                    "handwritten_notes": handwritten_count,
+                    "comments": comment_count,
+                    "diagrams": diagram_count,
+                    "underlines": underline_count,
+                    "total": len(annotations),
+                },
             },
         )
 
-    def _extract_metadata(self, pdf_path: Path) -> dict[str, Any]:
+    def _extract_ocr_annotations(self, ocr_result: MistralOCRResult) -> list[Annotation]:
         """
-        Extract PDF metadata including title, authors, and creation date.
+        Extract annotations from OCR result.
 
-        Uses PyMuPDF to read embedded PDF metadata. Parses author fields
-        that may be separated by commas, semicolons, or ampersands.
-        Handles PDF date format (D:YYYYMMDDHHmmSS+TZ) for creation dates.
+        Parses image_annotation fields from OCR to identify:
+        - Handwritten notes (image_type: "text" with "handwritten" in description)
+        - Diagrams/figures (image_type: "graph" or other visual elements)
+
+        Args:
+            ocr_result: Result from OCR processing.
+
+        Returns:
+            List of annotations found in the document.
+        """
+        annotations: list[Annotation] = []
+
+        for page in ocr_result.pages:
+            for i, img in enumerate(page.images):
+                image_id = img.id or f"img_{i}"
+                position: dict[str, Any] = {"image_id": image_id}
+
+                # Add bounding box if available
+                if img.has_bbox:
+                    position["bbox"] = {
+                        "top_left_x": img.top_left_x,
+                        "top_left_y": img.top_left_y,
+                        "bottom_right_x": img.bottom_right_x,
+                        "bottom_right_y": img.bottom_right_y,
+                    }
+
+                # Parse image annotation if present (already parsed as dict in ImageInfo)
+                annotation_data = img.annotation
+                if annotation_data:
+                    try:
+                        # annotation is already a dict in ImageInfo
+                        image_type = annotation_data.get("image_type", "").lower()
+                        description = annotation_data.get("description", "")
+
+                        # Check for handwritten content
+                        is_handwritten = "handwritten" in description.lower()
+
+                        if is_handwritten:
+                            # Handwritten note detected
+                            annotations.append(
+                                Annotation(
+                                    type=AnnotationType.HANDWRITTEN_NOTE,
+                                    content=description,
+                                    page_number=page.index + 1,
+                                    position=position,
+                                )
+                            )
+                        elif image_type == "graph":
+                            # Diagram/graph detected
+                            annotations.append(
+                                Annotation(
+                                    type=AnnotationType.DIAGRAM,
+                                    content=description
+                                    or f"Diagram on page {page.index + 1}",
+                                    page_number=page.index + 1,
+                                    position=position,
+                                )
+                            )
+                        else:
+                            # Other image types (figures, etc.)
+                            annotations.append(
+                                Annotation(
+                                    type=AnnotationType.DIAGRAM,
+                                    content=description
+                                    or f"Figure on page {page.index + 1}",
+                                    page_number=page.index + 1,
+                                    position=position,
+                                )
+                            )
+                    except (TypeError, KeyError, AttributeError):
+                        # Fallback if annotation parsing fails
+                        annotations.append(
+                            Annotation(
+                                type=AnnotationType.DIAGRAM,
+                                content=f"Image on page {page.index + 1}",
+                                page_number=page.index + 1,
+                                position=position,
+                            )
+                        )
+                else:
+                    # No annotation data, treat as generic figure
+                    annotations.append(
+                        Annotation(
+                            type=AnnotationType.DIAGRAM,
+                            content=f"Figure on page {page.index + 1}",
+                            page_number=page.index + 1,
+                            position=position,
+                        )
+                    )
+
+        return annotations
+
+    def _extract_pdf_annotations(self, pdf_path: Path) -> list[Annotation]:
+        """
+        Extract PDF annotations (highlights, underlines, comments) using PyMuPDF.
+
+        PDF annotations are stored as annotation objects in the PDF structure,
+        separate from the rendered page content. This method extracts:
+        - Highlights (type 8)
+        - Underlines (type 9)
+        - Squiggly underlines (type 10)
+        - Strikeouts (type 11)
+        - Comments/sticky notes (type 0: Text)
+        - Free text annotations (type 2: FreeText)
 
         Args:
             pdf_path: Path to the PDF file.
 
         Returns:
-            dict[str, Any]: Dictionary containing:
-                - "title" (str): Document title or filename stem if not available.
-                - "authors" (list[str]): List of author names, empty if not available.
-                - "created" (datetime | None): Creation date or current time if not parseable.
+            List of annotations extracted from the PDF structure.
         """
-        doc = fitz.open(pdf_path)
-        meta = doc.metadata or {}
+        annotations: list[Annotation] = []
 
-        result: dict[str, Any] = {
-            "title": meta.get("title") or pdf_path.stem,
-            "authors": [],
-            "created": None,
+        # Map PyMuPDF annotation type codes to our AnnotationType
+        # See pdf_utils.py for full type code reference
+        type_code_mapping: dict[int, AnnotationType | None] = {
+            0: AnnotationType.TYPED_COMMENT,      # Text (sticky note)
+            1: None,                               # Link - skip
+            2: AnnotationType.TYPED_COMMENT,      # FreeText
+            8: AnnotationType.DIGITAL_HIGHLIGHT,  # Highlight
+            9: AnnotationType.UNDERLINE,          # Underline
+            10: AnnotationType.UNDERLINE,         # Squiggly
+            11: AnnotationType.UNDERLINE,         # StrikeOut
+            16: None,                              # Popup - skip
         }
 
-        # Parse author field (may be comma, semicolon, or & separated)
-        if meta.get("author"):
-            authors = re.split(r"[,;&]", meta["author"])
-            result["authors"] = [a.strip() for a in authors if a.strip()]
-
-        # Parse creation date
-        if meta.get("creationDate"):
-            try:
-                # PDF date format: D:YYYYMMDDHHmmSS+TZ
-                date_str = meta["creationDate"].replace("D:", "")[:8]
-                result["created"] = datetime.strptime(date_str, "%Y%m%d")
-            except (ValueError, IndexError):
-                result["created"] = datetime.now()
-        else:
-            result["created"] = datetime.now()
-
-        doc.close()
-        return result
-
-    def _extract_text(self, pdf_path: Path) -> str:
-        """
-        Extract all printed text from PDF with page markers.
-
-        Uses PyMuPDF for fast, layout-aware text extraction. Each page's
-        content is prefixed with a page marker in the format "[Page N]".
-
-        Args:
-            pdf_path: Path to the PDF file.
-
-        Returns:
-            str: Concatenated text from all pages with page markers,
-                separated by double newlines.
-        """
-        doc = fitz.open(pdf_path)
-        text_parts: list[str] = []
-
-        for page_num, page in enumerate(doc, 1):
-            text = page.get_text("text")
-            if text.strip():
-                text_parts.append(f"[Page {page_num}]\n{text}")
-
-        doc.close()
-        return "\n\n".join(text_parts)
-
-    def _extract_digital_annotations(self, pdf_path: Path) -> list[Annotation]:
-        """
-        Extract digital highlights, underlines, and comments from PDF.
-
-        Uses pdfplumber to read PDF annotation objects. Supports:
-        - Highlights: Extracts highlighted text
-        - Text/FreeText/Popup/Note: Extracts comment content
-        - Underlines: Extracts underlined text
-
-        Args:
-            pdf_path: Path to the PDF file.
-
-        Returns:
-            list[Annotation]: List of Annotation objects for each digital
-                annotation found, with type, content, page number, and position.
-        """
-        annotations: list[Annotation] = []
-
         try:
-            with pdfplumber.open(pdf_path) as pdf:
-                for page_num, page in enumerate(pdf.pages, 1):
-                    page_annots = page.annots or []
+            # Use pdf_utils to extract annotations via PyMuPDF
+            raw_annotations = extract_pdf_annotations(pdf_path)
 
-                    for annot in page_annots:
-                        annot_type = annot.get("subtype", "").lower()
+            for annot_info in raw_annotations:
+                type_code = annot_info.get("type_code")
+                type_name = annot_info.get("type_name", "Unknown")
 
-                        if annot_type == "highlight":
-                            text = self._get_text_in_rect(page, annot.get("rect"))
-                            if text:
-                                annotations.append(
-                                    Annotation(
-                                        type=AnnotationType.DIGITAL_HIGHLIGHT,
-                                        content=text,
-                                        page_number=page_num,
-                                        position={"rect": annot.get("rect")},
-                                    )
-                                )
+                # Map to our annotation type
+                annotation_type = type_code_mapping.get(type_code)
+                if annotation_type is None:
+                    continue
 
-                        elif annot_type in ("text", "freetext", "popup", "note"):
-                            content = annot.get("contents") or annot.get("text", "")
-                            if content:
-                                annotations.append(
-                                    Annotation(
-                                        type=AnnotationType.TYPED_COMMENT,
-                                        content=content,
-                                        page_number=page_num,
-                                        position={"rect": annot.get("rect")},
-                                    )
-                                )
+                # Get text content using the helper function
+                content = get_annotation_text(annot_info) or ""
 
-                        elif annot_type == "underline":
-                            text = self._get_text_in_rect(page, annot.get("rect"))
-                            if text:
-                                annotations.append(
-                                    Annotation(
-                                        type=AnnotationType.UNDERLINE,
-                                        content=text,
-                                        page_number=page_num,
-                                        position={
-                                            "rect": annot.get("rect"),
-                                            "style": "underline",
-                                        },
-                                    )
-                                )
-        except Exception as e:
-            self.logger.warning(f"Error extracting digital annotations: {e}")
+                # Also check for comments (stored separately from highlighted text)
+                comment = annot_info.get("comment", "")
+                if comment and not content:
+                    content = comment
+                elif comment and content:
+                    content = f"{content}\n[Comment: {comment}]"
 
-        return annotations
+                # Build position info
+                position: dict[str, Any] = {"type_name": type_name}
+                rect = annot_info.get("rect")
+                if rect:
+                    position["rect"] = rect
+                author = annot_info.get("author")
+                if author:
+                    position["author"] = author
+                if annot_info.get("fill_color"):
+                    position["fill_color"] = annot_info["fill_color"]
+                if annot_info.get("stroke_color"):
+                    position["stroke_color"] = annot_info["stroke_color"]
 
-    def _get_text_in_rect(
-        self,
-        page: pdfplumber.page.Page,
-        rect: Optional[tuple[float, float, float, float]],
-    ) -> str:
-        """
-        Extract text within a bounding rectangle on a page.
+                # Get page number (pdf_utils uses 1-based page numbers)
+                page_number = annot_info.get("page", 1)
 
-        Args:
-            page: A pdfplumber Page object to extract text from.
-            rect: Bounding box as (x0, y0, x1, y1) tuple, or None.
-
-        Returns:
-            str: Extracted text within the rectangle, or empty string if
-                rect is None or extraction fails.
-        """
-        if not rect:
-            return ""
-        try:
-            crop = page.within_bbox(rect)
-            chars = crop.chars
-            return "".join(c.get("text", "") for c in chars).strip()
-        except Exception:
-            return ""
-
-    async def _extract_handwritten_annotations(
-        self,
-        pdf_path: Path,
-    ) -> list[Annotation]:
-        """
-        Transcribe handwritten annotations from PDF pages using Vision LLM.
-
-        Converts PDF pages to images and processes them in batches to reduce
-        API calls. Each batch sends multiple page images in a single VLM request.
-
-        Args:
-            pdf_path: Path to the PDF file.
-
-        Returns:
-            list[Annotation]: List of Annotation objects for each handwritten
-                annotation found, including transcribed text and location.
-        """
-        annotations: list[Annotation] = []
-
-        try:
-            # Convert PDF pages to images, pair with 1-indexed page numbers
-            images = convert_from_path(pdf_path, dpi=self.image_dpi)
-            numbered_pages = list[tuple[int, Image]](enumerate(images, start=1))
-
-            # Process in batches
-            for batch in batched(numbered_pages, self.handwriting_batch_size):
-                page_numbers, batch_images = zip(*batch)
-                page_numbers = list(page_numbers)
-
-                self.logger.debug(
-                    f"Processing handwriting batch: pages {page_numbers[0]}-{page_numbers[-1]}"
-                )
-
-                batch_annotations = await self._transcribe_handwriting_batch(
-                    list(batch_images), page_numbers
-                )
-
-                if batch_annotations:
-                    self.logger.info(
-                        f"Found {len(batch_annotations)} handwritten annotations "
-                        f"in pages {page_numbers[0]}-{page_numbers[-1]}"
+                # Create annotation if we have content or it's a markup type
+                if content or type_code in {8, 9, 10, 11}:
+                    annotations.append(
+                        Annotation(
+                            type=annotation_type,
+                            content=content or f"[{type_name} annotation]",
+                            page_number=page_number,
+                            position=position,
+                        )
                     )
-                    annotations.extend(batch_annotations)
 
-        except Exception as e:
-            self.logger.error(f"Handwriting extraction failed: {e}")
-
-        return annotations
-
-    async def _transcribe_handwriting_batch(
-        self,
-        images: list[Image.Image],
-        page_numbers: list[int],
-    ) -> list[Annotation]:
-        """
-        Transcribe handwritten content from multiple page images in a single API call.
-
-        Sends multiple page images to the Vision LLM together, with a prompt that
-        instructs the model to identify which page each annotation comes from.
-
-        Args:
-            images: List of PIL Images of PDF pages to analyze.
-            page_numbers: List of 1-indexed page numbers corresponding to each image.
-
-        Returns:
-            list[Annotation]: List of Annotation objects with transcribed
-                handwritten content, or empty list on error.
-        """
-        # Convert images to base64
-        images_b64 = [image_to_base64(img) for img in images]
-
-        # Build page reference string
-        page_refs = ", ".join(
-            f"Image {i + 1} = Page {pn}" for i, pn in enumerate(page_numbers)
-        )
-
-        prompt = f"""Analyze these document pages and extract ALL handwritten annotations.
-
-Page mapping: {page_refs}
-
-For each handwritten element, provide:
-1. The page number it appears on
-2. The transcribed text (use [unclear] for illegible parts)
-3. Its location on the page
-4. Any nearby printed text it relates to
-
-Return as JSON array:
-[
-  {{
-    "page": 1,
-    "text": "transcribed handwritten text",
-    "location": "top-right margin",
-    "context": "nearby printed text or null",
-    "type": "note|question|arrow|underline|circle"
-  }}
-]
-
-If no handwritten content exists on any page, return: []"""
-
-        try:
-            response, usage = await vision_completion_multi_image(
-                model=self.ocr_model,
-                prompt=prompt,
-                images=images_b64,
-                max_tokens=self.ocr_max_tokens,
-                json_mode=self.use_json_mode,
-                pipeline=self.PIPELINE_NAME,
-                content_id=self._content_id,
-                operation="handwriting_transcription_batch",
+            self.logger.debug(
+                f"Extracted {len(annotations)} PDF annotations from {pdf_path}"
             )
 
-            # Track usage for batch logging
-            self._usage_records.append(usage)
-
-            return self._parse_handwriting_batch_response(response, page_numbers)
-
         except Exception as e:
-            self.logger.error(f"Handwriting transcription batch failed: {e}")
-            return []
-
-    def _parse_handwriting_batch_response(
-        self,
-        response_text: str,
-        valid_page_numbers: list[int],
-    ) -> list[Annotation]:
-        """
-        Parse batched LLM response into Annotation objects.
-
-        Extracts JSON array from the LLM response and converts each item
-        into an Annotation with HANDWRITTEN_NOTE type. Each item must include
-        a page number field.
-
-        Args:
-            response_text: Raw text response from the Vision LLM.
-            valid_page_numbers: List of valid page numbers for this batch,
-                used to validate and default page assignments.
-
-        Returns:
-            list[Annotation]: List of Annotation objects parsed from the response,
-                or empty list if parsing fails or response is invalid.
-        """
-        items = extract_json_from_response(response_text)
-
-        if not items or not isinstance(items, list):
-            return []
-
-        annotations: list[Annotation] = []
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-
-            text = item.get("text", "").strip()
-            if not text:
-                continue
-
-            # Get page number from response, default to first page in batch if missing
-            page_num = item.get("page")
-            if page_num is None or page_num not in valid_page_numbers:
-                page_num = valid_page_numbers[0]
-
-            annotations.append(
-                Annotation(
-                    type=AnnotationType.HANDWRITTEN_NOTE,
-                    content=text,
-                    page_number=page_num,
-                    context=item.get("context"),
-                    position={
-                        "location": item.get("location"),
-                        "mark_type": item.get("type"),
-                    },
-                )
-            )
+            self.logger.warning(f"Failed to extract PDF annotations: {e}")
 
         return annotations
 
     async def _infer_content_type(
         self,
-        metadata: dict[str, Any],
+        title: str,
         text: str,
     ) -> ContentType:
         """
-        Infer whether PDF is a paper, article, or book using LLM classification.
-
-        Sends the document title and initial text to an LLM for classification.
-        Falls back to ARTICLE if classification fails.
+        Infer whether PDF is a paper, article, or book using LLM.
 
         Args:
-            metadata: Extracted PDF metadata including title.
-            text: Full extracted text from the PDF.
+            title: Document title.
+            text: Full extracted text.
 
         Returns:
-            ContentType: PAPER for academic/research papers, BOOK for books/ebooks,
-                or ARTICLE for general articles and other documents.
+            ContentType: PAPER, BOOK, or ARTICLE.
         """
-        # Extract title from metadata
-        title = metadata.get("title", "Unknown")
-
-        # Use first ~3000 chars to stay well within token limits
         text_sample = text[:3000]
 
-        # Construct prompt for content type classification
         prompt = f"""Classify this PDF document into exactly one category.
 
 Title: {title}
@@ -633,9 +485,9 @@ Text excerpt:
 {text_sample}
 
 Categories:
-- paper: Academic/research papers, scientific publications, conference papers, journal articles, preprints (arXiv, etc.)
+- paper: Academic/research papers, scientific publications, conference papers, journal articles
 - book: Books, ebooks, textbooks, manuals with chapters
-- article: Blog posts, news articles, general web articles, reports, other documents
+- article: Blog posts, news articles, general documents, reports
 
 Respond with ONLY the category name (paper, book, or article), nothing else."""
 
@@ -650,10 +502,8 @@ Respond with ONLY the category name (paper, book, or article), nothing else."""
                 operation="content_type_classification",
             )
 
-            # Track usage for batch logging
             self._usage_records.append(usage)
 
-            # Parse response
             result = response.strip().lower()
             if "paper" in result:
                 return ContentType.PAPER
@@ -663,7 +513,5 @@ Respond with ONLY the category name (paper, book, or article), nothing else."""
                 return ContentType.ARTICLE
 
         except Exception as e:
-            self.logger.warning(
-                f"Content type inference failed, defaulting to ARTICLE: {e}"
-            )
+            self.logger.warning(f"Content type inference failed: {e}")
             return ContentType.ARTICLE

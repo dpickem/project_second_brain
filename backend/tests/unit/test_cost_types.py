@@ -31,7 +31,7 @@ class TestLLMUsage:
     def test_to_dict(self):
         """Test conversion to dictionary."""
         usage = LLMUsage(
-            model="mistral/mistral-ocr-2512",
+            model="mistral/mistral-ocr-latest",
             provider="mistral",
             request_type="vision",
             prompt_tokens=100,
@@ -43,7 +43,7 @@ class TestLLMUsage:
         result = usage.to_dict()
 
         assert isinstance(result, dict)
-        assert result["model"] == "mistral/mistral-ocr-2512"
+        assert result["model"] == "mistral/mistral-ocr-latest"
         assert result["provider"] == "mistral"
         assert result["request_type"] == "vision"
         assert result["prompt_tokens"] == 100
@@ -95,7 +95,7 @@ class TestExtractProvider:
 
     def test_extract_provider_with_slash(self):
         """Test extracting provider from model with slash."""
-        assert extract_provider("mistral/mistral-ocr-2512") == "mistral"
+        assert extract_provider("mistral/mistral-ocr-latest") == "mistral"
         assert extract_provider("openai/gpt-4") == "openai"
         assert extract_provider("anthropic/claude-3") == "anthropic"
 
@@ -123,14 +123,14 @@ class TestExtractUsageFromResponse:
 
         usage = extract_usage_from_response(
             response=mock_response,
-            model="mistral/mistral-ocr-2512",
+            model="mistral/mistral-ocr-latest",
             request_type="vision",
             latency_ms=1234,
             pipeline="book_ocr",
             operation="page_extraction",
         )
 
-        assert usage.model == "mistral/mistral-ocr-2512"
+        assert usage.model == "mistral/mistral-ocr-latest"
         assert usage.provider == "mistral"
         assert usage.request_type == "vision"
         assert usage.prompt_tokens == 100
@@ -211,13 +211,13 @@ class TestCreateErrorUsage:
     def test_create_error_usage_basic(self):
         """Test creating error usage record."""
         usage = create_error_usage(
-            model="mistral/mistral-ocr-2512",
+            model="mistral/mistral-ocr-latest",
             request_type="vision",
             latency_ms=500,
             error_message="API rate limit exceeded",
         )
 
-        assert usage.model == "mistral/mistral-ocr-2512"
+        assert usage.model == "mistral/mistral-ocr-latest"
         assert usage.provider == "mistral"
         assert usage.request_type == "vision"
         assert usage.latency_ms == 500

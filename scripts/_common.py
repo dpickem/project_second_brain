@@ -3,6 +3,14 @@ Common utilities shared across setup scripts.
 
 This module provides shared configuration loading and path resolution
 functions used by all setup scripts.
+
+CONFIGURATION SOURCES (in priority order):
+    1. Command-line arguments (--data-dir, --vault-path)
+    2. Environment variables (DATA_DIR, OBSIDIAN_VAULT_PATH)
+    3. Backend settings (backend/app/config/settings.py)
+    4. YAML config (config/default.yaml)
+
+For secrets and deployment config, see .env.example
 """
 
 import os
@@ -41,6 +49,38 @@ def load_tag_taxonomy() -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
+def _get_settings_data_dir() -> Optional[Path]:
+    """
+    Try to get DATA_DIR from backend settings.
+
+    Returns None if backend settings are not available.
+    """
+    try:
+        from backend.app.config.settings import settings
+
+        if settings.DATA_DIR:
+            return Path(settings.DATA_DIR).expanduser().resolve()
+    except ImportError:
+        pass
+    return None
+
+
+def _get_settings_vault_path() -> Optional[Path]:
+    """
+    Try to get OBSIDIAN_VAULT_PATH from backend settings.
+
+    Returns None if backend settings are not available.
+    """
+    try:
+        from backend.app.config.settings import settings
+
+        if settings.OBSIDIAN_VAULT_PATH:
+            return Path(settings.OBSIDIAN_VAULT_PATH).expanduser().resolve()
+    except ImportError:
+        pass
+    return None
+
+
 def get_data_dir(
     args_data_dir: Optional[str] = None, config: Optional[dict[str, Any]] = None
 ) -> Path:
@@ -50,13 +90,19 @@ def get_data_dir(
     Priority:
     1. --data-dir argument
     2. DATA_DIR environment variable
-    3. data.root from config/default.yaml
+    3. Backend settings (settings.DATA_DIR)
+    4. data.root from config/default.yaml
     """
     if args_data_dir:
         return Path(args_data_dir).expanduser().resolve()
 
     if os.environ.get("DATA_DIR"):
         return Path(os.environ["DATA_DIR"]).expanduser().resolve()
+
+    # Try backend settings
+    settings_dir = _get_settings_data_dir()
+    if settings_dir:
+        return settings_dir
 
     # Fall back to config default
     if config:
@@ -77,13 +123,19 @@ def get_vault_path(
     Priority:
     1. --vault-path argument
     2. OBSIDIAN_VAULT_PATH env var
-    3. DATA_DIR / data.subdirs.obsidian from config
+    3. Backend settings (settings.OBSIDIAN_VAULT_PATH)
+    4. DATA_DIR / data.subdirs.obsidian from config
     """
     if args_vault_path:
         return Path(args_vault_path).expanduser().resolve()
 
     if os.environ.get("OBSIDIAN_VAULT_PATH"):
         return Path(os.environ["OBSIDIAN_VAULT_PATH"]).expanduser().resolve()
+
+    # Try backend settings
+    settings_path = _get_settings_vault_path()
+    if settings_path:
+        return settings_path
 
     # Get obsidian subdir name from config
     data_config = config.get("data", {})

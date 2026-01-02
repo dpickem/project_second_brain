@@ -367,7 +367,8 @@ Located in `app/pipelines/utils/`:
 
 | Module | Purpose |
 |--------|---------|
-| `ocr_client.py` | Vision/OCR completion via LiteLLM (supports Mistral, OpenAI, Anthropic) |
+| `vlm_client.py` | Vision Language Model completion via LiteLLM (supports OpenAI, Gemini, Anthropic) |
+| `mistral_ocr_client.py` | Dedicated Mistral OCR for PDF document processing with annotations |
 | `cost_types.py` | LLM usage tracking types (`LLMUsage`, cost extraction) |
 | `hash_utils.py` | File and content hashing for deduplication |
 | `image_utils.py` | Image preprocessing, base64 encoding, rotation |
@@ -376,10 +377,10 @@ Located in `app/pipelines/utils/`:
 ### OCR Client Example
 
 ```python
-from app.pipelines.utils.ocr_client import vision_completion
+from app.pipelines.utils.vlm_client import vision_completion
 
 response, usage = await vision_completion(
-    model="mistral/mistral-ocr-2512",
+    model="mistral/mistral-ocr-latest",
     prompt="Extract all text from this image",
     image_data=base64_image,
     json_mode=True,
@@ -441,7 +442,7 @@ UnifiedContent(
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OCR_MODEL` | `mistral/mistral-ocr-2512` | Vision model for OCR |
+| `OCR_MODEL` | `mistral/mistral-ocr-latest` | Vision model for OCR |
 | `TEXT_MODEL` | `openai/gpt-4o-mini` | Text model for inference |
 | `OPENAI_API_KEY` | - | Required for Whisper transcription |
 | `MISTRAL_API_KEY` | - | Required for Mistral OCR |

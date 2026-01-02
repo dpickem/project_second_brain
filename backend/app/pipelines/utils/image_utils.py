@@ -4,6 +4,8 @@ Image Processing Utilities
 Provides utilities for image preprocessing, conversion, and optimization
 for OCR and Vision LLM processing.
 
+Supports HEIC/HEIF images (common on iOS) via pillow-heif package.
+
 Usage:
     from app.pipelines.utils.image_utils import image_to_base64, preprocess_for_ocr
 
@@ -17,7 +19,11 @@ from typing import Union
 import base64
 import io
 
+import pillow_heif
 from PIL import Image, ImageEnhance, ImageFilter
+
+# Register HEIC/HEIF support (iOS photos)
+pillow_heif.register_heif_opener()
 
 
 def image_to_base64(image: Union[Image.Image, str, Path], format: str = "PNG") -> str:

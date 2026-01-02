@@ -423,7 +423,7 @@ class LLMUsageLog(Base):
         request_id: Unique UUID string for request deduplication and tracing.
             Max 64 characters. Indexed for fast lookups.
         model: Full model identifier including provider prefix (e.g.,
-            "mistral/mistral-ocr-2512", "openai/gpt-4-turbo"). Max 100 chars. Indexed.
+            "mistral/mistral-ocr-latest", "openai/gpt-4-turbo"). Max 100 chars. Indexed.
         provider: LLM provider name (e.g., "mistral", "openai", "anthropic").
             Max 50 characters. Indexed for cost-by-provider queries.
         request_type: Type of LLM request (e.g., "vision" for image processing,
@@ -521,7 +521,7 @@ class LLMCostSummary(Base):
         total_tokens: Sum of all tokens (input + output) consumed in this period.
             Defaults to 0.
         cost_by_model: JSON dictionary mapping model identifiers to their costs in USD
-            (e.g., {"mistral/mistral-ocr-2512": 5.23, "openai/gpt-4": 12.50}).
+            (e.g., {"mistral/mistral-ocr-latest": 5.23, "openai/gpt-4": 12.50}).
             Optional, enables breakdown charts.
         cost_by_pipeline: JSON dictionary mapping pipeline names to their costs in USD
             (e.g., {"book_ocr": 8.00, "pdf_processor": 3.50}). Optional, enables
@@ -545,7 +545,7 @@ class LLMCostSummary(Base):
     total_requests: Mapped[int] = mapped_column(Integer, default=0)
     total_tokens: Mapped[int] = mapped_column(Integer, default=0)
 
-    # Breakdown by model (JSON: {"mistral/mistral-ocr-2512": 5.23, ...})
+    # Breakdown by model (JSON: {"mistral/mistral-ocr-latest": 5.23, ...})
     cost_by_model: Mapped[Optional[dict]] = mapped_column(JSON)
     cost_by_pipeline: Mapped[Optional[dict]] = mapped_column(JSON)
 

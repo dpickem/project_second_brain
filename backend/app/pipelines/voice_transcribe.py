@@ -24,6 +24,7 @@ Usage:
 
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -52,8 +53,9 @@ from app.services.cost_tracking import CostTracker
 
 logger = logging.getLogger(__name__)
 
-# Configure LiteLLM settings
-litellm.set_verbose = settings.DEBUG
+# Configure LiteLLM logging (set_verbose is deprecated)
+if settings.DEBUG:
+    os.environ["LITELLM_LOG"] = "DEBUG"
 
 # =============================================================================
 # Constants

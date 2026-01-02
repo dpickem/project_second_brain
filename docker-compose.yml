@@ -25,9 +25,19 @@
 #   - POSTGRES_DB        : PostgreSQL database name
 #   - NEO4J_PASSWORD     : Neo4j password
 #
+# LLM API KEYS (at least one required for LLM features):
+#   - OPENAI_API_KEY     : For text completion, embeddings
+#   - MISTRAL_API_KEY    : For OCR (Pixtral), text completion
+#   - ANTHROPIC_API_KEY  : For text completion
+#
 # OPTIONAL ENVIRONMENT VARIABLES:
-#   - OPENAI_API_KEY     : For embeddings and LLM features
+#   - OCR_MODEL          : Vision model for OCR (default: mistral/mistral-ocr-latest)
+#   - TEXT_MODEL         : Text model (default: gemini/gemini-3-flash-preview)
+#   - RAINDROP_ACCESS_TOKEN : For Raindrop.io bookmark sync
+#   - GITHUB_ACCESS_TOKEN   : For GitHub starred repo import
 #   - DEBUG              : Enable debug mode (true/false)
+#
+# See .env.example for full list of available environment variables.
 #
 # USEFUL COMMANDS:
 #   # Rebuild after code changes
@@ -107,6 +117,7 @@ services:
   backend:
     build: ./backend
     environment:
+      # ----- Infrastructure (service discovery within Docker network) -----
       # PostgreSQL
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -115,15 +126,44 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       # Redis
       - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
       # Neo4j
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=${NEO4J_PASSWORD}
-      # Obsidian vault (mounted at /vault in container)
+      # ----- Paths -----
       - OBSIDIAN_VAULT_PATH=/vault
-      # OpenAI (optional)
+      - UPLOAD_DIR=/tmp/second_brain_uploads
+      - DATA_DIR=/data
+      # ----- LLM API Keys -----
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      # App settings
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      # ----- LLM Model Configuration -----
+      - OCR_MODEL=${OCR_MODEL:-mistral/mistral-ocr-latest}
+      - OCR_MAX_TOKENS=${OCR_MAX_TOKENS:-4000}
+      - OCR_USE_JSON_MODE=${OCR_USE_JSON_MODE:-true}
+      - TEXT_MODEL=${TEXT_MODEL:-gemini/gemini-3-flash-preview}
+      # ----- LLM Budget -----
+      - LITELLM_BUDGET_MAX=${LITELLM_BUDGET_MAX:-100.0}
+      - LITELLM_BUDGET_ALERT=${LITELLM_BUDGET_ALERT:-80.0}
+      # ----- Pipeline Settings -----
+      - PDF_HANDWRITING_DETECTION=${PDF_HANDWRITING_DETECTION:-true}
+      - PDF_IMAGE_DPI=${PDF_IMAGE_DPI:-300}
+      - PDF_MAX_FILE_SIZE_MB=${PDF_MAX_FILE_SIZE_MB:-50}
+      - VOICE_EXPAND_NOTES=${VOICE_EXPAND_NOTES:-true}
+      # ----- External API Tokens -----
+      - RAINDROP_ACCESS_TOKEN=${RAINDROP_ACCESS_TOKEN:-}
+      - GITHUB_ACCESS_TOKEN=${GITHUB_ACCESS_TOKEN:-}
+      # ----- Observability -----
+      - LANGFUSE_ENABLED=${LANGFUSE_ENABLED:-false}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
+      # ----- App Settings -----
+      - APP_NAME=${APP_NAME:-Second Brain}
       - DEBUG=${DEBUG:-false}
     depends_on:
       postgres:

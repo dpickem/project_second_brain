@@ -1,14 +1,15 @@
 """
 Web Article Pipeline
 
-Extracts content from web article URLs using Trafilatura.
-Handles generic article/blog post URLs without requiring any external service integration.
+Extracts content from web article URLs using Jina Reader API (primary) with
+Trafilatura fallback. Handles generic article/blog post URLs.
 
 Features:
-- Article content extraction via Trafilatura
+- Article content extraction via Jina Reader (handles JS-rendered pages)
+- Fallback to Trafilatura for static HTML pages
 - Title extraction from HTML
 - Metadata extraction (author, date)
-- Clean text output
+- Clean text/markdown output
 
 Usage:
     from app.pipelines import WebArticlePipeline, PipelineInput, PipelineContentType
@@ -23,13 +24,32 @@ Usage:
 
 import asyncio
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
-from trafilatura import bare_extraction, fetch_url
+import httpx
+from trafilatura import bare_extraction
 
 from app.models.content import ContentType, UnifiedContent
 from app.pipelines.base import BasePipeline, PipelineContentType, PipelineInput
+
+# Browser-like headers to avoid 403 errors from bot detection
+DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "DNT": "1",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+# Jina Reader API for JS-rendered pages (free, no API key required)
+JINA_READER_URL = "https://r.jina.ai/"
 
 
 class WebArticlePipeline(BasePipeline):
@@ -37,7 +57,7 @@ class WebArticlePipeline(BasePipeline):
     Generic web article extraction pipeline.
 
     Extracts article content, title, and metadata from any web URL
-    using Trafilatura for content extraction.
+    using Jina Reader API (primary) with Trafilatura fallback.
 
     Routing:
     - Content type: PipelineContentType.ARTICLE
@@ -130,7 +150,10 @@ class WebArticlePipeline(BasePipeline):
 
     async def _extract_article(self, url: str) -> dict[str, Any]:
         """
-        Extract article content and metadata from URL using Trafilatura.
+        Extract article content and metadata from URL.
+
+        Tries Jina Reader API first (more reliable, handles JS-rendered pages),
+        then falls back to Trafilatura for static HTML if Jina fails.
 
         Args:
             url: URL of the article to fetch and extract
@@ -138,13 +161,29 @@ class WebArticlePipeline(BasePipeline):
         Returns:
             Dict with extracted fields: title, author, date, text, etc.
         """
+        # Try Jina Reader first (more reliable, handles JS-rendered pages)
+        result = await self._extract_with_jina(url)
+        if result.get("text"):
+            return result
+
+        # Fallback to Trafilatura for static HTML pages
+        self.logger.debug(f"Jina Reader failed, trying Trafilatura for {url}")
+        return await self._extract_with_trafilatura(url)
+
+    async def _extract_with_trafilatura(self, url: str) -> dict[str, Any]:
+        """Extract using trafilatura (works for static HTML pages)."""
         try:
-            # Trafilatura's fetch_url is sync, run in executor
-            loop = asyncio.get_event_loop()
-            downloaded = await loop.run_in_executor(None, fetch_url, url)
+            async with httpx.AsyncClient(
+                headers=DEFAULT_HEADERS,
+                timeout=self.timeout,
+                follow_redirects=True,
+            ) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                downloaded = response.text
 
             if downloaded:
-                # Use bare_extraction for full metadata
+                loop = asyncio.get_event_loop()
                 extraction = await loop.run_in_executor(
                     None,
                     lambda: bare_extraction(
@@ -154,11 +193,107 @@ class WebArticlePipeline(BasePipeline):
                         include_links=False,
                     ),
                 )
-                return extraction or {}
+                if extraction is None:
+                    return {}
+                if isinstance(extraction, dict):
+                    result = extraction
+                else:
+                    result = self._document_to_dict(extraction)
+                # Add source and format metadata
+                result["source"] = "trafilatura"
+                result["format"] = "text"
+                return result
+        except httpx.HTTPStatusError as e:
+            self.logger.debug(f"HTTP {e.response.status_code} for {url}")
         except Exception as e:
-            self.logger.warning(f"Failed to extract article from {url}: {e}")
+            self.logger.debug(f"Trafilatura extraction failed for {url}: {e}")
 
         return {}
+
+    async def _extract_with_jina(self, url: str) -> dict[str, Any]:
+        """
+        Extract using Jina Reader API (handles JS-rendered pages).
+
+        Jina Reader (r.jina.ai) is a free service that renders JavaScript
+        and returns clean markdown content.
+        """
+        try:
+            jina_url = f"{JINA_READER_URL}{url}"
+            async with httpx.AsyncClient(
+                timeout=self.timeout,
+                follow_redirects=True,
+            ) as client:
+                response = await client.get(jina_url)
+                response.raise_for_status()
+                content = response.text
+
+            if content:
+                # Jina returns markdown with title on first line
+                lines = content.strip().split("\n")
+                title = ""
+                markdown = content
+
+                # Extract title from first markdown heading
+                if lines and lines[0].startswith("# "):
+                    title = lines[0][2:].strip()
+                    markdown = "\n".join(lines[1:]).strip()
+
+                return {
+                    "text": markdown,  # For compatibility
+                    "markdown": markdown,
+                    "title": title,
+                    "source": "jina_reader",
+                    "format": "markdown",
+                }
+        except httpx.HTTPStatusError as e:
+            self.logger.warning(f"Jina Reader HTTP {e.response.status_code} for {url}")
+        except Exception as e:
+            self.logger.warning(f"Jina Reader failed for {url}: {e}")
+
+        return {}
+
+    def _document_to_dict(self, doc: Any) -> dict[str, Any]:
+        """
+        Convert a trafilatura Document object to a dictionary.
+
+        Trafilatura >= 1.6 returns Document objects instead of dicts.
+
+        Args:
+            doc: Trafilatura Document object
+
+        Returns:
+            Dict with document fields
+        """
+        result: dict[str, Any] = {}
+
+        # Core content fields
+        for field in ["title", "author", "date", "text", "comments"]:
+            value = getattr(doc, field, None)
+            if value:
+                result[field] = value
+
+        # Metadata fields
+        for field in [
+            "hostname",
+            "sitename",
+            "description",
+            "categories",
+            "tags",
+            "license",
+            "language",
+            "url",
+            "source",
+            "source_hostname",
+            "excerpt",
+            "id",
+            "fingerprint",
+            "raw_text",
+        ]:
+            value = getattr(doc, field, None)
+            if value:
+                result[field] = value
+
+        return result
 
     async def extract_text_only(self, url: str) -> str:
         """
@@ -223,9 +358,15 @@ class WebArticlePipeline(BasePipeline):
             "tags",
             "license",
             "language",
+            "format",
+            "source",
         ]
         for field in optional_fields:
             if extraction.get(field):
                 metadata[field] = extraction[field]
+
+        # Include markdown content explicitly if available
+        if extraction.get("markdown"):
+            metadata["markdown"] = extraction["markdown"]
 
         return metadata

@@ -353,7 +353,7 @@ class RaindropSync(BasePipeline):
         self, include_nested: bool = True
     ) -> list[dict[str, Any]]:
         """
-        Get list of user's collections.
+        Get list of user's collections with full hierarchy paths.
 
         Uses Raindrop.io API endpoints:
         - GET /collections - root collections
@@ -365,7 +365,8 @@ class RaindropSync(BasePipeline):
             include_nested: If True, also fetch nested/child collections (default: True)
 
         Returns:
-            List of collection dicts with _id, title, count, parent, etc.
+            List of collection dicts with _id, title, count, parent, full_path, etc.
+            The full_path field contains the complete hierarchy (e.g., "Parent / Child").
         """
         all_collections: list[dict[str, Any]] = []
 
@@ -394,7 +395,42 @@ class RaindropSync(BasePipeline):
         except Exception as e:
             self.logger.error(f"Failed to get collections: {e}")
 
+        # Add full_path to each collection
+        self._add_collection_paths(all_collections)
+
         return all_collections
+
+    def _add_collection_paths(self, collections: list[dict[str, Any]]) -> None:
+        """
+        Add full_path field to each collection showing its hierarchy.
+
+        Modifies collections in place, adding a 'full_path' key with the
+        complete path from root to the collection (e.g., "Parent / Child / Grandchild").
+
+        Args:
+            collections: List of collection dicts to modify in place
+        """
+        # Build lookup for hierarchy traversal
+        coll_by_id: dict[int, dict[str, Any]] = {
+            c.get("_id"): c for c in collections if c.get("_id") is not None
+        }
+
+        def get_full_path(coll: dict[str, Any]) -> str:
+            """Build full hierarchy path for a collection."""
+            path_parts = [coll.get("title", "")]
+            parent_info = coll.get("parent")
+            while parent_info:
+                parent_id = parent_info.get("$id")
+                if parent_id and parent_id in coll_by_id:
+                    parent = coll_by_id[parent_id]
+                    path_parts.insert(0, parent.get("title", ""))
+                    parent_info = parent.get("parent")
+                else:
+                    break
+            return " / ".join(path_parts)
+
+        for coll in collections:
+            coll["full_path"] = get_full_path(coll)
 
     async def close(self) -> None:
         """Close the HTTP client and release resources."""

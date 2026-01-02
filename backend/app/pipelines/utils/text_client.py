@@ -29,6 +29,7 @@ Usage:
 """
 
 import logging
+import os
 import time
 from typing import Optional
 
@@ -41,11 +42,13 @@ from app.pipelines.utils.cost_types import (
     extract_usage_from_response,
     create_error_usage,
 )
+from app.pipelines.utils.api_utils import adjust_temperature_for_model
 
 logger = logging.getLogger(__name__)
 
-# Configure LiteLLM settings
-litellm.set_verbose = settings.DEBUG
+# Configure LiteLLM logging (set_verbose is deprecated)
+if settings.DEBUG:
+    os.environ["LITELLM_LOG"] = "DEBUG"
 
 
 def _build_messages(
@@ -70,11 +73,14 @@ def _build_kwargs(
     json_mode: bool,
 ) -> dict:
     """Build completion kwargs dict."""
+    # Adjust temperature for models that require specific values
+    adjusted_temp = adjust_temperature_for_model(model, temperature)
+
     kwargs = {
         "model": model,
         "messages": messages,
         "max_tokens": max_tokens,
-        "temperature": temperature,
+        "temperature": adjusted_temp,
     }
 
     if json_mode:

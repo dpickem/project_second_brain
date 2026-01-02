@@ -4,15 +4,16 @@ LLM Usage and Cost Tracking Types
 Defines the LLMUsage dataclass and helper functions for extracting
 cost/token information from LiteLLM responses.
 
-This module is separate from ocr_client.py to maintain clear separation
-between the completion wrapper functions and the cost tracking data structures.
+This module is separate from vlm_client.py and mistral_ocr_client.py to maintain
+clear separation between the completion wrapper functions and the cost tracking
+data structures.
 
 Usage:
     from app.pipelines.utils.cost_types import LLMUsage, extract_usage_from_response
 
     usage = extract_usage_from_response(
         response=litellm_response,
-        model="mistral/mistral-ocr-2512",
+        model="mistral/mistral-ocr-latest",
         request_type="vision",
         latency_ms=1234,
         pipeline="book_ocr",
@@ -37,7 +38,7 @@ class LLMUsage:
 
     Attributes:
         request_id: Unique identifier for this request (auto-generated UUID)
-        model: Full model identifier (e.g., "mistral/mistral-ocr-2512")
+        model: Full model identifier (e.g., "mistral/mistral-ocr-latest")
         provider: Extracted provider name (e.g., "mistral", "openai")
         request_type: Type of request ("vision", "text", "embedding")
         prompt_tokens: Number of input tokens
@@ -106,7 +107,7 @@ def extract_provider(model: str) -> str:
     Extract provider name from model identifier.
 
     Args:
-        model: Full model identifier (e.g., "mistral/mistral-ocr-2512")
+        model: Full model identifier (e.g., "mistral/mistral-ocr-latest")
 
     Returns:
         Provider name (e.g., "mistral") or "unknown" if not parseable

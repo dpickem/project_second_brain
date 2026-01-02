@@ -22,7 +22,7 @@ This document provides a detailed implementation plan for the LLM Processing Lay
 | Extraction | `openai/gpt-5.1-chat-latest` | Strong structured JSON output |
 | Connection Discovery | `anthropic/claude-4-5-opus-202511` | Nuanced reasoning |
 | Question Generation | `anthropic/claude-4-5-sonnet-202509` | Creative yet precise |
-| Vision/OCR | `mistral/mistral-ocr-2512` | SOTA for document AI |
+| Vision/OCR | `mistral/mistral-ocr-latest` | SOTA for document AI |
 | Embeddings | `openai/text-embedding-3-large` | High quality, larger dimensions |
 
 Models can be swapped via configuration without code changes.
@@ -93,7 +93,7 @@ LLM_MODEL_SUMMARIZATION=anthropic/claude-4-5-opus-202511
 LLM_MODEL_EXTRACTION=openai/gpt-5.1-chat-latest
 LLM_MODEL_CONNECTIONS=anthropic/claude-4-5-opus-202511
 LLM_MODEL_QUESTIONS=anthropic/claude-4-5-sonnet-202509
-LLM_MODEL_VISION_OCR=mistral/mistral-ocr-2512
+LLM_MODEL_VISION_OCR=mistral/mistral-ocr-latest
 LLM_MODEL_EMBEDDINGS=openai/text-embedding-3-large
 
 # LiteLLM Operational Controls
@@ -334,7 +334,7 @@ class LLMClient:
     
     # Fallback models for automatic failover
     FALLBACKS = {
-        "mistral/mistral-ocr-2512": "google/gemini-3-pro-latest",  # Gemini is the closest runner-up for complex OCR
+        "mistral/mistral-ocr-latest": "google/gemini-3-pro-latest",  # Gemini is the closest runner-up for complex OCR
         "anthropic/claude-4-5-opus-202511": "openai/gpt-5.1-chat-latest",
         "openai/gpt-5.1-chat-latest": "anthropic/claude-4-5-sonnet-202509",
         "openai/gpt-5-mini": "anthropic/claude-4-5-haiku-202510",
@@ -2677,7 +2677,7 @@ class ProcessingSettings(BaseSettings):
     LLM_MODEL_EXTRACTION: str = "openai/gpt-5.1-chat-latest"
     LLM_MODEL_CONNECTIONS: str = "anthropic/claude-4-5-opus-202511"
     LLM_MODEL_QUESTIONS: str = "anthropic/claude-4-5-sonnet-202509"
-    LLM_MODEL_VISION_OCR: str = "mistral/mistral-ocr-2512"
+    LLM_MODEL_VISION_OCR: str = "mistral/mistral-ocr-latest"
     LLM_MODEL_EMBEDDINGS: str = "openai/text-embedding-3-large"
     
     # Content Limits
