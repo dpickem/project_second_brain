@@ -8,6 +8,10 @@ frontend/dist
 # Prototype output
 prototypes/ocr_results/
 
+# Pipeline test output
+scripts/pipelines/*.json
+scripts/pipelines/*.md
+
 # Test data
 test_data/
 

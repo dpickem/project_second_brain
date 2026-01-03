@@ -310,9 +310,14 @@ async def run_voice(args: argparse.Namespace) -> None:
         print(f"Error: File not found: {audio_path}")
         sys.exit(1)
 
+    # Use settings.TEXT_MODEL as default when --text-model not provided
+    text_model = None
+    if not args.no_expand:
+        text_model = args.text_model or settings.TEXT_MODEL
+
     transcriber = VoiceTranscriber(
         whisper_model=args.whisper_model,
-        text_model=args.text_model if not args.no_expand else None,
+        text_model=text_model,
         expand_notes=not args.no_expand,
         track_costs=args.track_costs,
     )
@@ -362,9 +367,19 @@ async def run_github(args: argparse.Namespace) -> None:
         if args.starred:
             print(f"Importing starred repos (limit: {args.limit})")
             contents = await importer.import_starred_repos(limit=args.limit)
+
+            # Save all items to file if output_file specified
+            if args.output_file:
+                all_data = [content_to_dict(c) for c in contents]
+                full_json = json.dumps(all_data, indent=2, default=str)
+                Path(args.output_file).write_text(full_json)
+                print(f"Full output saved to: {args.output_file}")
+
             for content in contents:
                 print_result(content, args.output_format)
                 print("\n" + "=" * 60 + "\n")
+
+            print(f"Imported {len(contents)} repos")
         else:
             if not args.url:
                 print("Error: Provide a GitHub URL or use --starred")
@@ -614,9 +629,14 @@ async def run_with_cleanup() -> None:
     try:
         await main()
     finally:
-        # Cleanup LiteLLM async HTTP clients to avoid RuntimeWarning
+        # Give pending LiteLLM async callbacks time to complete
+        # This prevents "coroutine 'Logging.async_success_handler' was never awaited"
+        await asyncio.sleep(0.1)
+
+        # Cleanup LiteLLM async HTTP clients
         try:
             import litellm
+
             if hasattr(litellm, "aclient") and litellm.aclient:
                 await litellm.aclient.close()
         except Exception:
