@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db.base import get_db
 from app.db.redis import get_redis
+from app.services.queue import celery_app
 
 router = APIRouter(prefix="/api/health", tags=["health"])
 
@@ -45,6 +46,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
     - Redis cache
     - Neo4j graph database
     - Obsidian vault accessibility
+    - Celery workers
     """
     health = {"status": "healthy", "service": settings.APP_NAME, "dependencies": {}}
 
@@ -96,6 +98,37 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
         health["dependencies"]["obsidian_vault"] = {
             "status": "unhealthy",
             "error": str(e),
+        }
+        health["status"] = "degraded"
+
+    # Check Celery workers
+    try:
+        inspect = celery_app.control.inspect(timeout=2.0)
+        ping_response = inspect.ping()
+        
+        if ping_response:
+            worker_names = list(ping_response.keys())
+            active = inspect.active() or {}
+            active_tasks = sum(len(v) for v in active.values())
+            
+            health["dependencies"]["celery_workers"] = {
+                "status": "healthy",
+                "worker_count": len(worker_names),
+                "workers": worker_names,
+                "active_tasks": active_tasks,
+            }
+        else:
+            health["dependencies"]["celery_workers"] = {
+                "status": "unhealthy",
+                "error": "No workers responding",
+                "worker_count": 0,
+            }
+            health["status"] = "degraded"
+    except Exception as e:
+        health["dependencies"]["celery_workers"] = {
+            "status": "unhealthy",
+            "error": str(e),
+            "worker_count": 0,
         }
         health["status"] = "degraded"
 

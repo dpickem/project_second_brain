@@ -26,7 +26,7 @@ import httpx
 
 from app.models.content import ContentType, UnifiedContent
 from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
-from app.pipelines.utils.cost_types import LLMUsage
+from app.pipelines.utils.cost_types import LLMUsage, PipelineName, PipelineOperation
 from app.pipelines.utils.text_client import get_default_text_model, text_completion
 from app.services.cost_tracking import CostTracker
 
@@ -60,7 +60,7 @@ class GitHubImporter(BasePipeline):
 
     BASE_URL = "https://api.github.com"
     SUPPORTED_CONTENT_TYPES = {PipelineContentType.CODE}
-    PIPELINE_NAME = "github_importer"
+    PIPELINE_NAME = PipelineName.GITHUB_IMPORTER
 
     def __init__(
         self,
@@ -334,7 +334,7 @@ Keep the analysis concise but informative. Focus on aspects that would be valuab
             temperature=LLM_TEMPERATURE,
             pipeline=self.PIPELINE_NAME,
             content_id=self._content_id,
-            operation="repo_analysis",
+            operation=PipelineOperation.REPO_ANALYSIS,
         )
 
         # Track usage for batch logging

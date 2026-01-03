@@ -14,6 +14,7 @@
 #
 #   4. View logs:
 #      docker-compose logs -f backend
+#      docker-compose logs -f celery-worker
 #
 #   5. Stop all services:
 #      docker-compose down
@@ -56,6 +57,67 @@
 #   docker-compose exec redis redis-cli
 #
 # =============================================================================
+
+# =============================================================================
+# SHARED CONFIGURATION (YAML anchors for DRY)
+# =============================================================================
+# Extension fields (x-*) are ignored by Docker Compose but allow us to define
+# reusable configuration blocks using YAML anchors (&name) and aliases (*name).
+
+x-common-env: &common-env
+  # ----- Infrastructure (service discovery within Docker network) -----
+  # PostgreSQL
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_DB: ${POSTGRES_DB}
+  # Redis
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/1
+  # Neo4j
+  NEO4J_URI: bolt://neo4j:7687
+  NEO4J_USER: neo4j
+  NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+  # ----- Paths -----
+  OBSIDIAN_VAULT_PATH: /vault
+  UPLOAD_DIR: /uploads
+  DATA_DIR: /data
+  # ----- LLM API Keys -----
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  # ----- LLM Model Configuration -----
+  OCR_MODEL: ${OCR_MODEL:-mistral/mistral-ocr-latest}
+  OCR_MAX_TOKENS: ${OCR_MAX_TOKENS:-4000}
+  OCR_USE_JSON_MODE: ${OCR_USE_JSON_MODE:-true}
+  TEXT_MODEL: ${TEXT_MODEL:-gemini/gemini-3-flash-preview}
+  VLM_MODEL: ${VLM_MODEL:-gemini/gemini-3-flash-preview}
+  # ----- LLM Budget -----
+  LITELLM_BUDGET_MAX: ${LITELLM_BUDGET_MAX:-100.0}
+  LITELLM_BUDGET_ALERT: ${LITELLM_BUDGET_ALERT:-80.0}
+  # ----- Pipeline Settings -----
+  PDF_HANDWRITING_DETECTION: ${PDF_HANDWRITING_DETECTION:-true}
+  PDF_IMAGE_DPI: ${PDF_IMAGE_DPI:-300}
+  PDF_MAX_FILE_SIZE_MB: ${PDF_MAX_FILE_SIZE_MB:-50}
+  VOICE_EXPAND_NOTES: ${VOICE_EXPAND_NOTES:-true}
+  # ----- External API Tokens -----
+  RAINDROP_ACCESS_TOKEN: ${RAINDROP_ACCESS_TOKEN:-}
+  GITHUB_ACCESS_TOKEN: ${GITHUB_ACCESS_TOKEN:-}
+  # ----- Observability -----
+  LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-false}
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+  LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
+  # ----- App Settings -----
+  APP_NAME: ${APP_NAME:-Second Brain}
+  DEBUG: ${DEBUG:-false}
+
+x-shared-volumes: &shared-volumes
+  - ${DATA_DIR:?DATA_DIR is required}/obsidian:/vault:rw
+  - ${DATA_DIR:?DATA_DIR is required}/uploads:/uploads:rw
 
 services:
   # =============================================================================
@@ -117,54 +179,7 @@ services:
   backend:
     build: ./backend
     environment:
-      # ----- Infrastructure (service discovery within Docker network) -----
-      # PostgreSQL
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      # Redis
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-      # Neo4j
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
-      # ----- Paths -----
-      - OBSIDIAN_VAULT_PATH=/vault
-      - UPLOAD_DIR=/tmp/second_brain_uploads
-      - DATA_DIR=/data
-      # ----- LLM API Keys -----
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      # ----- LLM Model Configuration -----
-      - OCR_MODEL=${OCR_MODEL:-mistral/mistral-ocr-latest}
-      - OCR_MAX_TOKENS=${OCR_MAX_TOKENS:-4000}
-      - OCR_USE_JSON_MODE=${OCR_USE_JSON_MODE:-true}
-      - TEXT_MODEL=${TEXT_MODEL:-gemini/gemini-3-flash-preview}
-      # ----- LLM Budget -----
-      - LITELLM_BUDGET_MAX=${LITELLM_BUDGET_MAX:-100.0}
-      - LITELLM_BUDGET_ALERT=${LITELLM_BUDGET_ALERT:-80.0}
-      # ----- Pipeline Settings -----
-      - PDF_HANDWRITING_DETECTION=${PDF_HANDWRITING_DETECTION:-true}
-      - PDF_IMAGE_DPI=${PDF_IMAGE_DPI:-300}
-      - PDF_MAX_FILE_SIZE_MB=${PDF_MAX_FILE_SIZE_MB:-50}
-      - VOICE_EXPAND_NOTES=${VOICE_EXPAND_NOTES:-true}
-      # ----- External API Tokens -----
-      - RAINDROP_ACCESS_TOKEN=${RAINDROP_ACCESS_TOKEN:-}
-      - GITHUB_ACCESS_TOKEN=${GITHUB_ACCESS_TOKEN:-}
-      # ----- Observability -----
-      - LANGFUSE_ENABLED=${LANGFUSE_ENABLED:-false}
-      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
-      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
-      - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
-      # ----- App Settings -----
-      - APP_NAME=${APP_NAME:-Second Brain}
-      - DEBUG=${DEBUG:-false}
+      <<: *common-env
     depends_on:
       postgres:
         condition: service_healthy
@@ -174,9 +189,22 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
-    volumes:
-      # Mount Obsidian vault for reading/writing notes
-      - ${DATA_DIR:?DATA_DIR is required}/obsidian:/vault:rw
+    volumes: *shared-volumes
+
+  # =============================================================================
+  # Celery Worker - Background task processing
+  # =============================================================================
+  celery-worker:
+    build: ./backend
+    command: celery -A app.services.queue worker --loglevel=info --concurrency=2 -Q high_priority,default,low_priority,celery
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes: *shared-volumes
 
   # =============================================================================
   # Frontend - React/Vite application
@@ -212,5 +240,6 @@ services:
 #   ├── postgres/   - PostgreSQL data files
 #   ├── redis/      - Redis append-only file
 #   ├── neo4j/      - Neo4j graph database
-#   └── obsidian/   - Obsidian vault (notes, templates, config)
+#   ├── obsidian/   - Obsidian vault (notes, templates, config)
+#   └── uploads/    - Uploaded files (PDFs, images, audio)
 # =============================================================================

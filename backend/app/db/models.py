@@ -44,10 +44,10 @@ class ContentStatus(enum.Enum):
         FAILED: Content processing failed; check error logs for details.
     """
 
-    PENDING = "pending"
-    PROCESSING = "processing"
-    PROCESSED = "processed"
-    FAILED = "failed"
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    PROCESSED = "PROCESSED"
+    FAILED = "FAILED"
 
 
 class Content(Base):
@@ -418,6 +418,20 @@ class LLMUsageLog(Base):
     - Budget alerts and limits
     - Model performance vs cost analysis
 
+    ID System (IMPORTANT):
+        This model uses TWO content identifiers to avoid confusion:
+
+        1. content_uuid (String): The UUID string passed from pipelines.
+           This is the logical identifier used throughout the application.
+           Stored for debugging, tracing, and human-readable references.
+
+        2. db_content_id (Integer FK): The resolved database primary key.
+           Used for foreign key relationship to Content table.
+           Resolved from content_uuid at insert time by CostTracker.
+
+        This separation prevents bugs from overloading a single field with
+        different types (UUID string vs integer).
+
     Attributes:
         id: Primary key, auto-incrementing integer identifier.
         request_id: Unique UUID string for request deduplication and tracing.
@@ -442,8 +456,10 @@ class LLMUsageLog(Base):
         pipeline: Name of the processing pipeline that made this request (e.g.,
             "book_ocr", "pdf_processor", "voice_transcribe"). Max 50 chars. Indexed
             for cost-by-pipeline analysis.
-        content_id: Foreign key to Content record this request was made for.
-            Optional, indexed. Enables cost attribution to specific content items.
+        content_uuid: UUID string of the content this request was made for.
+            Stored as-is from pipelines for debugging/tracing. Max 64 chars. Indexed.
+        db_content_id: Integer FK to Content record. Resolved from content_uuid
+            at insert time. Optional, indexed. Enables cost attribution queries.
         operation: Specific operation within the pipeline (e.g., "handwriting_detection",
             "metadata_inference", "summarization"). Max 100 chars. Provides granular
             cost attribution.
@@ -455,7 +471,7 @@ class LLMUsageLog(Base):
             debugging and identifying problematic patterns.
         created_at: Timestamp when this log entry was created. Indexed for
             time-range queries in reports.
-        content: Reference to associated Content record. Optional relationship.
+        content: Reference to associated Content record via db_content_id. Optional.
     """
 
     __tablename__ = "llm_usage_logs"
@@ -482,7 +498,10 @@ class LLMUsageLog(Base):
 
     # Context for attribution
     pipeline: Mapped[Optional[str]] = mapped_column(String(50), index=True)
-    content_id: Mapped[Optional[int]] = mapped_column(
+    # UUID string from pipelines - stored as-is for debugging/tracing
+    content_uuid: Mapped[Optional[str]] = mapped_column(String(64), index=True)
+    # Integer FK resolved from content_uuid at insert time
+    db_content_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("content.id"), index=True
     )
     operation: Mapped[Optional[str]] = mapped_column(String(100))
@@ -497,8 +516,8 @@ class LLMUsageLog(Base):
         DateTime, default=datetime.utcnow, index=True
     )
 
-    # Relationships
-    content: Mapped[Optional["Content"]] = relationship()
+    # Relationships (uses db_content_id FK)
+    content: Mapped[Optional["Content"]] = relationship(foreign_keys=[db_content_id])
 
 
 class LLMCostSummary(Base):

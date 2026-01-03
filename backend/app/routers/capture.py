@@ -39,6 +39,7 @@ from app.models.content import (
     ContentType,
     UnifiedContent,
 )
+from app.pipelines.base import PipelineContentType
 from app.services.storage import save_upload, save_content
 from app.services.tasks import process_book, process_content, process_content_high
 
@@ -87,14 +88,14 @@ async def capture_text(
     # Save to database
     await save_content(ucf)
 
-    # Queue for background processing
-    background_tasks.add_task(process_content.delay, ucf.id, {"tags": tag_list})
+    # For text/idea capture, no pipeline processing needed - content is already saved
+    # Future: could queue for LLM tagging task here
 
     return {
         "status": "captured",
         "id": ucf.id,
         "title": title,
-        "message": "Content queued for processing",
+        "message": "Content saved successfully",
     }
 
 
@@ -157,7 +158,14 @@ async def capture_url(
 
     await save_content(ucf)
 
-    background_tasks.add_task(process_content.delay, ucf.id, {"fetch_content": True})
+    # Queue for article extraction pipeline
+    background_tasks.add_task(
+        process_content.delay,
+        ucf.id,
+        PipelineContentType.ARTICLE.value,
+        None,       # source_path
+        url,        # source_url
+    )
 
     return {
         "status": "captured",
@@ -239,8 +247,20 @@ async def capture_photo(
 
     await save_content(ucf)
 
+    # Map capture_type to PipelineContentType
+    pipeline_type_map = {
+        "book_page": PipelineContentType.BOOK,
+        "whiteboard": PipelineContentType.WHITEBOARD,
+        "document": PipelineContentType.DOCUMENT,
+        "general": PipelineContentType.PHOTO,
+    }
+    pipeline_type = pipeline_type_map.get(capture_type, PipelineContentType.PHOTO)
+
     background_tasks.add_task(
-        process_content.delay, ucf.id, {"capture_type": capture_type}
+        process_content.delay,
+        ucf.id,
+        pipeline_type.value,
+        str(file_path),   # source_path
     )
 
     return {
@@ -314,7 +334,12 @@ async def capture_voice(
     await save_content(ucf)
 
     # Use high-priority queue for voice memos (user is waiting)
-    background_tasks.add_task(process_content_high.delay, ucf.id, {"expand": expand})
+    background_tasks.add_task(
+        process_content_high.delay,
+        ucf.id,
+        PipelineContentType.VOICE_MEMO.value,
+        str(file_path),   # source_path
+    )
 
     return {
         "status": "captured",
@@ -382,13 +407,12 @@ async def capture_pdf(
 
     await save_content(ucf)
 
+    # Queue PDF for processing
     background_tasks.add_task(
         process_content.delay,
         ucf.id,
-        {
-            "content_type_hint": content_type_hint,
-            "detect_handwriting": detect_handwriting,
-        },
+        PipelineContentType.PDF.value,
+        str(file_path),   # source_path
     )
 
     return {
@@ -417,6 +441,11 @@ async def capture_book(
 
     Uploads all images and processes them together using BookOCRPipeline.
     Pages are processed in PARALLEL for faster results.
+
+    Note: This endpoint requires individual file uploads rather than a directory path
+    because the backend runs inside Docker and doesn't have access to the host
+    filesystem. Files are uploaded via multipart form data and saved to the
+    container's /uploads volume.
 
     The pipeline:
     - Extracts page numbers via OCR (doesn't assume order from upload)
@@ -454,18 +483,14 @@ async def capture_book(
     if not files:
         raise HTTPException(400, "At least one image file is required")
 
-    # Validate all files are images
+    # Validate all files are images by extension (content_type is unreliable for
+    # formats like HEIC which curl sends as application/octet-stream)
     valid_extensions = {".jpg", ".jpeg", ".png", ".heic", ".webp", ".tiff"}
     saved_paths = []
 
     for file in files:
-        # Check content type
-        if file.content_type and not file.content_type.startswith("image/"):
-            raise HTTPException(
-                400, f"File {file.filename} is not an image (got {file.content_type})"
-            )
-
-        # Check extension
+        # Check extension (primary validation - more reliable than content_type)
+        ext = ""
         if file.filename:
             ext = "." + file.filename.split(".")[-1].lower()
             if ext not in valid_extensions:

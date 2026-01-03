@@ -28,9 +28,16 @@ Usage:
     # Run worker: celery -A app.services.queue worker -l info
 """
 
+import logging
+
+import litellm
 from celery import Celery
+from celery.signals import worker_process_init
+from litellm.litellm_core_utils import logging_worker as litellm_logging_worker
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 celery_app = Celery(
     "second_brain",
@@ -77,6 +84,53 @@ celery_app.conf.update(
     task_acks_late=True,
     task_reject_on_worker_lost=True,
 )
+
+
+# =============================================================================
+# Worker Process Initialization
+# =============================================================================
+# LiteLLM's LoggingWorker creates an asyncio Queue at module import time.
+# When Celery forks workers (prefork pool), each worker gets a new event loop
+# but the queue is still bound to the parent's loop, causing:
+#   RuntimeError: <Queue ...> is bound to a different event loop
+#
+# This signal handler resets LiteLLM's internal state after each worker fork.
+
+
+@worker_process_init.connect
+def reset_litellm_on_worker_init(**kwargs):
+    """
+    Reset LiteLLM's async logging state after Celery worker fork.
+    
+    This prevents the 'Queue bound to different event loop' error that occurs
+    when LiteLLM's LoggingWorker is initialized before Celery forks workers.
+    
+    The issue: LiteLLM's LoggingWorker creates an asyncio.Queue at module import,
+    which binds to the parent process's event loop. After Celery forks, each worker
+    has a new event loop but the queue is still bound to the old one.
+    """
+    try:
+        # Reset top-level litellm attributes that may hold event loop references
+        if hasattr(litellm, "_logging_worker"):
+            litellm._logging_worker = None
+        
+        # Reset async callbacks that might hold event loop refs
+        if hasattr(litellm, "_async_success_callback"):
+            litellm._async_success_callback = []
+        if hasattr(litellm, "_async_failure_callback"):
+            litellm._async_failure_callback = []
+        
+        # Reset the LoggingWorker singleton in the core utils module
+        if hasattr(litellm_logging_worker, "_logging_worker_instance"):
+            litellm_logging_worker._logging_worker_instance = None
+        if hasattr(litellm_logging_worker, "logging_worker"):
+            litellm_logging_worker.logging_worker = None
+            
+        logger.debug("Reset LiteLLM logging state for new worker process")
+        
+    except Exception as e:
+        # Log but don't fail worker startup
+        logger.warning(f"Failed to reset LiteLLM state on worker init: {e}")
 
 
 def get_queue_stats() -> dict:

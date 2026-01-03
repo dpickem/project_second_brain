@@ -821,6 +821,8 @@ async def _ocr_with_annotations(
         loop = asyncio.get_event_loop()
 
         # Build base kwargs
+        # Note: bbox_annotation_format and document_annotation_format were removed
+        # in mistralai SDK 1.5.x. Annotations are no longer supported via the SDK.
         base_kwargs: dict[str, Any] = {
             "model": model,
             "document": document,
@@ -831,15 +833,7 @@ async def _ocr_with_annotations(
 
         response = await loop.run_in_executor(
             None,
-            lambda: client.ocr.process(
-                **base_kwargs,
-                bbox_annotation_format=_response_format_from_pydantic_model(
-                    ImageAnnotationSchema
-                ),
-                document_annotation_format=_response_format_from_pydantic_model(
-                    DocumentAnnotationSchema
-                ),
-            ),
+            lambda: client.ocr.process(**base_kwargs),
         )
 
         latency_ms = int((time.perf_counter() - start_time) * 1000)
@@ -951,7 +945,7 @@ async def _ocr_basic(
     try:
         loop = asyncio.get_event_loop()
 
-        # Include image annotations (no document annotation)
+        # Note: bbox_annotation_format was removed in mistralai SDK 1.5.x
         response = await loop.run_in_executor(
             None,
             lambda: client.ocr.process(
@@ -959,9 +953,6 @@ async def _ocr_basic(
                 document=document,
                 pages=page_indices,
                 include_image_base64=include_images,
-                bbox_annotation_format=_response_format_from_pydantic_model(
-                    ImageAnnotationSchema
-                ),
             ),
         )
 
@@ -1155,15 +1146,12 @@ async def ocr_image(
         "image_url": f"data:{mime_type};base64,{image_base64}",
     }
 
+    # Note: bbox_annotation_format was removed in mistralai SDK 1.5.x
+    # Annotations are no longer supported via the SDK
     kwargs: dict[str, Any] = {
         "model": model,
         "document": document,
     }
-
-    if include_annotation:
-        kwargs["bbox_annotation_format"] = _response_format_from_pydantic_model(
-            ImageAnnotationSchema
-        )
 
     start_time = time.perf_counter()
 

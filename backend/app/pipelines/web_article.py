@@ -7,7 +7,7 @@ Trafilatura fallback. Handles generic article/blog post URLs.
 Features:
 - Article content extraction via Jina Reader (handles JS-rendered pages)
 - Fallback to Trafilatura for static HTML pages
-- Title extraction from HTML
+- Title extraction from HTML with LLM fallback for missing/poor titles
 - Metadata extraction (author, date)
 - Clean text/markdown output
 
@@ -24,7 +24,7 @@ Usage:
 
 import asyncio
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -32,6 +32,8 @@ from trafilatura import bare_extraction
 
 from app.models.content import ContentType, UnifiedContent
 from app.pipelines.base import BasePipeline, PipelineContentType, PipelineInput
+from app.pipelines.utils.cost_types import PipelineName, PipelineOperation
+from app.pipelines.utils.text_client import get_default_text_model, text_completion
 
 # Browser-like headers to avoid 403 errors from bot detection
 DEFAULT_HEADERS = {
@@ -67,16 +69,24 @@ class WebArticlePipeline(BasePipeline):
     """
 
     SUPPORTED_CONTENT_TYPES = {PipelineContentType.ARTICLE}
+    PIPELINE_NAME = PipelineName.WEB_ARTICLE
 
-    def __init__(self, timeout: float = 30.0) -> None:
+    def __init__(
+        self,
+        timeout: float = 30.0,
+        text_model: Optional[str] = None,
+    ) -> None:
         """
         Initialize web article pipeline.
 
         Args:
             timeout: HTTP request timeout in seconds (default: 30.0)
+            text_model: LLM model for title extraction fallback. Defaults to
+                       settings.TEXT_MODEL via get_default_text_model().
         """
         super().__init__()
         self.timeout: float = timeout
+        self.text_model: str = text_model or get_default_text_model()
 
     def supports(self, input_data: PipelineInput) -> bool:
         """
@@ -120,10 +130,12 @@ class WebArticlePipeline(BasePipeline):
         extraction = await self._extract_article(url)
 
         # Extract metadata
-        title = extraction.get("title") or self._title_from_url(url)
         author = extraction.get("author")
         date_str = extraction.get("date")
         text = extraction.get("text") or ""
+
+        # Use LLM for title extraction
+        title = await self._extract_title_with_llm(text, url)
 
         # Parse date if available
         created_at = datetime.now()
@@ -147,6 +159,59 @@ class WebArticlePipeline(BasePipeline):
             full_text=text or f"[Content could not be extracted from {url}]",
             metadata=self._build_metadata(extraction, url),
         )
+
+    async def _extract_title_with_llm(self, text: str, url: str) -> str:
+        """
+        Use LLM to extract an appropriate title from article text.
+
+        Args:
+            text: Article body text
+            url: Source URL (used as fallback if LLM fails)
+
+        Returns:
+            Extracted title, or URL hostname as fallback
+        """
+        if not text or len(text) < 50:
+            # Not enough text to extract a title
+            return urlparse(url).netloc or "Untitled"
+
+        # Use first ~2000 chars for title extraction (usually intro has key info)
+        text_sample = text[:2000] if len(text) > 2000 else text
+
+        prompt = f"""Extract a concise, descriptive title for this article. 
+The title should:
+- Be 5-15 words
+- Capture the main topic or thesis
+- Be suitable for a note-taking system
+
+Article text:
+{text_sample}
+
+Respond with ONLY the title, nothing else."""
+
+        try:
+            response, usage = await text_completion(
+                model=self.text_model,
+                prompt=prompt,
+                system_prompt="You are a helpful assistant that extracts article titles. Respond with only the title, no quotes or explanation.",
+                max_tokens=50,
+                temperature=0.3,
+                pipeline=self.PIPELINE_NAME,
+                operation=PipelineOperation.TITLE_EXTRACTION,
+            )
+
+            if response:
+                # Clean up the response
+                title = response.strip().strip('"').strip("'").strip()
+                if 3 <= len(title) <= 200:
+                    self.logger.info(f"LLM extracted title: '{title}'")
+                    return title
+
+        except Exception as e:
+            self.logger.warning(f"LLM title extraction failed: {e}")
+
+        # Fallback to URL hostname
+        return urlparse(url).netloc or "Untitled"
 
     async def _extract_article(self, url: str) -> dict[str, Any]:
         """
@@ -309,30 +374,6 @@ class WebArticlePipeline(BasePipeline):
         """
         extraction = await self._extract_article(url)
         return extraction.get("text") or ""
-
-    def _title_from_url(self, url: str) -> str:
-        """
-        Generate a fallback title from URL path.
-
-        Args:
-            url: URL to extract title from
-
-        Returns:
-            Title derived from URL path, or "Untitled" if extraction fails
-        """
-        try:
-            parsed = urlparse(url)
-            path_parts = [p for p in parsed.path.split("/") if p]
-            if path_parts:
-                # Use last path segment, replace hyphens/underscores with spaces
-                title = path_parts[-1].replace("-", " ").replace("_", " ")
-                # Remove common extensions
-                for ext in [".html", ".htm", ".php", ".aspx"]:
-                    title = title.replace(ext, "")
-                return title.title()
-        except Exception:
-            pass
-        return "Untitled"
 
     def _build_metadata(self, extraction: dict[str, Any], url: str) -> dict[str, Any]:
         """

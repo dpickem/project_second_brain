@@ -9,23 +9,74 @@ clear separation between the completion wrapper functions and the cost tracking
 data structures.
 
 Usage:
-    from app.pipelines.utils.cost_types import LLMUsage, extract_usage_from_response
+    from app.pipelines.utils.cost_types import (
+        LLMUsage,
+        PipelineName,
+        PipelineOperation,
+        extract_usage_from_response,
+    )
 
     usage = extract_usage_from_response(
         response=litellm_response,
         model="mistral/mistral-ocr-latest",
         request_type="vision",
         latency_ms=1234,
-        pipeline="book_ocr",
-        operation="page_extraction"
+        pipeline=PipelineName.BOOK_OCR,
+        operation=PipelineOperation.PAGE_EXTRACTION
     )
 """
 
 import uuid
 from dataclasses import dataclass, field, asdict
-from typing import Optional
+from enum import Enum
+from typing import Optional, Union
 
 import litellm
+
+
+# TODO: These enums should live somewhere else.
+class PipelineName(str, Enum):
+    """
+    Pipeline names for cost tracking and attribution.
+
+    Each pipeline has a unique name used to track LLM costs and operations.
+    """
+
+    BOOK_OCR = "book_ocr"
+    PDF_PROCESSOR = "pdf_processor"
+    VOICE_TRANSCRIBE = "voice_transcribe"
+    GITHUB_IMPORTER = "github_importer"
+    WEB_ARTICLE = "web_article"
+    RAINDROP_SYNC = "raindrop_sync"
+
+
+class PipelineOperation(str, Enum):
+    """
+    Operation types within pipelines for granular cost tracking.
+
+    Each operation represents a specific LLM call within a pipeline.
+    """
+
+    # Book OCR operations
+    PAGE_EXTRACTION = "page_extraction"
+    METADATA_INFERENCE = "metadata_inference"
+
+    # PDF Processor operations
+    DOCUMENT_OCR = "document_ocr"
+    CONTENT_TYPE_CLASSIFICATION = "content_type_classification"
+
+    # Voice Transcribe operations
+    AUDIO_TRANSCRIPTION = "audio_transcription"
+    NOTE_EXPANSION = "note_expansion"
+
+    # GitHub Importer operations
+    REPO_ANALYSIS = "repo_analysis"
+
+    # Web Article operations
+    TITLE_EXTRACTION = "title_extraction"
+
+    # Raindrop Sync operations
+    BOOKMARK_PROCESSING = "bookmark_processing"
 
 
 @dataclass
@@ -72,7 +123,7 @@ class LLMUsage:
 
     # Context for attribution
     pipeline: Optional[str] = None
-    content_id: Optional[int] = None
+    content_id: Optional[str] = None  # Content UUID string (resolved to int FK at DB layer)
     operation: Optional[str] = None
 
     # Performance

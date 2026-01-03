@@ -10,6 +10,8 @@ Features:
 - Daily/monthly cost aggregations
 - Budget alerts and limits
 - Cost reports by pipeline, model, or time period
+- Automatic UUID→integer ID resolution for content attribution
+  (delegates to storage.get_db_id_by_uuid to avoid duplication)
 
 Usage:
     from app.services.cost_tracking import CostTracker
@@ -34,6 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import async_session_maker
 from app.db.models import LLMUsageLog, LLMCostSummary
 from app.pipelines.utils.cost_types import LLMUsage
+from app.services.storage import get_db_id_by_uuid
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +62,16 @@ class CostTracker:
 
         Returns:
             Created LLMUsageLog database record
+
+        Note:
+            If usage.content_id is a UUID string, it will be resolved to
+            the integer database ID automatically.
         """
 
         async def _log(session: AsyncSession) -> LLMUsageLog:
+            # Resolve content UUID to integer FK (reuse storage layer function)
+            resolved_db_id = await get_db_id_by_uuid(usage.content_id, session) if usage.content_id else None
+
             log_entry = LLMUsageLog(
                 request_id=usage.request_id,
                 model=usage.model,
@@ -74,7 +84,8 @@ class CostTracker:
                 input_cost_usd=usage.input_cost_usd,
                 output_cost_usd=usage.output_cost_usd,
                 pipeline=usage.pipeline,
-                content_id=usage.content_id,
+                content_uuid=usage.content_id,  # Store UUID string as-is
+                db_content_id=resolved_db_id,   # Store resolved integer FK
                 operation=usage.operation,
                 latency_ms=usage.latency_ms,
                 success=usage.success,
@@ -120,7 +131,19 @@ class CostTracker:
             entries = []
             total_cost = 0.0
 
+            # Cache UUID→ID mappings to avoid repeated lookups
+            content_id_cache: dict[str, Optional[int]] = {}
+
             for usage in usages:
+                # Resolve content UUID to integer FK (with caching, reuse storage layer)
+                resolved_db_id = None
+                if usage.content_id:
+                    if usage.content_id not in content_id_cache:
+                        content_id_cache[usage.content_id] = await get_db_id_by_uuid(
+                            usage.content_id, session
+                        )
+                    resolved_db_id = content_id_cache[usage.content_id]
+
                 log_entry = LLMUsageLog(
                     request_id=usage.request_id,
                     model=usage.model,
@@ -133,7 +156,8 @@ class CostTracker:
                     input_cost_usd=usage.input_cost_usd,
                     output_cost_usd=usage.output_cost_usd,
                     pipeline=usage.pipeline,
-                    content_id=usage.content_id,
+                    content_uuid=usage.content_id,  # Store UUID string as-is
+                    db_content_id=resolved_db_id,   # Store resolved integer FK
                     operation=usage.operation,
                     latency_ms=usage.latency_ms,
                     success=usage.success,
@@ -351,13 +375,13 @@ class CostTracker:
 
     @staticmethod
     async def get_content_cost(
-        content_id: int, session: Optional[AsyncSession] = None
+        db_content_id: int, session: Optional[AsyncSession] = None
     ) -> dict:
         """
         Get total LLM cost for processing a specific content item.
 
         Args:
-            content_id: Content ID to query
+            db_content_id: Integer database ID (Content.id) to query
             session: Optional database session
 
         Returns:
@@ -371,7 +395,7 @@ class CostTracker:
                     func.sum(LLMUsageLog.cost_usd).label("total_cost"),
                     func.count(LLMUsageLog.id).label("request_count"),
                     func.sum(LLMUsageLog.total_tokens).label("total_tokens"),
-                ).where(LLMUsageLog.content_id == content_id)
+                ).where(LLMUsageLog.db_content_id == db_content_id)
             )
             total_row = totals.first()
 
@@ -383,7 +407,7 @@ class CostTracker:
                     func.sum(LLMUsageLog.cost_usd).label("cost"),
                     func.count(LLMUsageLog.id).label("count"),
                 )
-                .where(LLMUsageLog.content_id == content_id)
+                .where(LLMUsageLog.db_content_id == db_content_id)
                 .group_by(LLMUsageLog.operation, LLMUsageLog.model)
             )
 
@@ -398,7 +422,7 @@ class CostTracker:
             ]
 
             return {
-                "content_id": content_id,
+                "db_content_id": db_content_id,
                 "total_cost_usd": total_row.total_cost or 0,
                 "request_count": total_row.request_count or 0,
                 "total_tokens": total_row.total_tokens or 0,

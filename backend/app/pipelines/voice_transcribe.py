@@ -45,6 +45,8 @@ from app.models.content import (
 from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
 from app.pipelines.utils.cost_types import (
     LLMUsage,
+    PipelineName,
+    PipelineOperation,
     extract_provider,
     create_error_usage,
 )
@@ -123,7 +125,7 @@ class VoiceTranscriber(BasePipeline):
         ".flac",
     }
     SUPPORTED_CONTENT_TYPES = {PipelineContentType.VOICE_MEMO}
-    PIPELINE_NAME = "voice_transcribe"
+    PIPELINE_NAME = PipelineName.VOICE_TRANSCRIBE
 
     def __init__(
         self,
@@ -331,7 +333,7 @@ class VoiceTranscriber(BasePipeline):
                 error_message=str(e),
                 pipeline=self.PIPELINE_NAME,
                 content_id=getattr(self, "_content_id", None),
-                operation="audio_transcription",
+                operation=PipelineOperation.AUDIO_TRANSCRIPTION,
             )
             self._usage_records.append(error_usage)
             logger.error(f"Transcription failed with {self.whisper_model}: {e}")
@@ -350,7 +352,7 @@ class VoiceTranscriber(BasePipeline):
             latency_ms=latency_ms,
             pipeline=self.PIPELINE_NAME,
             content_id=getattr(self, "_content_id", None),
-            operation="audio_transcription",
+            operation=PipelineOperation.AUDIO_TRANSCRIPTION,
         )
 
         # LiteLLM transcription responses may have usage info
@@ -440,7 +442,7 @@ Respond with JSON containing "title" and "content" fields only."""
                 json_mode=True,
                 pipeline=self.PIPELINE_NAME,
                 content_id=getattr(self, "_content_id", None),
-                operation="note_expansion",
+                operation=PipelineOperation.NOTE_EXPANSION,
             )
 
             # Track the usage

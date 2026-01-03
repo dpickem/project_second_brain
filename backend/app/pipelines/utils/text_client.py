@@ -39,6 +39,8 @@ from litellm import completion, acompletion
 from app.config.settings import settings
 from app.pipelines.utils.cost_types import (
     LLMUsage,
+    PipelineName,
+    PipelineOperation,
     extract_usage_from_response,
     create_error_usage,
 )
@@ -203,9 +205,9 @@ async def text_completion(
     max_tokens: int = 2000,
     json_mode: bool = False,
     temperature: float = 0.7,
-    pipeline: Optional[str] = None,
+    pipeline: Optional[PipelineName] = None,
     content_id: Optional[int] = None,
-    operation: Optional[str] = None,
+    operation: Optional[PipelineOperation] = None,
 ) -> tuple[str, LLMUsage]:
     """
     Async text completion using LiteLLM's native acompletion.
@@ -219,9 +221,9 @@ async def text_completion(
         max_tokens: Maximum tokens in response
         json_mode: Request structured JSON output
         temperature: Sampling temperature
-        pipeline: Name of calling pipeline for cost attribution
+        pipeline: PipelineName enum for cost attribution
         content_id: Associated content ID for cost attribution
-        operation: Specific operation name
+        operation: PipelineOperation enum for cost attribution
 
     Returns:
         Tuple of (response_text, LLMUsage with cost/token info)

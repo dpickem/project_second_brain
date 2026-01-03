@@ -228,11 +228,11 @@ volumes:
 ```
 
 **Deliverables:**
-- [ ] PostgreSQL service added to docker-compose.yml
-- [ ] Redis service added to docker-compose.yml
-- [ ] Health checks configured for all services
-- [ ] Volume persistence configured
-- [ ] Backend dependencies updated
+- [x] PostgreSQL service added to docker-compose.yml
+- [x] Redis service added to docker-compose.yml
+- [x] Health checks configured for all services
+- [x] Volume persistence configured
+- [x] Backend dependencies updated
 
 **Estimated Time:** 2 hours
 
@@ -723,11 +723,11 @@ content_registry = ContentTypeRegistry()
 ```
 
 **Deliverables:**
-- [ ] Pydantic settings class
-- [ ] YAML configuration file
-- [ ] Content type registry with dynamic loading
-- [ ] Environment variable validation
-- [ ] Configuration loading utilities
+- [x] Pydantic settings class
+- [x] YAML configuration file
+- [x] Content type registry with dynamic loading
+- [x] Environment variable validation
+- [x] Configuration loading utilities
 
 **Estimated Time:** 2 hours
 
@@ -1161,9 +1161,9 @@ class MasterySnapshot(Base):
 ```
 
 **Deliverables:**
-- [ ] Async SQLAlchemy engine setup
-- [ ] Session management with dependency injection
-- [ ] Core database models (Content, Annotation, Tag)
+- [x] Async SQLAlchemy engine setup
+- [x] Session management with dependency injection
+- [x] Core database models (Content, Annotation, Tag)
 - [ ] Learning system models (PracticeSession, SpacedRepCard, MasterySnapshot)
 
 **Estimated Time:** 3 hours
@@ -1295,9 +1295,9 @@ alembic upgrade head
 ```
 
 **Deliverables:**
-- [ ] Alembic configuration
-- [ ] Initial migration script
-- [ ] Migration commands documented
+- [x] Alembic configuration
+- [x] Initial migration script
+- [x] Migration commands documented
 
 **Estimated Time:** 1 hour
 
@@ -1434,9 +1434,9 @@ session_store = SessionStore()
 ```
 
 **Deliverables:**
-- [ ] Redis connection pool
-- [ ] Caching utilities
-- [ ] Session store implementation
+- [x] Redis connection pool
+- [x] Caching utilities
+- [x] Session store implementation
 
 **Estimated Time:** 2 hours
 
@@ -1794,9 +1794,9 @@ if __name__ == "__main__":
 ```
 
 **Deliverables:**
-- [ ] Vault folder structure created
-- [ ] Obsidian configuration files
-- [ ] Vault setup script
+- [x] Vault folder structure created
+- [x] Obsidian configuration files
+- [x] Vault setup script
 
 **Estimated Time:** 2 hours
 
@@ -2327,18 +2327,18 @@ created: {{date:YYYY-MM-DD}}
 ```
 
 **Deliverables:**
-- [ ] Paper template
-- [ ] Article template
-- [ ] Book template
-- [ ] Code repository template
-- [ ] Concept template
-- [ ] Idea template
-- [ ] Daily note template
-- [ ] Exercise template
-- [ ] Career template
-- [ ] Personal development template
-- [ ] Project template
-- [ ] Reflection template
+- [x] Paper template
+- [x] Article template
+- [x] Book template
+- [x] Code repository template
+- [x] Concept template
+- [x] Idea template
+- [x] Daily note template
+- [x] Exercise template
+- [x] Career template
+- [x] Personal development template
+- [x] Project template
+- [x] Reflection template
 
 **Estimated Time:** 3 hours
 
@@ -2741,12 +2741,12 @@ Before adding a new tag:
 ```
 
 **Deliverables:**
-- [ ] Tag taxonomy document
-- [ ] Domain tag hierarchy
-- [ ] Status tag definitions
-- [ ] Quality tag definitions
-- [ ] Source tag mappings
-- [ ] Tag usage guidelines
+- [x] Tag taxonomy document
+- [x] Domain tag hierarchy
+- [x] Status tag definitions
+- [x] Quality tag definitions
+- [x] Source tag mappings
+- [x] Tag usage guidelines
 
 **Estimated Time:** 2 hours
 
@@ -2950,10 +2950,10 @@ SORT file.mtime ASC
 | Insert template | Alt + T |
 
 **Deliverables:**
-- [ ] Plugin setup documentation
-- [ ] Dataview query examples
-- [ ] Templater configuration
-- [ ] Hotkey recommendations
+- [x] Plugin setup documentation
+- [x] Dataview query examples
+- [x] Templater configuration
+- [x] Hotkey recommendations
 
 **Estimated Time:** 2 hours
 
@@ -3233,10 +3233,10 @@ SORT due_date ASC
 - [[Generate New Cards]] (link to web app)
 
 **Deliverables:**
-- [ ] Main dashboard with Dataview queries
-- [ ] Workflows documentation
-- [ ] Review queue note
-- [ ] Folder index templates
+- [x] Main dashboard with Dataview queries
+- [x] Workflows documentation
+- [x] Review queue note
+- [x] Folder index templates
 
 **Estimated Time:** 3 hours
 
@@ -3367,9 +3367,9 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
 ```
 
 **Deliverables:**
-- [ ] Basic health endpoint
-- [ ] Detailed health with service checks
-- [ ] Readiness probe endpoint
+- [x] Basic health endpoint
+- [x] Detailed health with service checks
+- [x] Readiness probe endpoint
 
 **Estimated Time:** 2 hours
 
@@ -3393,8 +3393,8 @@ pytest tests/integration/test_database.py -v
 > **📋 See Section 4 (Testing Strategy)** for comprehensive database test implementation, including CRUD operations, relationship tests, and transaction handling.
 
 **Deliverables:**
-- [ ] Database tables verified
-- [ ] Integration tests pass (`pytest tests/integration/test_database.py`)
+- [x] Database tables verified
+- [x] Integration tests pass (`pytest tests/integration/test_database.py`)
 
 **Estimated Time:** 30 minutes
 
@@ -3553,10 +3553,10 @@ if __name__ == "__main__":
 ```
 
 **Deliverables:**
-- [ ] Vault validation script
-- [ ] Folder structure checks
-- [ ] Template validation
-- [ ] Meta file checks
+- [x] Vault validation script
+- [x] Folder structure checks
+- [x] Template validation
+- [x] Meta file checks
 
 **Estimated Time:** 1 hour
 
@@ -3602,9 +3602,9 @@ pytest tests/ --cov=app --cov-report=html
 > **📋 See Section 4 (Testing Strategy)** for complete test implementation details, fixtures, and test-writing guidelines.
 
 **Deliverables:**
-- [ ] All unit tests pass (`pytest tests/unit/`)
-- [ ] All integration tests pass (`pytest tests/integration/`)
-- [ ] Coverage meets targets (see Section 4.7)
+- [x] All unit tests pass (`pytest tests/unit/`)
+- [x] All integration tests pass (`pytest tests/integration/`)
+- [x] Coverage meets targets (see Section 4.7)
 
 **Estimated Time:** 1 hour (to run and verify)
 
@@ -3953,27 +3953,89 @@ filterwarnings =
 | `app/db/models.py` | 80% | Medium |
 | `app/routers/health.py` | 90% | High |
 
-### 4.8 Running Tests in Docker
+### 4.8 Running Integration Tests
 
-For integration tests that require services:
+Integration tests require a running PostgreSQL database with a dedicated test user and database. **Do not run integration tests against your production database!**
+
+#### 4.8.1 Test Database Setup (One-Time)
+
+The integration tests expect specific credentials. You need to create a test user and database in PostgreSQL:
 
 ```bash
-# Start services
-docker-compose up -d postgres redis neo4j
+# Option 1: Using docker-compose exec (if PostgreSQL is running in Docker)
+docker-compose up -d postgres
 
-# Wait for services to be healthy
-docker-compose ps
+# Connect to PostgreSQL as the admin user
+docker-compose exec postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB}
 
-# Run integration tests
+# Inside psql, create the test user and database:
+CREATE USER testuser WITH PASSWORD 'testpass';
+CREATE DATABASE testdb OWNER testuser;
+GRANT ALL PRIVILEGES ON DATABASE testdb TO testuser;
+\q
+
+# Option 2: Using local psql (if PostgreSQL is running locally)
+psql -U postgres -c "CREATE USER testuser WITH PASSWORD 'testpass';"
+psql -U postgres -c "CREATE DATABASE testdb OWNER testuser;"
+psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE testdb TO testuser;"
+```
+
+#### 4.8.2 Test Environment Variables
+
+The test fixtures automatically set these environment variables (see `tests/conftest.py`):
+
+| Variable | Test Value | Purpose |
+|----------|------------|---------|
+| `POSTGRES_HOST` | `localhost` | Database host |
+| `POSTGRES_PORT` | `5432` | Database port |
+| `POSTGRES_USER` | `testuser` | Test database user |
+| `POSTGRES_PASSWORD` | `testpass` | Test database password |
+| `POSTGRES_DB` | `testdb` | Test database name |
+| `REDIS_URL` | `redis://localhost:6379/1` | Redis (database 1 for isolation) |
+
+You can override these by setting environment variables before running tests.
+
+#### 4.8.3 Running Integration Tests
+
+```bash
+# 1. Start required services
+docker-compose up -d postgres redis
+
+# 2. Wait for services to be healthy
+docker-compose ps  # Ensure postgres and redis show "healthy"
+
+# 3. Create test database (first time only - see section 4.8.1)
+
+# 4. Run integration tests
 cd backend
 pytest tests/integration/ -v
 
-# Or run all tests
+# 5. Or run all tests (unit + integration)
 pytest tests/ -v
 
-# Stop services when done
+# 6. Stop services when done (optional)
 docker-compose down
 ```
+
+#### 4.8.4 Troubleshooting
+
+**"Connection refused" errors:**
+- Ensure PostgreSQL and Redis are running: `docker-compose ps`
+- Check that ports 5432 (PostgreSQL) and 6379 (Redis) are not blocked
+
+**"Role 'testuser' does not exist" errors:**
+- Create the test user and database (see section 4.8.1)
+
+**"Database 'testdb' does not exist" errors:**
+- Create the test database (see section 4.8.1)
+
+**"Permission denied" errors:**
+- Grant privileges: `GRANT ALL PRIVILEGES ON DATABASE testdb TO testuser;`
+
+**Running tests against wrong database:**
+- Tests use hardcoded `testuser/testpass/testdb` credentials
+- This is intentional to prevent accidentally modifying production data
+- Do NOT change conftest.py to use your production credentials
 
 ### 4.9 CI/CD Integration
 
@@ -4073,23 +4135,23 @@ Examples:
 ## 6. Success Criteria
 
 ### Infrastructure
-- [ ] All Docker services start successfully
-- [ ] PostgreSQL accepts connections and migrations run
-- [ ] Redis responds to ping
-- [ ] Health endpoints return healthy status
-- [ ] Backend can read/write to all databases
+- [x] All Docker services start successfully
+- [x] PostgreSQL accepts connections and migrations run
+- [x] Redis responds to ping
+- [x] Health endpoints return healthy status
+- [x] Backend can read/write to all databases
 
 ### Knowledge Hub
-- [ ] Vault folder structure matches design
-- [ ] All templates have valid frontmatter
-- [ ] Tag taxonomy is documented
-- [ ] Dashboard displays correctly with Dataview
-- [ ] Daily note template works with Templater
+- [x] Vault folder structure matches design
+- [x] All templates have valid frontmatter
+- [x] Tag taxonomy is documented
+- [x] Dashboard displays correctly with Dataview
+- [x] Daily note template works with Templater
 
 ### Integration
-- [ ] All integration tests pass
-- [ ] Vault validation script succeeds
-- [ ] Configuration loads from environment
+- [x] All integration tests pass
+- [x] Vault validation script succeeds
+- [x] Configuration loads from environment
 
 ---
 
@@ -4162,36 +4224,36 @@ PHASE 1: FOUNDATION (this phase)
 ## 9. Checklist
 
 ### Pre-Implementation
-- [ ] Review design docs
-- [ ] Verify Docker installed
-- [ ] Install Obsidian
-- [ ] Create `.env` file with credentials
+- [x] Review design docs
+- [x] Verify Docker installed
+- [x] Install Obsidian
+- [x] Create `.env` file with credentials
 
 ### Phase 1A: Infrastructure
-- [ ] Update docker-compose.yml
-- [ ] Create configuration module
-- [ ] Set up PostgreSQL models
-- [ ] Configure Alembic migrations
-- [ ] Implement Redis utilities
+- [x] Update docker-compose.yml
+- [x] Create configuration module
+- [x] Set up PostgreSQL models
+- [x] Configure Alembic migrations
+- [x] Implement Redis utilities
 
 ### Phase 1B: Knowledge Hub
-- [ ] Run vault setup script
-- [ ] Create all templates
-- [ ] Define tag taxonomy
-- [ ] Configure plugins
-- [ ] Create dashboard and meta notes
+- [x] Run vault setup script
+- [x] Create all templates
+- [x] Define tag taxonomy
+- [x] Configure plugins
+- [x] Create dashboard and meta notes
 
 ### Phase 1C: Integration & Verification
-- [ ] Add health check endpoints
-- [ ] Run vault validation script
-- [ ] Execute test suite (see Section 4)
-- [ ] Run validation scripts
-- [ ] Document any issues
+- [x] Add health check endpoints
+- [x] Run vault validation script
+- [x] Execute test suite (see Section 4)
+- [x] Run validation scripts
+- [x] Document any issues
 
 ### Post-Implementation
-- [ ] Update OVERVIEW.md progress
-- [ ] Document any deviations from plan
-- [ ] Create issues for Phase 2 blockers
+- [x] Update OVERVIEW.md progress
+- [x] Document any deviations from plan
+- [x] Create issues for Phase 2 blockers
 
 ---
 
@@ -4478,12 +4540,12 @@ ConfigurationError: Content type 'invalid_type' missing required field 'folder'
 
 When extending the system, verify:
 
-- [ ] Configuration added to `config/default.yaml` (with both `template` and `jinja_template` fields)
-- [ ] Obsidian template created in vault's `templates/` folder (for manual creation)
-- [ ] Jinja2 template created in `config/templates/` folder (for backend generation)
-- [ ] Both templates have required frontmatter (`type`, `tags`, `status`)
-- [ ] Vault setup script run to create folders (`python scripts/setup_vault.py`)
-- [ ] Tag taxonomy updated (if new tags needed)
+- [x] Configuration added to `config/default.yaml` (with both `template` and `jinja_template` fields)
+- [x] Obsidian template created in vault's `templates/` folder (for manual creation)
+- [x] Jinja2 template created in `config/templates/` folder (for backend generation)
+- [x] Both templates have required frontmatter (`type`, `tags`, `status`)
+- [x] Vault setup script run to create folders (`python scripts/setup_vault.py`)
+- [x] Tag taxonomy updated (if new tags needed)
 - [ ] (Optional) Templater folder mapping configured in Obsidian
 
 ---

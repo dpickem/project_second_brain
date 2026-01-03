@@ -79,12 +79,15 @@ class AnnotationType(str, Enum):
 
 
 class ProcessingStatus(str, Enum):
-    """Processing status for content items."""
+    """Processing status for content items.
+    
+    Values must match the PostgreSQL contentstatus enum (uppercase).
+    """
 
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    PROCESSED = "PROCESSED"  # Note: DB uses PROCESSED, not COMPLETED
+    FAILED = "FAILED"
 
 
 class Annotation(BaseModel):
@@ -287,7 +290,7 @@ class UnifiedContent(BaseModel):
                 "title": "Attention Is All You Need",
                 "authors": ["Ashish Vaswani", "Noam Shazeer"],
                 "full_text": "We propose a new simple network architecture...",
-                "processing_status": "pending",
+                "processing_status": "PENDING",
             }
         }
 

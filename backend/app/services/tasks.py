@@ -98,6 +98,7 @@ from app.pipelines import (
     RaindropSync,
     get_registry,
 )
+from app.db.models import ContentStatus
 from app.services.queue import celery_app
 from app.services.storage import load_content, update_content, update_status
 
@@ -170,16 +171,30 @@ def _process_content_impl(
         text=source_text,
     )
 
-    async def run_pipeline():
+    async def run_pipeline_and_update():
         # Get the pre-configured singleton registry
         registry = get_registry()
 
         # Route to appropriate pipeline
         result = await registry.process(pipeline_input)
+
+        if result is None:
+            return None
+
+        # Update database with results (in same event loop to avoid connection issues)
+        await update_content(
+            content_id,
+            title=result.title,
+            full_text=result.full_text,
+            annotations=result.annotations,
+            metadata=result.metadata,
+        )
+        await update_status(content_id, ContentStatus.PROCESSED.value)
+
         return result
 
-    # Run the async pipeline
-    result = asyncio.run(run_pipeline())
+    # Run the async pipeline and DB update in a single event loop
+    result = asyncio.run(run_pipeline_and_update())
 
     if result is None:
         logger.warning(f"No pipeline found for content type: {content_type}")
@@ -188,19 +203,6 @@ def _process_content_impl(
             "content_id": content_id,
             "error": f"No pipeline found for content type: {content_type}",
         }
-
-    # Update database with results
-    async def update_db():
-        await update_content(
-            content_id,
-            title=result.title,
-            full_text=result.full_text,
-            annotations=result.annotations,
-            metadata=result.metadata,
-        )
-        await update_status(content_id, "processed")
-
-    asyncio.run(update_db())
 
     logger.info(f"Content {content_id} processing completed")
 
@@ -249,7 +251,7 @@ def process_content(
         )
     except RetryError as e:
         logger.error(f"Processing failed for {content_id} after all retries: {e}")
-        asyncio.run(update_status(content_id, "failed", str(e)))
+        asyncio.run(update_status(content_id, ContentStatus.FAILED.value, str(e)))
         raise
 
 
@@ -313,7 +315,7 @@ def _process_book_impl(
         f"(concurrency: {max_concurrency})"
     )
 
-    async def run_pipeline():
+    async def run_pipeline_and_update():
         pipeline = BookOCRPipeline(
             track_costs=True,
             max_concurrency=max_concurrency,
@@ -327,13 +329,8 @@ def _process_book_impl(
             book_metadata=book_metadata,
             content_id=content_id,
         )
-        return result
 
-    # Run the async pipeline
-    result = asyncio.run(run_pipeline())
-
-    # Update the content in database with extracted data
-    async def update_db():
+        # Update database with results (in same event loop to avoid connection issues)
         await update_content(
             content_id,
             title=result.title,
@@ -342,9 +339,12 @@ def _process_book_impl(
             annotations=result.annotations,
             metadata=result.metadata,
         )
-        await update_status(content_id, "processed")
+        await update_status(content_id, ContentStatus.PROCESSED.value)
 
-    asyncio.run(update_db())
+        return result
+
+    # Run the async pipeline and DB update in a single event loop
+    result = asyncio.run(run_pipeline_and_update())
 
     logger.info(
         f"Book {content_id} processing complete: "
@@ -404,7 +404,7 @@ def process_book(
     except RetryError as e:
         logger.error(f"Book processing failed for {content_id} after all retries: {e}")
         # Update status to failed
-        asyncio.run(update_status(content_id, "failed", str(e)))
+        asyncio.run(update_status(content_id, ContentStatus.FAILED.value, str(e)))
         raise
 
 

@@ -63,7 +63,7 @@ from app.pipelines.utils.vlm_client import (
     vision_completion,
     get_default_ocr_model,
 )
-from app.pipelines.utils.cost_types import LLMUsage
+from app.pipelines.utils.cost_types import LLMUsage, PipelineName, PipelineOperation
 from app.pipelines.utils.text_client import text_completion, get_default_text_model
 from app.pipelines.utils.text_utils import extract_json_from_response
 from app.services.cost_tracking import CostTracker
@@ -169,7 +169,7 @@ class BookOCRPipeline(BasePipeline):
 
     SUPPORTED_FORMATS = {".jpg", ".jpeg", ".png", ".heic", ".webp", ".tiff"}
     SUPPORTED_CONTENT_TYPES = {PipelineContentType.BOOK}
-    PIPELINE_NAME = "book_ocr"
+    PIPELINE_NAME = PipelineName.BOOK_OCR
 
     def __init__(
         self,
@@ -281,7 +281,7 @@ class BookOCRPipeline(BasePipeline):
             image_paths: List of paths to page images (.jpg, .png, etc.).
             book_metadata: Optional metadata with title, authors, isbn.
                           If not provided, will attempt to infer from first page.
-            content_id: Optional content ID for cost attribution.
+            content_id: Optional content UUID for cost attribution.
 
         Returns:
             UnifiedContent with:
@@ -571,7 +571,7 @@ CRITICAL INSTRUCTIONS:
                     json_mode=self.use_json_mode,
                     pipeline=self.PIPELINE_NAME,
                     content_id=getattr(self, "_content_id", None),
-                    operation="page_extraction",
+                    operation=PipelineOperation.PAGE_EXTRACTION,
                 )
 
                 # Track usage for batch logging (thread-safe)
@@ -758,7 +758,7 @@ Respond with JSON containing title, authors, isbn, and confidence level."""
                 json_mode=True,
                 pipeline=self.PIPELINE_NAME,
                 content_id=getattr(self, "_content_id", None),
-                operation="metadata_inference",
+                operation=PipelineOperation.METADATA_INFERENCE,
             )
 
             # Track usage (thread-safe)

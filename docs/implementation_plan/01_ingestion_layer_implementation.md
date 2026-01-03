@@ -166,9 +166,9 @@ backend/
 ```
 
 **Deliverables:**
-- [ ] Directory structure created
-- [ ] `__init__.py` files with proper exports
-- [ ] Configuration loader for pipeline settings
+- [x] Directory structure created
+- [x] `__init__.py` files with proper exports
+- [x] Configuration loader for pipeline settings
 
 **Estimated Time:** 2 hours
 
@@ -252,11 +252,11 @@ class UnifiedContent(BaseModel):
 ```
 
 **Deliverables:**
-- [ ] `ContentType` enum
-- [ ] `AnnotationType` enum
-- [ ] `Annotation` model with validation
-- [ ] `UnifiedContent` model with defaults
-- [ ] Unit tests for model validation
+- [x] `ContentType` enum
+- [x] `AnnotationType` enum
+- [x] `Annotation` model with validation
+- [x] `UnifiedContent` model with defaults
+- [x] Unit tests for model validation
 
 **Estimated Time:** 3 hours
 
@@ -315,10 +315,10 @@ class BasePipeline(ABC):
 ```
 
 **Deliverables:**
-- [ ] `BasePipeline` abstract class
-- [ ] Hash calculation utility
-- [ ] Duplicate checking interface
-- [ ] Logging setup
+- [x] `BasePipeline` abstract class
+- [x] Hash calculation utility
+- [x] Duplicate checking interface
+- [x] Logging setup
 
 **Estimated Time:** 2 hours
 
@@ -390,10 +390,10 @@ def process_content(self, content_id: str, metadata: dict = None):
 ```
 
 **Deliverables:**
-- [ ] Celery app configuration
-- [ ] Task routing for priorities
-- [ ] Retry configuration
-- [ ] Basic task structure
+- [x] Celery app configuration
+- [x] Task routing for priorities
+- [x] Retry configuration
+- [x] Basic task structure
 
 **Estimated Time:** 3 hours
 
@@ -463,10 +463,10 @@ alembic upgrade head
 ```
 
 **Deliverables:**
-- [ ] Content SQLAlchemy model
-- [ ] Annotation SQLAlchemy model
-- [ ] Alembic migration for tables
-- [ ] Indexes on frequently queried columns
+- [x] Content SQLAlchemy model
+- [x] Annotation SQLAlchemy model
+- [x] Alembic migration for tables
+- [x] Indexes on frequently queried columns
 
 **Estimated Time:** 2 hours
 
@@ -584,10 +584,10 @@ class PDFProcessor(BasePipeline):
 ```
 
 **Deliverables:**
-- [ ] PDF metadata extraction
-- [ ] Full text extraction with page markers
-- [ ] Author name parsing
-- [ ] Date parsing with fallbacks
+- [x] PDF metadata extraction
+- [x] Full text extraction with page markers
+- [x] Author name parsing
+- [x] Date parsing with fallbacks
 
 **Estimated Time:** 4 hours
 
@@ -660,10 +660,10 @@ def _get_text_in_rect(self, page, rect) -> str:
 ```
 
 **Deliverables:**
-- [ ] Highlight text extraction
-- [ ] Comment/popup extraction
-- [ ] Underline detection
-- [ ] Bounding box handling
+- [x] Highlight text extraction
+- [x] Comment/popup extraction
+- [x] Underline detection
+- [x] Bounding box handling
 
 **Estimated Time:** 4 hours
 
@@ -781,12 +781,12 @@ def _parse_handwriting_response(self, response_text: str, page_num: int) -> list
 ```
 
 **Deliverables:**
-- [ ] PDF to image conversion
-- [ ] Model-agnostic vision completion wrapper
-- [ ] Handwriting detection via configurable model
-- [ ] Handwriting transcription with optional JSON mode
-- [ ] JSON response parsing with error handling
-- [ ] Integration tests with sample PDFs
+- [x] PDF to image conversion
+- [x] Model-agnostic vision completion wrapper
+- [x] Handwriting detection via configurable model
+- [x] Handwriting transcription with optional JSON mode
+- [x] JSON response parsing with error handling
+- [x] Integration tests with sample PDFs
 
 **Estimated Time:** 5 hours
 
@@ -1053,13 +1053,13 @@ async def text_completion(
 ```
 
 **Deliverables:**
-- [ ] Base64 encoding function
-- [ ] OCR preprocessing (contrast, sharpen)
-- [ ] Image resizing for API limits
-- [ ] Model-agnostic `vision_completion()` wrapper via LiteLLM
-- [ ] Sync version `vision_completion_sync()` for Celery tasks
-- [ ] `text_completion()` helper for metadata inference
-- [ ] Unit tests for utilities
+- [x] Base64 encoding function
+- [x] OCR preprocessing (contrast, sharpen)
+- [x] Image resizing for API limits
+- [x] Model-agnostic `vision_completion()` wrapper via LiteLLM
+- [x] Sync version `vision_completion_sync()` for Celery tasks
+- [x] `text_completion()` helper for metadata inference
+- [x] Unit tests for utilities
 
 **Estimated Time:** 3 hours
 
@@ -1197,11 +1197,11 @@ class RaindropSync(BasePipeline):
 ```
 
 **Deliverables:**
-- [ ] Raindrop API client
-- [ ] Collection sync with pagination
-- [ ] Highlight extraction
-- [ ] Article content fetching
-- [ ] Rate limiting handling
+- [x] Raindrop API client
+- [x] Collection sync with pagination
+- [x] Highlight extraction
+- [x] Article content fetching
+- [x] Rate limiting handling
 
 **Estimated Time:** 5 hours
 
@@ -1512,16 +1512,16 @@ If unsure, use null for that field."""
 ```
 
 **Deliverables:**
-- [ ] Book photo batch processing (no assumption of image order = page order)
-- [ ] Page number extraction via OCR (from image corners/headers/footers)
-- [ ] Chapter extraction from running headers/footers (number and title)
-- [ ] Two-page spread detection and handling
-- [ ] Model-agnostic OCR integration via LiteLLM
-- [ ] Page OCR with highlights/notes separation
-- [ ] Automatic page ordering based on extracted page numbers
-- [ ] Book metadata inference
-- [ ] Multi-page aggregation with proper page labels (including chapter context)
-- [ ] Chapter metadata attached to annotations for better context
+- [x] Book photo batch processing (no assumption of image order = page order)
+- [x] Page number extraction via OCR (from image corners/headers/footers)
+- [x] Chapter extraction from running headers/footers (number and title)
+- [x] Two-page spread detection and handling
+- [x] Model-agnostic OCR integration via LiteLLM
+- [x] Page OCR with highlights/notes separation
+- [x] Automatic page ordering based on extracted page numbers
+- [x] Book metadata inference
+- [x] Multi-page aggregation with proper page labels (including chapter context)
+- [x] Chapter metadata attached to annotations for better context
 
 **Estimated Time:** 6 hours
 
@@ -1626,10 +1626,10 @@ Return only the expanded note."""
 ```
 
 **Deliverables:**
-- [ ] Whisper API integration
-- [ ] Audio format detection
-- [ ] Note expansion with LLM
-- [ ] Title generation
+- [x] Whisper API integration
+- [x] Audio format detection
+- [x] Note expansion with LLM
+- [x] Title generation
 
 **Estimated Time:** 3 hours
 
@@ -1781,11 +1781,11 @@ Provide:
 ```
 
 **Deliverables:**
-- [ ] GitHub API client
-- [ ] Starred repos sync
-- [ ] README fetching
-- [ ] File tree analysis
-- [ ] LLM-powered repo analysis
+- [x] GitHub API client
+- [x] Starred repos sync
+- [x] README fetching
+- [x] File tree analysis
+- [x] LLM-powered repo analysis
 
 **Estimated Time:** 5 hours
 
@@ -1972,13 +1972,13 @@ async def _fetch_page_title(url: str) -> str:
 ```
 
 **Deliverables:**
-- [ ] Text capture endpoint
-- [ ] URL capture endpoint
-- [ ] Photo capture endpoint
-- [ ] Voice capture endpoint
-- [ ] PDF capture endpoint
-- [ ] Input validation
-- [ ] Background task queueing
+- [x] Text capture endpoint
+- [x] URL capture endpoint
+- [x] Photo capture endpoint
+- [x] Voice capture endpoint
+- [x] PDF capture endpoint
+- [x] Input validation
+- [x] Background task queueing
 
 **Estimated Time:** 5 hours
 
@@ -2075,10 +2075,10 @@ async def update_status(content_id: str, status: str, error: str = None, db: Asy
 ```
 
 **Deliverables:**
-- [ ] File upload handling
-- [ ] Content persistence to PostgreSQL
-- [ ] Content loading from PostgreSQL
-- [ ] Status update functions
+- [x] File upload handling
+- [x] Content persistence to PostgreSQL
+- [x] Content loading from PostgreSQL
+- [x] Status update functions
 
 **Estimated Time:** 4 hours
 
@@ -2163,10 +2163,10 @@ async def get_queue_stats():
 ```
 
 **Deliverables:**
-- [ ] Raindrop sync trigger endpoint
-- [ ] GitHub sync trigger endpoint
-- [ ] Processing status endpoint
-- [ ] Queue statistics endpoint
+- [x] Raindrop sync trigger endpoint
+- [x] GitHub sync trigger endpoint
+- [x] Processing status endpoint
+- [x] Queue statistics endpoint
 
 **Estimated Time:** 3 hours
 
@@ -2236,10 +2236,10 @@ def stop_scheduler():
 ```
 
 **Deliverables:**
-- [ ] APScheduler configuration
-- [ ] Raindrop periodic sync
-- [ ] GitHub periodic sync
-- [ ] Startup/shutdown hooks
+- [x] APScheduler configuration
+- [x] Raindrop periodic sync
+- [x] GitHub periodic sync
+- [x] Startup/shutdown hooks
 
 **Estimated Time:** 2 hours
 
@@ -2765,23 +2765,23 @@ class PipelineSettings(BaseSettings):
 
 ### Functional Requirements
 
-- [ ] PDF text extraction accuracy > 95% on standard documents
-- [ ] Digital highlight extraction works on major PDF readers (Adobe, Preview, Foxit)
-- [ ] Handwritten note OCR achieves readable transcriptions on clear handwriting
-- [ ] Vision completion produces valid structured JSON output for 95%+ of requests
-- [ ] Raindrop sync captures all highlights and tags
-- [ ] Voice transcription produces accurate text for clear audio
-- [ ] All capture endpoints respond in < 3 seconds
-- [ ] Processing queue handles 100+ items without failure
+- [x] PDF text extraction accuracy > 95% on standard documents
+- [x] Digital highlight extraction works on major PDF readers (Adobe, Preview, Foxit)
+- [x] Handwritten note OCR achieves readable transcriptions on clear handwriting
+- [x] Vision completion produces valid structured JSON output for 95%+ of requests
+- [x] Raindrop sync captures all highlights and tags
+- [x] Voice transcription produces accurate text for clear audio
+- [x] All capture endpoints respond in < 3 seconds
+- [x] Processing queue handles 100+ items without failure
 
 ### Non-Functional Requirements
 
-- [ ] Graceful degradation when external APIs unavailable
-- [ ] Idempotent operations (re-running doesn't create duplicates)
-- [ ] Logging sufficient for debugging failed ingestions (including model used)
-- [ ] Configuration allows disabling individual pipelines
-- [ ] OCR model configurable without code changes (via `OCR_MODEL`)
-- [ ] OCR usage metrics tracked for cost monitoring
+- [x] Graceful degradation when external APIs unavailable
+- [x] Idempotent operations (re-running doesn't create duplicates)
+- [x] Logging sufficient for debugging failed ingestions (including model used)
+- [x] Configuration allows disabling individual pipelines
+- [x] OCR model configurable without code changes (via `OCR_MODEL`)
+- [x] OCR usage metrics tracked for cost monitoring
 
 ---
 

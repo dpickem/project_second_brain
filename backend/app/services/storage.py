@@ -57,6 +57,7 @@ import aiofiles
 from fastapi import UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.db.base import async_session_maker
@@ -291,15 +292,18 @@ async def _load_content_impl(
         Reconstructed UnifiedContent object, or None if not found
     """
     # Lookup by content_uuid column (indexed, fast)
+    # Use selectinload to eagerly load annotations (required for async SQLAlchemy)
     result = await db.execute(
-        select(DBContent).where(DBContent.content_uuid == content_id)
+        select(DBContent)
+        .where(DBContent.content_uuid == content_id)
+        .options(selectinload(DBContent.annotations))
     )
     db_content = result.scalar_one_or_none()
 
     if not db_content:
         return None
 
-    # Load annotations (linked via db_id foreign key, not UUID)
+    # Load annotations (already eagerly loaded via selectinload)
     annotations = []
     if db_content.annotations:
         for db_annot in db_content.annotations:
@@ -349,6 +353,36 @@ async def _load_content_impl(
         tags=metadata.get("tags", []),
         metadata=metadata,  # Includes "db_id" if previously saved
     )
+
+
+async def get_db_id_by_uuid(
+    content_id: str,
+    db: Optional[AsyncSession] = None,
+) -> Optional[int]:
+    """
+    Get the integer database ID for a content UUID.
+
+    This is useful when you need the integer FK for database operations
+    (e.g., llm_usage_logs.content_id) but only have the UUID.
+
+    Args:
+        content_id: UUID string of the content
+        db: Optional database session
+
+    Returns:
+        Integer database ID (content.id) or None if not found
+    """
+    if db is None:
+        async with async_session_maker() as db:
+            result = await db.execute(
+                select(DBContent.id).where(DBContent.content_uuid == content_id)
+            )
+            row = result.scalar_one_or_none()
+            return row
+    result = await db.execute(
+        select(DBContent.id).where(DBContent.content_uuid == content_id)
+    )
+    return result.scalar_one_or_none()
 
 
 async def update_status(
@@ -425,8 +459,8 @@ async def _update_status_impl(
     # Update status
     db_content.status = ContentStatus(status)
 
-    # Update processed_at if completed
-    if status == "completed":
+    # Update processed_at if processed
+    if status == ContentStatus.PROCESSED.value:
         db_content.processed_at = datetime.utcnow()
 
     # Store error in metadata if provided
@@ -590,9 +624,11 @@ async def _get_pending_impl(limit: int, db: AsyncSession) -> list[UnifiedContent
         Each object's .id is the UUID (content_uuid).
     """
     # Query pending content, oldest first (FIFO)
+    # Use selectinload to eagerly load annotations (required for async SQLAlchemy)
     result = await db.execute(
         select(DBContent)
         .where(DBContent.status == ContentStatus.PENDING)
+        .options(selectinload(DBContent.annotations))
         .order_by(DBContent.created_at.asc())  # Explicit ascending = oldest first
         .limit(limit)
     )

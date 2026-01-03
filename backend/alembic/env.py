@@ -7,7 +7,7 @@ It loads settings from app.config and uses the SQLAlchemy models.
 
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
+from sqlalchemy import create_engine
 from sqlalchemy import pool
 
 from alembic import context
@@ -28,8 +28,9 @@ from app.db import models  # noqa: F401
 # access to the values within the .ini file in use.
 config = context.config
 
-# Override sqlalchemy.url with value from settings
-config.set_main_option("sqlalchemy.url", settings.POSTGRES_URL_SYNC)
+# Note: We DON'T use config.set_main_option for the URL because
+# ConfigParser interprets % as interpolation syntax. Instead,
+# we pass the URL directly to create_engine in run_migrations_online().
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -52,7 +53,8 @@ def run_migrations_offline() -> None:
     Calls to context.execute() here emit the given string to the
     script output.
     """
-    url = config.get_main_option("sqlalchemy.url")
+    # Use URL directly from settings to avoid ConfigParser % interpolation issues
+    url = settings.POSTGRES_URL_SYNC
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -70,9 +72,10 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine
     and associate a connection with the context.
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    # Create engine directly from settings URL to avoid ConfigParser
+    # interpreting % in passwords as interpolation syntax
+    connectable = create_engine(
+        settings.POSTGRES_URL_SYNC,
         poolclass=pool.NullPool,
     )
 

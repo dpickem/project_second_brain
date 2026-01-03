@@ -33,7 +33,7 @@ from app.models.content import (
     UnifiedContent,
 )
 from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
-from app.pipelines.utils.cost_types import LLMUsage
+from app.pipelines.utils.cost_types import LLMUsage, PipelineName, PipelineOperation
 from app.pipelines.utils.mistral_ocr_client import (
     get_default_ocr_model,
     ocr_pdf_document_annotated,
@@ -69,7 +69,7 @@ class PDFProcessor(BasePipeline):
     """
 
     SUPPORTED_CONTENT_TYPES = {PipelineContentType.PDF}
-    PIPELINE_NAME = "pdf_processor"
+    PIPELINE_NAME = PipelineName.PDF_PROCESSOR
 
     def __init__(
         self,
@@ -188,7 +188,7 @@ class PDFProcessor(BasePipeline):
             include_images=self.include_images,
             pipeline=self.PIPELINE_NAME,
             content_id=self._content_id,
-            operation="document_ocr",
+            operation=PipelineOperation.DOCUMENT_OCR,
         )
 
         # Track OCR usage
@@ -499,7 +499,7 @@ Respond with ONLY the category name (paper, book, or article), nothing else."""
                 temperature=0.0,
                 pipeline=self.PIPELINE_NAME,
                 content_id=self._content_id,
-                operation="content_type_classification",
+                operation=PipelineOperation.CONTENT_TYPE_CLASSIFICATION,
             )
 
             self._usage_records.append(usage)

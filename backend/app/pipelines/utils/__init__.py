@@ -36,6 +36,8 @@ from app.pipelines.utils.text_client import (
 )
 from app.pipelines.utils.cost_types import (
     LLMUsage,
+    PipelineName,
+    PipelineOperation,
     extract_provider,
     extract_usage_from_response,
     create_error_usage,
@@ -104,8 +106,10 @@ __all__ = [
     "text_completion_with_context",
     "text_completion_chat",
     "get_default_text_model",
-    # Cost tracking types
+    # Cost tracking types and enums
     "LLMUsage",
+    "PipelineName",
+    "PipelineOperation",
     "extract_provider",
     "extract_usage_from_response",
     "create_error_usage",
