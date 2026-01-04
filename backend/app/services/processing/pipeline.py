@@ -36,8 +36,8 @@ from app.models.processing import (
     ContentAnalysis,
     ExtractionResult,
     TagAssignment,
-    SummaryLevel,
 )
+from app.enums.processing import SummaryLevel
 from app.pipelines.utils.cost_types import LLMUsage
 from app.services.llm.client import get_llm_client, LLMClient
 from app.services.knowledge_graph.client import get_neo4j_client, Neo4jClient

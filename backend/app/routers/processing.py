@@ -34,7 +34,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.db.base import get_async_session
+from app.db.base import async_session_maker
 from app.db.models import Content
 from app.db.models_processing import ProcessingRun
 from app.enums.content import ContentType, ProcessingStatus
@@ -174,7 +174,7 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
 
     try:
         # Load content from database
-        async with get_async_session() as session:
+        async with async_session_maker() as session:
             result = await session.execute(
                 select(Content).where(Content.content_uuid == content_id)
             )
@@ -215,7 +215,7 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
         processing_result = await process_content(content, config)
 
         # Save result to database
-        async with get_async_session() as session:
+        async with async_session_maker() as session:
             # Get content record again
             result = await session.execute(
                 select(Content).where(Content.content_uuid == content_id)
@@ -254,7 +254,7 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
 
         # Update status to failed
         try:
-            async with get_async_session() as session:
+            async with async_session_maker() as session:
                 result = await session.execute(
                     select(Content).where(Content.content_uuid == content_id)
                 )
@@ -296,7 +296,7 @@ async def trigger_processing(
         TriggerProcessingResponse with queued status
     """
     # Verify content exists
-    async with get_async_session() as session:
+    async with async_session_maker() as session:
         result = await session.execute(
             select(Content).where(Content.content_uuid == request.content_id)
         )
@@ -338,7 +338,7 @@ async def get_processing_status(content_id: str):
     Returns:
         ProcessingStatusResponse with status and timing info
     """
-    async with get_async_session() as session:
+    async with async_session_maker() as session:
         # Get content
         result = await session.execute(
             select(Content).where(Content.content_uuid == content_id)
@@ -390,7 +390,7 @@ async def get_processing_result(content_id: str):
     Raises:
         HTTPException 404: If content or processing result not found
     """
-    async with get_async_session() as session:
+    async with async_session_maker() as session:
         # Get content
         result = await session.execute(
             select(Content).where(Content.content_uuid == content_id)
@@ -496,7 +496,7 @@ async def get_pending_content(limit: int = 100, include_failed: bool = False):
     Returns:
         PendingContentResponse with list of pending items
     """
-    async with get_async_session() as session:
+    async with async_session_maker() as session:
         # Build status filter
         statuses = [ProcessingStatus.PENDING, ProcessingStatus.INGESTED]
         if include_failed:
@@ -534,8 +534,8 @@ async def get_pending_content(limit: int = 100, include_failed: bool = False):
 @router.post("/reprocess")
 async def reprocess_content(
     content_id: str,
+    background_tasks: BackgroundTasks,
     stages: Optional[list[ProcessingStage]] = None,
-    background_tasks: Optional[BackgroundTasks] = None,
 ):
     """
     Reprocess specific stages for existing content.

@@ -16,19 +16,27 @@ from app.models.content import (
     AnnotationType,
     UnifiedContent,
 )
-from app.pipelines.base import BasePipeline, PipelineRegistry
+from app.pipelines.base import BasePipeline, PipelineRegistry, PipelineInput, PipelineContentType
 
 
 class DummyPipeline(BasePipeline):
     """Concrete implementation of BasePipeline for testing."""
 
-    def supports(self, input_data) -> bool:
-        return isinstance(input_data, str) and input_data.endswith(".dummy")
+    SUPPORTED_CONTENT_TYPES = {PipelineContentType.IDEA}
 
-    async def process(self, input_data) -> UnifiedContent:
+    def supports(self, input_data: PipelineInput) -> bool:
+        if not isinstance(input_data, PipelineInput):
+            return False
+        if input_data.content_type != PipelineContentType.IDEA:
+            return False
+        if input_data.text:
+            return input_data.text.endswith(".dummy")
+        return False
+
+    async def process(self, input_data: PipelineInput) -> UnifiedContent:
         return UnifiedContent(
             source_type=ContentType.IDEA,
-            title=f"Processed: {input_data}",
+            title=f"Processed: {input_data.text}",
             full_text="Dummy content",
         )
 
@@ -109,16 +117,25 @@ class TestBasePipeline:
         """Test the supports method."""
         pipeline = DummyPipeline()
 
-        assert pipeline.supports("test.dummy") is True
-        assert pipeline.supports("test.pdf") is False
-        assert pipeline.supports(123) is False
+        # With PipelineInput and correct content type
+        dummy_input = PipelineInput(text="test.dummy", content_type=PipelineContentType.IDEA)
+        assert pipeline.supports(dummy_input) is True
+
+        # Wrong text ending
+        pdf_input = PipelineInput(text="test.pdf", content_type=PipelineContentType.IDEA)
+        assert pipeline.supports(pdf_input) is False
+
+        # Wrong content type
+        wrong_type_input = PipelineInput(text="test.dummy", content_type=PipelineContentType.PDF)
+        assert pipeline.supports(wrong_type_input) is False
 
     @pytest.mark.asyncio
     async def test_process(self):
         """Test the process method."""
         pipeline = DummyPipeline()
 
-        result = await pipeline.process("test.dummy")
+        input_data = PipelineInput(text="test.dummy", content_type=PipelineContentType.IDEA)
+        result = await pipeline.process(input_data)
 
         assert isinstance(result, UnifiedContent)
         assert result.source_type == ContentType.IDEA
@@ -143,12 +160,14 @@ class TestPipelineRegistry:
         pipeline = DummyPipeline()
         registry.register(pipeline)
 
-        # Should find pipeline for .dummy files
-        found = registry.get_pipeline("test.dummy")
+        # Should find pipeline for .dummy files with correct content type
+        dummy_input = PipelineInput(text="test.dummy", content_type=PipelineContentType.IDEA)
+        found = registry.get_pipeline(dummy_input)
         assert found is pipeline
 
-        # Should not find pipeline for .pdf files
-        not_found = registry.get_pipeline("test.pdf")
+        # Should not find pipeline for wrong content type
+        pdf_input = PipelineInput(text="test.pdf", content_type=PipelineContentType.PDF)
+        not_found = registry.get_pipeline(pdf_input)
         assert not_found is None
 
     @pytest.mark.asyncio
@@ -158,11 +177,13 @@ class TestPipelineRegistry:
         registry.register(DummyPipeline())
 
         # Process supported input
-        result = await registry.process("test.dummy")
+        dummy_input = PipelineInput(text="test.dummy", content_type=PipelineContentType.IDEA)
+        result = await registry.process(dummy_input)
         assert isinstance(result, UnifiedContent)
 
         # Process unsupported input
-        result = await registry.process("test.pdf")
+        pdf_input = PipelineInput(text="test.pdf", content_type=PipelineContentType.PDF)
+        result = await registry.process(pdf_input)
         assert result is None
 
 
@@ -174,18 +195,28 @@ class TestPDFProcessor:
         """Create a PDF processor instance."""
         from app.pipelines.pdf_processor import PDFProcessor
 
-        return PDFProcessor(
-            enable_handwriting_detection=False,  # Disable for unit tests
-        )
+        return PDFProcessor()
 
     def test_supports_pdf(self, pdf_processor):
         """Test that processor supports PDF files."""
-        assert pdf_processor.supports(Path("test.pdf")) is True
-        assert pdf_processor.supports(Path("test.PDF")) is True
-        assert pdf_processor.supports(Path("test.txt")) is False
-        assert pdf_processor.supports("test.pdf") is True
+        # Supported: PDF with correct content type
+        pdf_input = PipelineInput(path=Path("test.pdf"), content_type=PipelineContentType.PDF)
+        assert pdf_processor.supports(pdf_input) is True
 
-    def test_infer_content_type_paper(self, pdf_processor):
+        # Also works with uppercase extension (case insensitive)
+        pdf_upper = PipelineInput(path=Path("test.PDF"), content_type=PipelineContentType.PDF)
+        assert pdf_processor.supports(pdf_upper) is True
+
+        # Unsupported: wrong file extension
+        txt_input = PipelineInput(path=Path("test.txt"), content_type=PipelineContentType.PDF)
+        assert pdf_processor.supports(txt_input) is False
+
+        # Unsupported: wrong content type
+        wrong_type = PipelineInput(path=Path("test.pdf"), content_type=PipelineContentType.BOOK)
+        assert pdf_processor.supports(wrong_type) is False
+
+    @pytest.mark.asyncio
+    async def test_infer_content_type_paper(self, pdf_processor):
         """Test content type inference for papers."""
         metadata = {"title": "Machine Learning Paper"}
         text = """
@@ -198,10 +229,11 @@ class TestPDFProcessor:
         [1] Some reference
         """
 
-        content_type = pdf_processor._infer_content_type(metadata, text)
+        content_type = await pdf_processor._infer_content_type(metadata, text)
         assert content_type == ContentType.PAPER
 
-    def test_infer_content_type_book(self, pdf_processor):
+    @pytest.mark.asyncio
+    async def test_infer_content_type_book(self, pdf_processor):
         """Test content type inference for books."""
         metadata = {"title": "Programming Guide"}
         text = """
@@ -211,7 +243,7 @@ class TestPDFProcessor:
         Preface
         """
 
-        content_type = pdf_processor._infer_content_type(metadata, text)
+        content_type = await pdf_processor._infer_content_type(metadata, text)
         assert content_type == ContentType.BOOK
 
 
@@ -227,32 +259,40 @@ class TestVoiceTranscriber:
 
     def test_supports_audio_formats(self, voice_transcriber):
         """Test that transcriber supports common audio formats."""
-        assert voice_transcriber.supports(Path("test.mp3")) is True
-        assert voice_transcriber.supports(Path("test.wav")) is True
-        assert voice_transcriber.supports(Path("test.m4a")) is True
-        assert voice_transcriber.supports(Path("test.webm")) is True
-        assert voice_transcriber.supports(Path("test.pdf")) is False
+        # Supported formats with correct content type
+        mp3_input = PipelineInput(path=Path("test.mp3"), content_type=PipelineContentType.VOICE_MEMO)
+        assert voice_transcriber.supports(mp3_input) is True
 
-    def test_generate_title(self, voice_transcriber):
-        """Test title generation from content."""
-        content = "# Important Meeting Notes\n\nDiscussed project timeline..."
-        title = voice_transcriber._generate_title(content)
-        assert title == "Important Meeting Notes"
+        wav_input = PipelineInput(path=Path("test.wav"), content_type=PipelineContentType.VOICE_MEMO)
+        assert voice_transcriber.supports(wav_input) is True
 
-        # Test with plain text
-        content2 = "Quick idea about the new feature"
-        title2 = voice_transcriber._generate_title(content2)
-        assert title2 == "Quick idea about the new feature"
+        m4a_input = PipelineInput(path=Path("test.m4a"), content_type=PipelineContentType.VOICE_MEMO)
+        assert voice_transcriber.supports(m4a_input) is True
 
-    def test_estimate_duration(self, voice_transcriber):
-        """Test duration estimation from transcript length."""
-        # Short memo
-        short = voice_transcriber._estimate_duration(100)
-        assert "minute" in short
+        webm_input = PipelineInput(path=Path("test.webm"), content_type=PipelineContentType.VOICE_MEMO)
+        assert voice_transcriber.supports(webm_input) is True
 
-        # Longer memo
-        long = voice_transcriber._estimate_duration(5000)
-        assert "minutes" in long
+        # Unsupported format
+        pdf_input = PipelineInput(path=Path("test.pdf"), content_type=PipelineContentType.VOICE_MEMO)
+        assert voice_transcriber.supports(pdf_input) is False
+
+    def test_format_duration(self, voice_transcriber):
+        """Test duration formatting from seconds."""
+        # Short duration (under 1 minute)
+        short = voice_transcriber._format_duration(45)
+        assert short == "0:45"
+
+        # Medium duration (minutes)
+        medium = voice_transcriber._format_duration(125)
+        assert medium == "2:05"
+
+        # Long duration (over an hour)
+        long = voice_transcriber._format_duration(3725)
+        assert long == "1:02:05"
+
+        # None returns unknown
+        unknown = voice_transcriber._format_duration(None)
+        assert unknown == "unknown"
 
 
 class TestBookOCRPipeline:
@@ -267,18 +307,33 @@ class TestBookOCRPipeline:
 
     def test_supports_image_formats(self, book_pipeline):
         """Test that pipeline supports image formats."""
-        assert book_pipeline.supports([Path("page.jpg")]) is True
-        assert book_pipeline.supports([Path("page.png")]) is True
-        assert book_pipeline.supports([Path("page.heic")]) is True
-        assert book_pipeline.supports([Path("page.pdf")]) is False
+        # Test that SUPPORTED_FORMATS contains expected image types
+        assert ".jpg" in book_pipeline.SUPPORTED_FORMATS
+        assert ".jpeg" in book_pipeline.SUPPORTED_FORMATS
+        assert ".png" in book_pipeline.SUPPORTED_FORMATS
+        assert ".heic" in book_pipeline.SUPPORTED_FORMATS
+        assert ".pdf" not in book_pipeline.SUPPORTED_FORMATS
+
+        # Test content type filtering
+        book_input = PipelineInput(path=Path("page.jpg"), content_type=PipelineContentType.BOOK)
+        pdf_content_input = PipelineInput(path=Path("page.jpg"), content_type=PipelineContentType.PDF)
+
+        # Correct content type should be supported (non-existent paths treated as directories)
+        assert book_pipeline.supports(book_input) is True
+
+        # Wrong content type should not be supported
+        assert book_pipeline.supports(pdf_content_input) is False
 
     def test_build_page_label(self, book_pipeline):
         """Test page label building."""
+        from app.pipelines.book_ocr import ChapterInfo
+
         # Page with number and chapter
+        chapter = ChapterInfo(number="5", title="Memory")
         label = book_pipeline._build_page_label(
             page_num=42,
-            chapter={"number": "5", "title": "Memory"},
-            result={"source_image": "page.jpg"},
+            chapter=chapter,
+            source_image="page.jpg",
         )
         assert "Page 42" in label
         assert "Ch. 5" in label
@@ -286,12 +341,12 @@ class TestBookOCRPipeline:
 
         # Page with number only
         label2 = book_pipeline._build_page_label(
-            page_num=10, chapter=None, result={"source_image": "page.jpg"}
+            page_num=10, chapter=None, source_image="page.jpg"
         )
         assert label2 == "Page 10"
 
         # Page without number
         label3 = book_pipeline._build_page_label(
-            page_num=None, chapter=None, result={"source_image": "page.jpg"}
+            page_num=None, chapter=None, source_image="page.jpg"
         )
         assert "page.jpg" in label3

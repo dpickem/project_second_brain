@@ -128,7 +128,7 @@ class TestUnifiedContent:
             ],
             raw_file_hash="abc123",
             asset_paths=["/path/to/paper.pdf"],
-            processing_status=ProcessingStatus.COMPLETED,
+            processing_status=ProcessingStatus.PROCESSED,
             obsidian_path="sources/papers/test-paper.md",
             tags=["ml", "transformers"],
             metadata={"doi": "10.1234/test"},
@@ -139,7 +139,7 @@ class TestUnifiedContent:
         assert content.source_url == "https://arxiv.org/abs/1234.5678"
         assert len(content.authors) == 2
         assert len(content.annotations) == 1
-        assert content.processing_status == ProcessingStatus.COMPLETED
+        assert content.processing_status == ProcessingStatus.PROCESSED
         assert "ml" in content.tags
 
     def test_content_types(self):
