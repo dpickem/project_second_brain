@@ -32,7 +32,7 @@ import logging
 
 import litellm
 from celery import Celery
-from celery.signals import worker_process_init
+from celery.signals import task_prerun, worker_process_init
 from litellm.litellm_core_utils import logging_worker as litellm_logging_worker
 
 from app.config import settings
@@ -87,27 +87,30 @@ celery_app.conf.update(
 
 
 # =============================================================================
-# Worker Process Initialization
+# LiteLLM Event Loop Reset
 # =============================================================================
-# LiteLLM's LoggingWorker creates an asyncio Queue at module import time.
-# When Celery forks workers (prefork pool), each worker gets a new event loop
-# but the queue is still bound to the parent's loop, causing:
-#   RuntimeError: <Queue ...> is bound to a different event loop
+# LiteLLM's LoggingWorker creates an asyncio Queue that binds to the current
+# event loop. This causes issues with Celery because:
 #
-# This signal handler resets LiteLLM's internal state after each worker fork.
+# 1. Worker fork: Parent process may have a Queue bound to its event loop.
+#    After fork, the child worker has a new event loop but the Queue is bound
+#    to the parent's loop → "Queue bound to different event loop" error.
+#
+# 2. Multiple tasks in same worker: Each task calls asyncio.run() which creates
+#    a new event loop. The first task's event loop binds litellm's Queue. When
+#    the second task runs with a new event loop, the Queue is still bound to
+#    the first task's (now closed) event loop → same error.
+#
+# Solution: Reset litellm's LoggingWorker state BEFORE each task runs, ensuring
+# a fresh Queue is created bound to the current task's event loop.
 
 
-@worker_process_init.connect
-def reset_litellm_on_worker_init(**kwargs):
+def _reset_litellm_logging_state():
     """
-    Reset LiteLLM's async logging state after Celery worker fork.
+    Reset LiteLLM's async logging state to prevent event loop binding issues.
     
-    This prevents the 'Queue bound to different event loop' error that occurs
-    when LiteLLM's LoggingWorker is initialized before Celery forks workers.
-    
-    The issue: LiteLLM's LoggingWorker creates an asyncio.Queue at module import,
-    which binds to the parent process's event loop. After Celery forks, each worker
-    has a new event loop but the queue is still bound to the old one.
+    This clears all singletons and instances that may hold references to
+    asyncio.Queue objects bound to a previous event loop.
     """
     try:
         # Reset top-level litellm attributes that may hold event loop references
@@ -125,12 +128,35 @@ def reset_litellm_on_worker_init(**kwargs):
             litellm_logging_worker._logging_worker_instance = None
         if hasattr(litellm_logging_worker, "logging_worker"):
             litellm_logging_worker.logging_worker = None
+        
+        # Also reset the global instance if it exists
+        if hasattr(litellm_logging_worker, "_worker"):
+            litellm_logging_worker._worker = None
             
-        logger.debug("Reset LiteLLM logging state for new worker process")
+        return True
         
     except Exception as e:
-        # Log but don't fail worker startup
-        logger.warning(f"Failed to reset LiteLLM state on worker init: {e}")
+        logger.warning(f"Failed to reset LiteLLM logging state: {e}")
+        return False
+
+
+@worker_process_init.connect
+def reset_litellm_on_worker_init(**kwargs):
+    """Reset LiteLLM's async logging state after Celery worker fork."""
+    if _reset_litellm_logging_state():
+        logger.debug("Reset LiteLLM logging state for new worker process")
+
+
+@task_prerun.connect
+def reset_litellm_on_task_prerun(task_id, task, *args, **kwargs):
+    """
+    Reset LiteLLM's async logging state before each task runs.
+    
+    This is the key fix: each task may create a new event loop via asyncio.run(),
+    so we need to ensure litellm's LoggingWorker Queue is re-created fresh for
+    each task's event loop, not bound to a previous task's closed event loop.
+    """
+    _reset_litellm_logging_state()
 
 
 def get_queue_stats() -> dict:
