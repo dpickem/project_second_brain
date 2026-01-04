@@ -32,4 +32,3 @@ def adjust_temperature_for_model(model: str, temperature: float) -> float:
             return 1.0
 
     return temperature
-

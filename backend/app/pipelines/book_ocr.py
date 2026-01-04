@@ -63,9 +63,15 @@ from app.pipelines.utils.vlm_client import (
     vision_completion,
     get_default_ocr_model,
 )
-from app.pipelines.utils.cost_types import LLMUsage, PipelineName, PipelineOperation
-from app.pipelines.utils.text_client import text_completion, get_default_text_model
+from app.enums.pipeline import PipelineName
+from app.pipelines.utils.cost_types import LLMUsage
 from app.pipelines.utils.text_utils import extract_json_from_response
+from app.enums.pipeline import PipelineOperation
+from app.services.llm import (
+    get_llm_client,
+    get_default_text_model,
+    build_messages,
+)
 from app.services.cost_tracking import CostTracker
 
 # =============================================================================
@@ -757,16 +763,17 @@ Respond with JSON containing title, authors, isbn, and confidence level."""
         try:
             self.logger.debug(f"Inferring book metadata with {self.text_model}")
 
-            response_text, usage = await text_completion(
+            client = get_llm_client()
+            messages = build_messages(user_prompt, system_prompt)
+            response_text, usage = await client.complete(
+                operation=PipelineOperation.METADATA_INFERENCE,
+                messages=messages,
                 model=self.text_model,
-                prompt=user_prompt,
-                system_prompt=system_prompt,
                 max_tokens=METADATA_MAX_TOKENS,
                 temperature=METADATA_TEMPERATURE,
                 json_mode=True,
                 pipeline=self.PIPELINE_NAME,
                 content_id=getattr(self, "_content_id", None),
-                operation=PipelineOperation.METADATA_INFERENCE,
             )
 
             # Track usage (thread-safe)

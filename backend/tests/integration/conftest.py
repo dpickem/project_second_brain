@@ -33,7 +33,7 @@ if _env_file.exists():
 def get_test_db_config() -> dict:
     """
     Get test database configuration from environment variables.
-    
+
     Called at runtime (not module load) to ensure .env is loaded first.
     """
     return {

@@ -105,8 +105,12 @@ class TestContentModel:
     async def test_query_content_by_type(self, clean_db: AsyncSession) -> None:
         """Should query content by content_type."""
         # Create test data
-        paper = Content(content_uuid=make_content_uuid(), content_type="paper", title="Paper 1")
-        article = Content(content_uuid=make_content_uuid(), content_type="article", title="Article 1")
+        paper = Content(
+            content_uuid=make_content_uuid(), content_type="paper", title="Paper 1"
+        )
+        article = Content(
+            content_uuid=make_content_uuid(), content_type="article", title="Article 1"
+        )
         clean_db.add_all([paper, article])
         await clean_db.commit()
 
@@ -143,7 +147,11 @@ class TestContentModel:
     @pytest.mark.asyncio
     async def test_content_timestamps(self, clean_db: AsyncSession) -> None:
         """Content should have auto-populated timestamps."""
-        content = Content(content_uuid=make_content_uuid(), content_type="article", title="Timestamped Article")
+        content = Content(
+            content_uuid=make_content_uuid(),
+            content_type="article",
+            title="Timestamped Article",
+        )
         clean_db.add(content)
         await clean_db.commit()
         await clean_db.refresh(content)
@@ -160,7 +168,11 @@ class TestAnnotationModel:
     async def test_create_annotation(self, clean_db: AsyncSession) -> None:
         """Should create an annotation linked to content."""
         # Create parent content
-        content = Content(content_uuid=make_content_uuid(), content_type="paper", title="Paper with Annotations")
+        content = Content(
+            content_uuid=make_content_uuid(),
+            content_type="paper",
+            title="Paper with Annotations",
+        )
         clean_db.add(content)
         await clean_db.commit()
 
@@ -184,7 +196,11 @@ class TestAnnotationModel:
         self, clean_db: AsyncSession
     ) -> None:
         """Should access annotations through content relationship."""
-        content = Content(content_uuid=make_content_uuid(), content_type="book", title="Book with Highlights")
+        content = Content(
+            content_uuid=make_content_uuid(),
+            content_type="book",
+            title="Book with Highlights",
+        )
         clean_db.add(content)
         await clean_db.commit()
 
@@ -318,7 +334,9 @@ class TestSpacedRepCardModel:
     @pytest.mark.asyncio
     async def test_card_linked_to_content(self, clean_db: AsyncSession) -> None:
         """Cards can be linked to source content."""
-        content = Content(content_uuid=make_content_uuid(), content_type="paper", title="Source Paper")
+        content = Content(
+            content_uuid=make_content_uuid(), content_type="paper", title="Source Paper"
+        )
         clean_db.add(content)
         await clean_db.commit()
 
@@ -397,7 +415,11 @@ class TestDatabaseTransactions:
         initial_count = initial_count_result.scalar()
 
         try:
-            content = Content(content_uuid=make_content_uuid(), content_type="test", title="Will be rolled back")
+            content = Content(
+                content_uuid=make_content_uuid(),
+                content_type="test",
+                title="Will be rolled back",
+            )
             db_session.add(content)
             # Don't commit, just let the session rollback
             raise ValueError("Simulated error")

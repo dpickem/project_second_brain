@@ -397,4 +397,3 @@ async def vision_completion_multi_image(
         )
         logger.error(f"Multi-image vision completion failed: {e}")
         raise
-

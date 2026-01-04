@@ -30,6 +30,13 @@ from typing import Any, Optional
 import yaml
 from pydantic_settings import BaseSettings
 
+# Project root is the parent of backend/
+# backend/app/config/settings.py -> backend/app/config -> backend/app -> backend -> project_root
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = _BACKEND_DIR.parent
+CONFIG_DIR = PROJECT_ROOT / "config"
+TEMPLATES_DIR = CONFIG_DIR / "templates"
+
 
 class Settings(BaseSettings):
     """
@@ -200,7 +207,7 @@ settings = get_settings()
 @lru_cache()
 def load_yaml_config() -> dict[str, Any]:
     """Load application configuration from config/default.yaml."""
-    config_path = Path(__file__).parent.parent.parent.parent / "config" / "default.yaml"
+    config_path = CONFIG_DIR / "default.yaml"
 
     if not config_path.exists():
         return {}

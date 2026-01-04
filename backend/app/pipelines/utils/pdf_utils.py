@@ -64,7 +64,7 @@ import fitz  # PyMuPDF
 
 # Annotation type constants from PyMuPDF
 ANNOT_TYPES: dict[int, str] = {
-    0: "Text",           # Sticky note
+    0: "Text",  # Sticky note
     1: "Link",
     2: "FreeText",
     3: "Line",
@@ -116,7 +116,14 @@ ANNOT_EMOJI: dict[str, str] = {
 TEXT_MARKUP_TYPES = {8, 9, 10, 11}  # Highlight, Underline, Squiggly, StrikeOut
 
 # Annotation type codes for shape annotations
-SHAPE_ANNOTATION_TYPES = {3, 4, 5, 6, 7, 15}  # Line, Square, Circle, Polygon, PolyLine, Ink
+SHAPE_ANNOTATION_TYPES = {
+    3,
+    4,
+    5,
+    6,
+    7,
+    15,
+}  # Line, Square, Circle, Polygon, PolyLine, Ink
 
 
 def extract_annotation_info(
@@ -239,7 +246,7 @@ def _extract_text_markup_text(
                 # Vertices come in groups of 4 (quad points)
                 for i in range(0, len(vertices), 4):
                     if i + 3 < len(vertices):
-                        quad = vertices[i:i+4]
+                        quad = vertices[i : i + 4]
                         # Create rect from quad points
                         xs = [p[0] for p in quad]
                         ys = [p[1] for p in quad]
@@ -436,7 +443,7 @@ def format_annotation_display(
         text = " ".join(text.split())
         # Truncate long text
         if len(text) > max_text_length:
-            text = text[:max_text_length - 3] + "..."
+            text = text[: max_text_length - 3] + "..."
         lines.append(f'      ✅ TEXT: "{text}"')
     else:
         lines.append("      ⚠️  No text found in annotation region")
@@ -445,7 +452,7 @@ def format_annotation_display(
     if "comment" in annot_info:
         comment = annot_info["comment"]
         if len(comment) > max_comment_length:
-            comment = comment[:max_comment_length - 3] + "..."
+            comment = comment[: max_comment_length - 3] + "..."
         lines.append(f'      💬 Comment: "{comment}"')
 
     # Show rect coordinates
@@ -573,10 +580,12 @@ def list_pdf_elements(
             # Get annotation details
             annot = page.first_annot
             while annot:
-                page_info["annotation_details"].append({
-                    "type": annot.type,
-                    "rect": tuple(annot.rect),
-                })
+                page_info["annotation_details"].append(
+                    {
+                        "type": annot.type,
+                        "rect": tuple(annot.rect),
+                    }
+                )
                 annot = annot.next
 
             result["pages"].append(page_info)
@@ -584,4 +593,3 @@ def list_pdf_elements(
         doc.close()
 
     return result
-

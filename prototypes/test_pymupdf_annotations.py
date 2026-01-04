@@ -84,7 +84,9 @@ def display_summary(annotations: list[dict]) -> None:
             emoji = ANNOT_EMOJI.get(t, "📌")
             print(f"   {emoji} {t}: {count}")
 
-        print(f"\n   Annotations with extracted text: {summary['with_text']} / {summary['total']}")
+        print(
+            f"\n   Annotations with extracted text: {summary['with_text']} / {summary['total']}"
+        )
 
         if summary["with_comments"]:
             print(f"   Annotations with comments: {summary['with_comments']}")
@@ -111,7 +113,9 @@ def display_pdf_elements(pdf_path: Path) -> None:
         print(f"  - Drawings: {page_info['drawings']}")
 
         for i, annot_detail in enumerate(page_info["annotation_details"], 1):
-            print(f"    Annot {i}: type={annot_detail['type']}, rect={annot_detail['rect']}")
+            print(
+                f"    Annot {i}: type={annot_detail['type']}, rect={annot_detail['rect']}"
+            )
 
     print()
 
@@ -129,12 +133,14 @@ Examples:
     )
     parser.add_argument("pdf_path", type=Path, help="Path to the PDF file")
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         type=Path,
         help="Output JSON file path (default: <pdf_name>_pymupdf_annotations.json)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Show verbose output including raw annotation data",
     )
@@ -169,6 +175,7 @@ Examples:
     except Exception as e:
         print(f"❌ Error extracting annotations: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
@@ -180,7 +187,9 @@ Examples:
 
     # Save results
     if not args.no_save and annotations:
-        output_path = args.output or args.pdf_path.with_suffix(".pymupdf_annotations.json")
+        output_path = args.output or args.pdf_path.with_suffix(
+            ".pymupdf_annotations.json"
+        )
         save_annotations_to_json(annotations, output_path)
         print(f"\n💾 Saved {len(annotations)} annotations to {output_path}")
 

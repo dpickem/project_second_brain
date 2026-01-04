@@ -36,14 +36,14 @@ def upgrade() -> None:
     # Rename content_id to db_content_id
     # First drop the old index
     op.drop_index("ix_llm_usage_logs_content_id", table_name="llm_usage_logs")
-    
+
     # Rename the column
     op.alter_column(
         "llm_usage_logs",
         "content_id",
         new_column_name="db_content_id",
     )
-    
+
     # Create new index with new name
     op.create_index(
         "ix_llm_usage_logs_db_content_id", "llm_usage_logs", ["db_content_id"]
@@ -57,14 +57,11 @@ def downgrade() -> None:
 
     # Rename db_content_id back to content_id
     op.drop_index("ix_llm_usage_logs_db_content_id", table_name="llm_usage_logs")
-    
+
     op.alter_column(
         "llm_usage_logs",
         "db_content_id",
         new_column_name="content_id",
     )
-    
-    op.create_index(
-        "ix_llm_usage_logs_content_id", "llm_usage_logs", ["content_id"]
-    )
 
+    op.create_index("ix_llm_usage_logs_content_id", "llm_usage_logs", ["content_id"])

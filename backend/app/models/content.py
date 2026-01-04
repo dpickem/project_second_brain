@@ -11,7 +11,8 @@ this common format. This enables:
 - Validation: Pydantic ensures data integrity before storage
 
 Usage:
-    from app.models.content import UnifiedContent, ContentType, Annotation
+    from app.enums import ContentType, AnnotationType
+    from app.models.content import UnifiedContent, Annotation
 
     content = UnifiedContent(
         source_type=ContentType.PAPER,
@@ -22,72 +23,12 @@ Usage:
 """
 
 from datetime import datetime
-from enum import Enum
 from typing import Optional
 import uuid
 
 from pydantic import BaseModel, Field
 
-
-class ContentType(str, Enum):
-    """
-    Built-in content types for the ingestion system.
-
-    This enum should stay in sync with config/default.yaml content_types section.
-    The enum provides compile-time type safety in Python code, while the YAML
-    config defines runtime behavior (folders, templates, icons).
-
-    TO ADD A NEW CONTENT TYPE:
-    1. Add to config/default.yaml content_types section (defines folder, template, etc.)
-    2. Add to this enum (e.g., PODCAST = "podcast") for type safety
-    3. Create Obsidian template in vault's templates/ folder
-    4. Create Jinja2 template in config/templates/
-    5. Run `python scripts/setup_vault.py` to create folders
-
-    See config/default.yaml for the full content type registry with all configuration.
-    """
-
-    # Technical content
-    PAPER = "paper"
-    ARTICLE = "article"
-    BOOK = "book"
-    CODE = "code"
-    IDEA = "idea"
-    VOICE_MEMO = "voice_memo"
-
-    # Career & personal development
-    CAREER = "career"
-    PERSONAL = "personal"
-    PROJECT = "project"
-    REFLECTION = "reflection"
-    NON_TECH = "non_tech"
-
-    # System types
-    DAILY = "daily"
-    CONCEPT = "concept"
-    EXERCISE = "exercise"
-
-
-class AnnotationType(str, Enum):
-    """Types of annotations that can be attached to content."""
-
-    DIGITAL_HIGHLIGHT = "digital_highlight"
-    HANDWRITTEN_NOTE = "handwritten_note"
-    TYPED_COMMENT = "typed_comment"
-    DIAGRAM = "diagram"
-    UNDERLINE = "underline"
-
-
-class ProcessingStatus(str, Enum):
-    """Processing status for content items.
-    
-    Values must match the PostgreSQL contentstatus enum (uppercase).
-    """
-
-    PENDING = "PENDING"
-    PROCESSING = "PROCESSING"
-    PROCESSED = "PROCESSED"  # Note: DB uses PROCESSED, not COMPLETED
-    FAILED = "FAILED"
+from app.enums.content import ContentType, AnnotationType, ProcessingStatus
 
 
 class Annotation(BaseModel):

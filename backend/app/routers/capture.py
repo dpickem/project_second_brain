@@ -163,8 +163,8 @@ async def capture_url(
         process_content.delay,
         ucf.id,
         PipelineContentType.ARTICLE.value,
-        None,       # source_path
-        url,        # source_url
+        None,  # source_path
+        url,  # source_url
     )
 
     return {
@@ -260,7 +260,7 @@ async def capture_photo(
         process_content.delay,
         ucf.id,
         pipeline_type.value,
-        str(file_path),   # source_path
+        str(file_path),  # source_path
     )
 
     return {
@@ -338,7 +338,7 @@ async def capture_voice(
         process_content_high.delay,
         ucf.id,
         PipelineContentType.VOICE_MEMO.value,
-        str(file_path),   # source_path
+        str(file_path),  # source_path
     )
 
     return {
@@ -412,7 +412,7 @@ async def capture_pdf(
         process_content.delay,
         ucf.id,
         PipelineContentType.PDF.value,
-        str(file_path),   # source_path
+        str(file_path),  # source_path
     )
 
     return {

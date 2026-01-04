@@ -74,8 +74,9 @@ def _normalize_model_name(model: str) -> str:
     (the prefix is a LiteLLM convention).
     """
     if model.startswith("mistral/"):
-        return model[len("mistral/"):]
+        return model[len("mistral/") :]
     return model
+
 
 # Mistral OCR pricing (as of 2024) - USD per 1000 pages
 # Note: Mistral API does not return cost directly, so we calculate it
@@ -318,7 +319,9 @@ class MistralOCRResult:
         if self.document_annotation and self.document_annotation.title:
             header = f"# {self.document_annotation.title}\n\n"
             if self.document_annotation.authors:
-                header += f"**Authors:** {', '.join(self.document_annotation.authors)}\n\n"
+                header += (
+                    f"**Authors:** {', '.join(self.document_annotation.authors)}\n\n"
+                )
             if self.document_annotation.summary:
                 header += f"**Summary:** {self.document_annotation.summary}\n\n"
             if self.document_annotation.languages:

@@ -108,7 +108,7 @@ celery_app.conf.update(
 def _reset_litellm_logging_state():
     """
     Reset LiteLLM's async logging state to prevent event loop binding issues.
-    
+
     This clears all singletons and instances that may hold references to
     asyncio.Queue objects bound to a previous event loop.
     """
@@ -116,25 +116,25 @@ def _reset_litellm_logging_state():
         # Reset top-level litellm attributes that may hold event loop references
         if hasattr(litellm, "_logging_worker"):
             litellm._logging_worker = None
-        
+
         # Reset async callbacks that might hold event loop refs
         if hasattr(litellm, "_async_success_callback"):
             litellm._async_success_callback = []
         if hasattr(litellm, "_async_failure_callback"):
             litellm._async_failure_callback = []
-        
+
         # Reset the LoggingWorker singleton in the core utils module
         if hasattr(litellm_logging_worker, "_logging_worker_instance"):
             litellm_logging_worker._logging_worker_instance = None
         if hasattr(litellm_logging_worker, "logging_worker"):
             litellm_logging_worker.logging_worker = None
-        
+
         # Also reset the global instance if it exists
         if hasattr(litellm_logging_worker, "_worker"):
             litellm_logging_worker._worker = None
-            
+
         return True
-        
+
     except Exception as e:
         logger.warning(f"Failed to reset LiteLLM logging state: {e}")
         return False
@@ -151,7 +151,7 @@ def reset_litellm_on_worker_init(**kwargs):
 def reset_litellm_on_task_prerun(task_id, task, *args, **kwargs):
     """
     Reset LiteLLM's async logging state before each task runs.
-    
+
     This is the key fix: each task may create a new event loop via asyncio.run(),
     so we need to ensure litellm's LoggingWorker Queue is re-created fresh for
     each task's event loop, not bound to a previous task's closed event loop.

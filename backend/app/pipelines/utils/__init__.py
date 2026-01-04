@@ -1,4 +1,11 @@
-"""Pipeline utilities for image processing, VLM/OCR, text handling, and cost tracking."""
+"""Pipeline utilities for image processing, VLM/OCR, text handling, and cost tracking.
+
+Note: For enums, import from app.enums:
+    from app.enums import PipelineName, PipelineOperation
+
+For text completion, use app.services.llm instead:
+    from app.services.llm import get_llm_client, build_messages, get_default_text_model
+"""
 
 from app.pipelines.utils.image_utils import (
     image_to_base64,
@@ -27,17 +34,8 @@ from app.pipelines.utils.mistral_ocr_client import (
     ImageAnnotationSchema,
     DocumentAnnotationSchema,
 )
-from app.pipelines.utils.text_client import (
-    text_completion,
-    text_completion_sync,
-    text_completion_with_context,
-    text_completion_chat,
-    get_default_text_model,
-)
 from app.pipelines.utils.cost_types import (
     LLMUsage,
-    PipelineName,
-    PipelineOperation,
     extract_provider,
     extract_usage_from_response,
     create_error_usage,
@@ -100,16 +98,8 @@ __all__ = [
     "ImageType",
     "ImageAnnotationSchema",
     "DocumentAnnotationSchema",
-    # Text client (text completion functions)
-    "text_completion",
-    "text_completion_sync",
-    "text_completion_with_context",
-    "text_completion_chat",
-    "get_default_text_model",
-    # Cost tracking types and enums
+    # Cost tracking types
     "LLMUsage",
-    "PipelineName",
-    "PipelineOperation",
     "extract_provider",
     "extract_usage_from_response",
     "create_error_usage",

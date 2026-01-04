@@ -7,6 +7,10 @@ from app.config.settings import (
     load_yaml_config,
     settings,
     yaml_config,
+    # Path constants
+    PROJECT_ROOT,
+    CONFIG_DIR,
+    TEMPLATES_DIR,
 )
 
 __all__ = [
@@ -19,4 +23,8 @@ __all__ = [
     "load_yaml_config",
     "settings",
     "yaml_config",
+    # Path constants
+    "PROJECT_ROOT",
+    "CONFIG_DIR",
+    "TEMPLATES_DIR",
 ]

@@ -20,7 +20,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from neo4j import GraphDatabase
 
-from app.routers import health_router, capture_router, ingestion_router
+from app.routers import (
+    health_router,
+    capture_router,
+    ingestion_router,
+    processing_router,
+)
 from app.config import settings
 
 # Configure logging
@@ -83,6 +88,7 @@ app.add_middleware(
 app.include_router(health_router.router)
 app.include_router(capture_router.router)
 app.include_router(ingestion_router.router)
+app.include_router(processing_router.router)
 
 # Neo4j driver (initialized if password is configured)
 _driver = None
@@ -147,6 +153,7 @@ async def root():
         "endpoints": {
             "capture": "/api/capture",
             "ingestion": "/api/ingestion",
+            "processing": "/api/processing",
             "health": "/api/health",
         },
     }

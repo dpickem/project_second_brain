@@ -43,14 +43,14 @@ from app.models.content import (
     UnifiedContent,
 )
 from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
+from app.enums.pipeline import PipelineName, PipelineOperation
 from app.pipelines.utils.cost_types import (
     LLMUsage,
-    PipelineName,
-    PipelineOperation,
     extract_provider,
     create_error_usage,
 )
-from app.pipelines.utils.text_client import text_completion
+from app.enums.pipeline import PipelineOperation
+from app.services.llm import get_llm_client, build_messages
 from app.services.cost_tracking import CostTracker
 
 logger = logging.getLogger(__name__)
@@ -433,16 +433,17 @@ Respond with JSON containing "title" and "content" fields only."""
         try:
             self.logger.debug(f"Expanding note with {self.text_model}")
 
-            response_text, usage = await text_completion(
+            client = get_llm_client()
+            messages = build_messages(user_prompt, system_prompt)
+            response_text, usage = await client.complete(
+                operation=PipelineOperation.NOTE_EXPANSION,
+                messages=messages,
                 model=self.text_model,
-                prompt=user_prompt,
-                system_prompt=system_prompt,
                 max_tokens=EXPANSION_MAX_TOKENS,
                 temperature=EXPANSION_TEMPERATURE,
                 json_mode=True,
                 pipeline=self.PIPELINE_NAME,
                 content_id=getattr(self, "_content_id", None),
-                operation=PipelineOperation.NOTE_EXPANSION,
             )
 
             # Track the usage

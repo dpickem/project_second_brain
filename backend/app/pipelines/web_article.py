@@ -30,10 +30,11 @@ from urllib.parse import urlparse
 import httpx
 from trafilatura import bare_extraction
 
-from app.models.content import ContentType, UnifiedContent
+from app.enums.content import ContentType
+from app.models.content import UnifiedContent
 from app.pipelines.base import BasePipeline, PipelineContentType, PipelineInput
-from app.pipelines.utils.cost_types import PipelineName, PipelineOperation
-from app.pipelines.utils.text_client import get_default_text_model, text_completion
+from app.enums.pipeline import PipelineName, PipelineOperation
+from app.services.llm import get_llm_client, get_default_text_model, build_messages
 
 # Browser-like headers to avoid 403 errors from bot detection
 DEFAULT_HEADERS = {
@@ -190,14 +191,18 @@ Article text:
 Respond with ONLY the title, nothing else."""
 
         try:
-            response, usage = await text_completion(
+            client = get_llm_client()
+            messages = build_messages(
+                prompt,
+                "You are a helpful assistant that extracts article titles. Respond with only the title, no quotes or explanation.",
+            )
+            response, usage = await client.complete(
+                operation=PipelineOperation.TITLE_EXTRACTION,
+                messages=messages,
                 model=self.text_model,
-                prompt=prompt,
-                system_prompt="You are a helpful assistant that extracts article titles. Respond with only the title, no quotes or explanation.",
                 max_tokens=50,
                 temperature=0.3,
                 pipeline=self.PIPELINE_NAME,
-                operation=PipelineOperation.TITLE_EXTRACTION,
             )
 
             if response:

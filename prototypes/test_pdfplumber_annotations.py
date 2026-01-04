@@ -121,7 +121,9 @@ def extract_annotations(pdf_path: Path, verbose: bool = False) -> list[dict[str,
                     val = annot.get(key)
                     # Convert to string representation for display
                     try:
-                        if hasattr(val, "__iter__") and not isinstance(val, (str, bytes)):
+                        if hasattr(val, "__iter__") and not isinstance(
+                            val, (str, bytes)
+                        ):
                             raw_data[key] = list(val)
                         else:
                             raw_data[key] = str(val) if val is not None else None
@@ -134,7 +136,9 @@ def extract_annotations(pdf_path: Path, verbose: bool = False) -> list[dict[str,
                 if subtype:
                     subtype_str = str(subtype).replace("/", "")
                     annot_info["subtype"] = subtype_str
-                    annot_info["type_name"] = subtype_names.get(subtype_str, subtype_str)
+                    annot_info["type_name"] = subtype_names.get(
+                        subtype_str, subtype_str
+                    )
                 else:
                     # Try to infer from 'data' field which contains PDF dict keys
                     data_keys = annot.get("data", [])
@@ -212,14 +216,21 @@ def extract_annotations(pdf_path: Path, verbose: bool = False) -> list[dict[str,
                                         # Try extracting chars directly
                                         chars = page.chars
                                         chars_in_bbox = [
-                                            c for c in chars
-                                            if (bbox[0] <= c["x0"] <= bbox[2] and
-                                                bbox[1] <= c["top"] <= bbox[3])
+                                            c
+                                            for c in chars
+                                            if (
+                                                bbox[0] <= c["x0"] <= bbox[2]
+                                                and bbox[1] <= c["top"] <= bbox[3]
+                                            )
                                         ]
                                         if chars_in_bbox:
-                                            text = "".join(c["text"] for c in chars_in_bbox)
+                                            text = "".join(
+                                                c["text"] for c in chars_in_bbox
+                                            )
                                             if text.strip():
-                                                annot_info["text_from_chars"] = text.strip()
+                                                annot_info["text_from_chars"] = (
+                                                    text.strip()
+                                                )
                             except Exception as e:
                                 annot_info["bbox_text_error"] = str(e)
                     except Exception as e:
@@ -268,9 +279,18 @@ def extract_annotations(pdf_path: Path, verbose: bool = False) -> list[dict[str,
                         # Try to extract the highlighted text
                         if len(quad_list) >= 8:
                             try:
-                                x_coords = [quad_list[i] for i in range(0, len(quad_list), 2)]
-                                y_coords = [quad_list[i] for i in range(1, len(quad_list), 2)]
-                                bbox = (min(x_coords), min(y_coords), max(x_coords), max(y_coords))
+                                x_coords = [
+                                    quad_list[i] for i in range(0, len(quad_list), 2)
+                                ]
+                                y_coords = [
+                                    quad_list[i] for i in range(1, len(quad_list), 2)
+                                ]
+                                bbox = (
+                                    min(x_coords),
+                                    min(y_coords),
+                                    max(x_coords),
+                                    max(y_coords),
+                                )
 
                                 # Extract text within the bounding box
                                 cropped = page.within_bbox(bbox)
@@ -306,7 +326,9 @@ def extract_annotations(pdf_path: Path, verbose: bool = False) -> list[dict[str,
                 color = annot.get("C")
                 if color:
                     try:
-                        annot_info["color"] = list(color) if hasattr(color, "__iter__") else color
+                        annot_info["color"] = (
+                            list(color) if hasattr(color, "__iter__") else color
+                        )
                     except Exception:
                         annot_info["color"] = str(color)
 
@@ -315,7 +337,9 @@ def extract_annotations(pdf_path: Path, verbose: bool = False) -> list[dict[str,
                 if interior_color:
                     try:
                         annot_info["interior_color"] = (
-                            list(interior_color) if hasattr(interior_color, "__iter__") else interior_color
+                            list(interior_color)
+                            if hasattr(interior_color, "__iter__")
+                            else interior_color
                         )
                     except Exception:
                         annot_info["interior_color"] = str(interior_color)
@@ -327,7 +351,9 @@ def extract_annotations(pdf_path: Path, verbose: bool = False) -> list[dict[str,
                 annotations.append(annot_info)
 
             if page_annotations:
-                print(f"\n📑 Page {page_num}: Found {len(page_annotations)} annotation(s)")
+                print(
+                    f"\n📑 Page {page_num}: Found {len(page_annotations)} annotation(s)"
+                )
                 for ann in page_annotations:
                     display_annotation(ann, verbose=verbose)
 
@@ -398,7 +424,9 @@ def display_annotation(annot: dict[str, Any], verbose: bool = False) -> None:
     # Show bounding box
     if "bbox" in annot:
         bbox = annot["bbox"]
-        print(f"      📐 Bbox: x0={bbox.get('x0'):.1f}, top={bbox.get('top')}, x1={bbox.get('x1'):.1f}, bottom={bbox.get('bottom')}")
+        print(
+            f"      📐 Bbox: x0={bbox.get('x0'):.1f}, top={bbox.get('top')}, x1={bbox.get('x1'):.1f}, bottom={bbox.get('bottom')}"
+        )
 
     # Show author if available
     if "author" in annot:
@@ -415,7 +443,12 @@ def display_annotation(annot: dict[str, Any], verbose: bool = False) -> None:
                 print(f"      🎨 Color: {color}")
 
     # Show errors if any
-    for error_key in ["bbox_text_error", "bbox_calc_error", "rect_text_error", "quad_text_error"]:
+    for error_key in [
+        "bbox_text_error",
+        "bbox_calc_error",
+        "rect_text_error",
+        "quad_text_error",
+    ]:
         if error_key in annot:
             print(f"      ❌ {error_key}: {annot[error_key]}")
 
@@ -450,12 +483,14 @@ Examples:
     )
     parser.add_argument("pdf_path", type=Path, help="Path to the PDF file")
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         type=Path,
         help="Output JSON file path (default: <pdf_name>_annotations.json)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Show verbose output including raw annotation keys",
     )
@@ -486,6 +521,7 @@ Examples:
     except Exception as e:
         print(f"❌ Error extracting annotations: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
@@ -506,8 +542,12 @@ Examples:
 
         # Count with text
         with_text = sum(
-            1 for a in annotations
-            if a.get("highlighted_text") or a.get("text_from_bbox") or a.get("text_from_chars") or a.get("text_from_rect")
+            1
+            for a in annotations
+            if a.get("highlighted_text")
+            or a.get("text_from_bbox")
+            or a.get("text_from_chars")
+            or a.get("text_from_rect")
         )
         print(f"\n   Annotations with extracted text: {with_text} / {len(annotations)}")
 
@@ -539,4 +579,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-

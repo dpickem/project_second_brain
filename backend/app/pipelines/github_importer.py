@@ -24,10 +24,17 @@ from typing import Optional
 
 import httpx
 
-from app.models.content import ContentType, UnifiedContent
+from app.enums.content import ContentType
+from app.models.content import UnifiedContent
 from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
-from app.pipelines.utils.cost_types import LLMUsage, PipelineName, PipelineOperation
-from app.pipelines.utils.text_client import get_default_text_model, text_completion
+from app.enums.pipeline import PipelineName
+from app.pipelines.utils.cost_types import LLMUsage
+from app.enums.pipeline import PipelineOperation
+from app.services.llm import (
+    get_llm_client,
+    get_default_text_model,
+    build_messages,
+)
 from app.services.cost_tracking import CostTracker
 
 # Default configuration
@@ -326,15 +333,17 @@ Include the following sections:
 
 Keep the analysis concise but informative. Focus on aspects that would be valuable for a developer studying this codebase."""
 
-        response, usage = await text_completion(
+        system_prompt = f"You are a senior software engineer analyzing a GitHub repository.\n\nRepository Information:\n{context}"
+        client = get_llm_client()
+        messages = build_messages(prompt, system_prompt)
+        response, usage = await client.complete(
+            operation=PipelineOperation.REPO_ANALYSIS,
+            messages=messages,
             model=self.text_model,
-            prompt=prompt,
-            system_prompt=f"You are a senior software engineer analyzing a GitHub repository.\n\nRepository Information:\n{context}",
             max_tokens=LLM_MAX_TOKENS,
             temperature=LLM_TEMPERATURE,
             pipeline=self.PIPELINE_NAME,
             content_id=self._content_id,
-            operation=PipelineOperation.REPO_ANALYSIS,
         )
 
         # Track usage for batch logging

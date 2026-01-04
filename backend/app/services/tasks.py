@@ -194,7 +194,9 @@ def _process_content_impl(
             metadata=result.metadata,
             task_context=True,
         )
-        await update_status(content_id, ContentStatus.PROCESSED.value, task_context=True)
+        await update_status(
+            content_id, ContentStatus.PROCESSED.value, task_context=True
+        )
 
         return result
 
@@ -256,7 +258,11 @@ def process_content(
         )
     except RetryError as e:
         logger.error(f"Processing failed for {content_id} after all retries: {e}")
-        asyncio.run(update_status(content_id, ContentStatus.FAILED.value, str(e), task_context=True))
+        asyncio.run(
+            update_status(
+                content_id, ContentStatus.FAILED.value, str(e), task_context=True
+            )
+        )
         raise
 
 
@@ -346,7 +352,9 @@ def _process_book_impl(
             metadata=result.metadata,
             task_context=True,
         )
-        await update_status(content_id, ContentStatus.PROCESSED.value, task_context=True)
+        await update_status(
+            content_id, ContentStatus.PROCESSED.value, task_context=True
+        )
 
         return result
 
@@ -411,7 +419,11 @@ def process_book(
     except RetryError as e:
         logger.error(f"Book processing failed for {content_id} after all retries: {e}")
         # Update status to failed
-        asyncio.run(update_status(content_id, ContentStatus.FAILED.value, str(e), task_context=True))
+        asyncio.run(
+            update_status(
+                content_id, ContentStatus.FAILED.value, str(e), task_context=True
+            )
+        )
         raise
 
 

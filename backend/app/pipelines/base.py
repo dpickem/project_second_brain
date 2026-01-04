@@ -42,48 +42,16 @@ Usage:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 import logging
 
+from app.enums.pipeline import PipelineContentType
 from app.models.content import UnifiedContent
 from app.pipelines.utils.hash_utils import (
     calculate_file_hash,
     calculate_content_hash as _calculate_content_hash,
 )
-
-
-class PipelineContentType(str, Enum):
-    """
-    Content type hint for pipeline routing.
-
-    This enum is used to route inputs to the correct pipeline when the
-    file format alone is ambiguous (e.g., images could be book pages,
-    whiteboards, or documents).
-
-    Note: This is separate from ContentType in models/content.py, which
-    describes the OUTPUT content type. PipelineContentType describes the
-    INPUT intent for routing purposes.
-    """
-
-    # Image-based content (requires context to route)
-    BOOK = "book"  # Book page photos → BookOCRPipeline
-    WHITEBOARD = "whiteboard"  # Whiteboard photos (future)
-    DOCUMENT = "document"  # Document scans (future)
-    PHOTO = "photo"  # General photos (future)
-
-    # File-based content (file extension is sufficient)
-    PDF = "pdf"  # PDF files → PDFProcessor
-    VOICE_MEMO = "voice_memo"  # Audio files → VoiceTranscriber
-
-    # URL-based content
-    CODE = "code"  # GitHub repos → GitHubImporter
-    ARTICLE = "article"  # Web articles → RaindropSync
-
-    # Text-based content
-    IDEA = "idea"  # Quick text captures
-    NOTE = "note"  # Longer notes
 
 
 @dataclass

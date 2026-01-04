@@ -273,31 +273,31 @@ async def run_book_ocr(args: argparse.Namespace) -> None:
     print("\n" + "=" * 60)
     print("📖 PAGE PREVIEWS")
     print("=" * 60)
-    
+
     # Split full_text by page separator and show preview of each
     page_separator = "\n\n---\n\n"
     pages = content.full_text.split(page_separator)
-    
+
     for i, page_text in enumerate(pages, 1):
         # Extract page label (first line in brackets)
         lines = page_text.strip().split("\n")
         page_label = lines[0] if lines else f"Page {i}"
-        
+
         # Get text content (skip the label line)
         text_content = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
-        
+
         # Show preview (first 200 chars)
         preview = text_content[:200]
         if len(text_content) > 200:
             preview += "..."
-        
+
         print(f"\n{page_label}")
         print("-" * 40)
         if preview:
             print(preview)
         else:
             print("(no text extracted)")
-    
+
     print("\n" + "=" * 60)
 
     print_result(content, args.output_format, args.output_file)
@@ -395,7 +395,9 @@ async def run_raindrop(args: argparse.Namespace) -> None:
     """Run Raindrop.io sync pipeline."""
     token = args.token or settings.RAINDROP_ACCESS_TOKEN
     if not token:
-        print("Error: RAINDROP_ACCESS_TOKEN not set. Provide via --token or environment.")
+        print(
+            "Error: RAINDROP_ACCESS_TOKEN not set. Provide via --token or environment."
+        )
         sys.exit(1)
 
     sync = RaindropSync(
@@ -422,9 +424,13 @@ async def run_raindrop(args: argparse.Namespace) -> None:
             # Sort by full path for logical hierarchy display
             collections.sort(key=lambda c: c.get("full_path", "").lower())
             for coll in collections:
-                print(f"  [{coll.get('_id')}] {coll.get('full_path', coll.get('title', ''))} ({coll.get('count', 0)} items)")
+                print(
+                    f"  [{coll.get('_id')}] {coll.get('full_path', coll.get('title', ''))} ({coll.get('count', 0)} items)"
+                )
         else:
-            print(f"Syncing Raindrop collection {args.collection} (limit: {args.limit})")
+            print(
+                f"Syncing Raindrop collection {args.collection} (limit: {args.limit})"
+            )
             if since:
                 print(f"  Since: {since.isoformat()}")
 
@@ -463,9 +469,7 @@ def create_parser() -> argparse.ArgumentParser:
         epilog=__doc__,
     )
 
-    parser.add_argument(
-        "--debug", action="store_true", help="Enable debug logging"
-    )
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 
     subparsers = parser.add_subparsers(dest="command", help="Pipeline to run")
 
@@ -528,7 +532,9 @@ def create_parser() -> argparse.ArgumentParser:
     add_common_args(voice_parser)
 
     # Article subcommand
-    article_parser = subparsers.add_parser("article", help="Extract web article content")
+    article_parser = subparsers.add_parser(
+        "article", help="Extract web article content"
+    )
     article_parser.add_argument("url", help="Article URL")
     article_parser.add_argument(
         "--timeout",
@@ -559,7 +565,9 @@ def create_parser() -> argparse.ArgumentParser:
     add_common_args(github_parser)
 
     # Raindrop subcommand
-    raindrop_parser = subparsers.add_parser("raindrop", help="Sync Raindrop.io bookmarks")
+    raindrop_parser = subparsers.add_parser(
+        "raindrop", help="Sync Raindrop.io bookmarks"
+    )
     raindrop_parser.add_argument(
         "--collection",
         type=int,

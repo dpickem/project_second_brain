@@ -105,12 +105,12 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
     try:
         inspect = celery_app.control.inspect(timeout=2.0)
         ping_response = inspect.ping()
-        
+
         if ping_response:
             worker_names = list(ping_response.keys())
             active = inspect.active() or {}
             active_tasks = sum(len(v) for v in active.values())
-            
+
             health["dependencies"]["celery_workers"] = {
                 "status": "healthy",
                 "worker_count": len(worker_names),

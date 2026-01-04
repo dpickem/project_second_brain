@@ -33,7 +33,8 @@ from app.models.content import (
     UnifiedContent,
 )
 from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
-from app.pipelines.utils.cost_types import LLMUsage, PipelineName, PipelineOperation
+from app.enums.pipeline import PipelineName
+from app.pipelines.utils.cost_types import LLMUsage
 from app.pipelines.utils.mistral_ocr_client import (
     get_default_ocr_model,
     ocr_pdf_document_annotated,
@@ -43,9 +44,11 @@ from app.pipelines.utils.pdf_utils import (
     extract_annotations as extract_pdf_annotations,
     get_annotation_text,
 )
-from app.pipelines.utils.text_client import (
+from app.enums.pipeline import PipelineOperation
+from app.services.llm import (
+    get_llm_client,
     get_default_text_model,
-    text_completion,
+    build_messages,
 )
 from app.services.cost_tracking import CostTracker
 
@@ -218,9 +221,7 @@ class PDFProcessor(BasePipeline):
         comment_count = sum(
             1 for a in annotations if a.type == AnnotationType.TYPED_COMMENT
         )
-        diagram_count = sum(
-            1 for a in annotations if a.type == AnnotationType.DIAGRAM
-        )
+        diagram_count = sum(1 for a in annotations if a.type == AnnotationType.DIAGRAM)
         underline_count = sum(
             1 for a in annotations if a.type == AnnotationType.UNDERLINE
         )
@@ -271,7 +272,9 @@ class PDFProcessor(BasePipeline):
             },
         )
 
-    def _extract_ocr_annotations(self, ocr_result: MistralOCRResult) -> list[Annotation]:
+    def _extract_ocr_annotations(
+        self, ocr_result: MistralOCRResult
+    ) -> list[Annotation]:
         """
         Extract annotations from OCR result.
 
@@ -391,14 +394,14 @@ class PDFProcessor(BasePipeline):
         # Map PyMuPDF annotation type codes to our AnnotationType
         # See pdf_utils.py for full type code reference
         type_code_mapping: dict[int, AnnotationType | None] = {
-            0: AnnotationType.TYPED_COMMENT,      # Text (sticky note)
-            1: None,                               # Link - skip
-            2: AnnotationType.TYPED_COMMENT,      # FreeText
+            0: AnnotationType.TYPED_COMMENT,  # Text (sticky note)
+            1: None,  # Link - skip
+            2: AnnotationType.TYPED_COMMENT,  # FreeText
             8: AnnotationType.DIGITAL_HIGHLIGHT,  # Highlight
-            9: AnnotationType.UNDERLINE,          # Underline
-            10: AnnotationType.UNDERLINE,         # Squiggly
-            11: AnnotationType.UNDERLINE,         # StrikeOut
-            16: None,                              # Popup - skip
+            9: AnnotationType.UNDERLINE,  # Underline
+            10: AnnotationType.UNDERLINE,  # Squiggly
+            11: AnnotationType.UNDERLINE,  # StrikeOut
+            16: None,  # Popup - skip
         }
 
         try:
@@ -492,14 +495,16 @@ Categories:
 Respond with ONLY the category name (paper, book, or article), nothing else."""
 
         try:
-            response, usage = await text_completion(
+            client = get_llm_client()
+            messages = build_messages(prompt)
+            response, usage = await client.complete(
+                operation=PipelineOperation.CONTENT_TYPE_CLASSIFICATION,
+                messages=messages,
                 model=self.text_model,
-                prompt=prompt,
                 max_tokens=10,
                 temperature=0.0,
                 pipeline=self.PIPELINE_NAME,
                 content_id=self._content_id,
-                operation=PipelineOperation.CONTENT_TYPE_CLASSIFICATION,
             )
 
             self._usage_records.append(usage)

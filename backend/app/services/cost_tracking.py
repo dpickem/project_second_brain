@@ -70,7 +70,11 @@ class CostTracker:
 
         async def _log(session: AsyncSession) -> LLMUsageLog:
             # Resolve content UUID to integer FK (reuse storage layer function)
-            resolved_db_id = await get_db_id_by_uuid(usage.content_id, session) if usage.content_id else None
+            resolved_db_id = (
+                await get_db_id_by_uuid(usage.content_id, session)
+                if usage.content_id
+                else None
+            )
 
             log_entry = LLMUsageLog(
                 request_id=usage.request_id,
@@ -85,7 +89,7 @@ class CostTracker:
                 output_cost_usd=usage.output_cost_usd,
                 pipeline=usage.pipeline,
                 content_uuid=usage.content_id,  # Store UUID string as-is
-                db_content_id=resolved_db_id,   # Store resolved integer FK
+                db_content_id=resolved_db_id,  # Store resolved integer FK
                 operation=usage.operation,
                 latency_ms=usage.latency_ms,
                 success=usage.success,
@@ -157,7 +161,7 @@ class CostTracker:
                     output_cost_usd=usage.output_cost_usd,
                     pipeline=usage.pipeline,
                     content_uuid=usage.content_id,  # Store UUID string as-is
-                    db_content_id=resolved_db_id,   # Store resolved integer FK
+                    db_content_id=resolved_db_id,  # Store resolved integer FK
                     operation=usage.operation,
                     latency_ms=usage.latency_ms,
                     success=usage.success,
