@@ -60,7 +60,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.db.base import async_session_maker
+from app.db.base import async_session_maker, task_session_maker
 from app.db.models import Annotation as DBAnnotation
 from app.db.models import Content as DBContent
 from app.db.models import ContentStatus
@@ -390,6 +390,7 @@ async def update_status(
     status: str,
     error: Optional[str] = None,
     db: Optional[AsyncSession] = None,
+    task_context: bool = False,
 ) -> bool:
     """
     Update processing status of content by content_id (UUID).
@@ -400,12 +401,15 @@ async def update_status(
             "processed", "failed")
         error: Optional error message if status is 'failed'
         db: Optional database session
+        task_context: If True, use task_session_maker (safe for Celery tasks with
+            new event loops). If False, use async_session_maker (FastAPI routes).
 
     Returns:
         True if update succeeded, False if content not found
     """
     if db is None:
-        async with async_session_maker() as db:
+        session_maker = task_session_maker if task_context else async_session_maker
+        async with session_maker() as db:
             return await _update_status_impl(content_id, status, error, db)
     return await _update_status_impl(content_id, status, error, db)
 
@@ -485,6 +489,7 @@ async def update_content(
     annotations: Optional[list] = None,
     metadata: Optional[dict] = None,
     db: Optional[AsyncSession] = None,
+    task_context: bool = False,
 ) -> bool:
     """
     Update content fields after processing (e.g., after OCR pipeline completes).
@@ -497,12 +502,15 @@ async def update_content(
         annotations: List of Annotation objects to add (optional).
         metadata: Additional metadata to merge (optional).
         db: Optional database session.
+        task_context: If True, use task_session_maker (safe for Celery tasks with
+            new event loops). If False, use async_session_maker (FastAPI routes).
 
     Returns:
         True if update succeeded, False if content not found.
     """
     if db is None:
-        async with async_session_maker() as db:
+        session_maker = task_session_maker if task_context else async_session_maker
+        async with session_maker() as db:
             return await _update_content_impl(
                 content_id, title, authors, full_text, annotations, metadata, db
             )

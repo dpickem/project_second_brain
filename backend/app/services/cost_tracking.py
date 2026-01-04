@@ -33,7 +33,7 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.base import async_session_maker
+from app.db.base import task_session_maker
 from app.db.models import LLMUsageLog, LLMCostSummary
 from app.pipelines.utils.cost_types import LLMUsage
 from app.services.storage import get_db_id_by_uuid
@@ -104,7 +104,7 @@ class CostTracker:
         if session:
             return await _log(session)
         else:
-            async with async_session_maker() as session:
+            async with task_session_maker() as session:
                 result = await _log(session)
                 await session.commit()
                 return result
@@ -178,7 +178,7 @@ class CostTracker:
         if session:
             return await _log_batch(session)
         else:
-            async with async_session_maker() as session:
+            async with task_session_maker() as session:
                 result = await _log_batch(session)
                 await session.commit()
                 return result
@@ -268,7 +268,7 @@ class CostTracker:
         if session:
             return await _query(session)
         else:
-            async with async_session_maker() as session:
+            async with task_session_maker() as session:
                 return await _query(session)
 
     @staticmethod
@@ -370,7 +370,7 @@ class CostTracker:
         if session:
             return await _query(session)
         else:
-            async with async_session_maker() as session:
+            async with task_session_maker() as session:
                 return await _query(session)
 
     @staticmethod
@@ -432,7 +432,7 @@ class CostTracker:
         if session:
             return await _query(session)
         else:
-            async with async_session_maker() as session:
+            async with task_session_maker() as session:
                 return await _query(session)
 
     @staticmethod
@@ -591,7 +591,7 @@ class CostTracker:
         if session:
             return await _update(session)
         else:
-            async with async_session_maker() as session:
+            async with task_session_maker() as session:
                 result = await _update(session)
                 await session.commit()
                 return result

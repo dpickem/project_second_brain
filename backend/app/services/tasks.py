@@ -82,6 +82,7 @@ from tenacity import (
     RetryError,
     before_sleep_log,
     retry,
+    retry_if_not_exception_type,
     stop_after_attempt,
     wait_exponential,
 )
@@ -109,10 +110,12 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # For content processing: 3 attempts, 1-4 min exponential backoff
+# Don't retry validation errors (file size limits, missing files, invalid content types)
 content_retry = retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=60, min=60, max=240),
     before_sleep=before_sleep_log(logger, logging.WARNING),
+    retry=retry_if_not_exception_type((ValueError, FileNotFoundError)),
     reraise=True,
 )
 
@@ -181,15 +184,17 @@ def _process_content_impl(
         if result is None:
             return None
 
-        # Update database with results (in same event loop to avoid connection issues)
+        # Update database with results
+        # Use task_context=True because we're in a Celery task with a new event loop
         await update_content(
             content_id,
             title=result.title,
             full_text=result.full_text,
             annotations=result.annotations,
             metadata=result.metadata,
+            task_context=True,
         )
-        await update_status(content_id, ContentStatus.PROCESSED.value)
+        await update_status(content_id, ContentStatus.PROCESSED.value, task_context=True)
 
         return result
 
@@ -251,7 +256,7 @@ def process_content(
         )
     except RetryError as e:
         logger.error(f"Processing failed for {content_id} after all retries: {e}")
-        asyncio.run(update_status(content_id, ContentStatus.FAILED.value, str(e)))
+        asyncio.run(update_status(content_id, ContentStatus.FAILED.value, str(e), task_context=True))
         raise
 
 
@@ -330,7 +335,8 @@ def _process_book_impl(
             content_id=content_id,
         )
 
-        # Update database with results (in same event loop to avoid connection issues)
+        # Update database with results
+        # Use task_context=True because we're in a Celery task with a new event loop
         await update_content(
             content_id,
             title=result.title,
@@ -338,8 +344,9 @@ def _process_book_impl(
             full_text=result.full_text,
             annotations=result.annotations,
             metadata=result.metadata,
+            task_context=True,
         )
-        await update_status(content_id, ContentStatus.PROCESSED.value)
+        await update_status(content_id, ContentStatus.PROCESSED.value, task_context=True)
 
         return result
 
@@ -404,7 +411,7 @@ def process_book(
     except RetryError as e:
         logger.error(f"Book processing failed for {content_id} after all retries: {e}")
         # Update status to failed
-        asyncio.run(update_status(content_id, ContentStatus.FAILED.value, str(e)))
+        asyncio.run(update_status(content_id, ContentStatus.FAILED.value, str(e), task_context=True))
         raise
 
 
