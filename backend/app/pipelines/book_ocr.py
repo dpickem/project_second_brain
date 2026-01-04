@@ -294,6 +294,14 @@ class BookOCRPipeline(BasePipeline):
 
         image_paths = [Path(p) for p in image_paths]
 
+        # Convert dict to BookMetadata if needed (tasks.py passes dict)
+        if isinstance(book_metadata, dict):
+            book_metadata = BookMetadata(
+                title=book_metadata.get("title", DEFAULT_BOOK_TITLE),
+                authors=book_metadata.get("authors", []),
+                isbn=book_metadata.get("isbn"),
+            )
+
         # Reset usage records for this processing run
         self._usage_records = []
         self._usage_lock = asyncio.Lock()  # Create lock in async context
