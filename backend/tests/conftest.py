@@ -13,9 +13,22 @@ from typing import Any, Generator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from dotenv import load_dotenv
 
 # Add the backend directory to the path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Load .env file from project root BEFORE any fixtures run
+# This ensures POSTGRES_TEST_* variables are available
+_project_root = Path(__file__).parent.parent.parent
+_env_file = _project_root / ".env"
+if _env_file.exists():
+    load_dotenv(_env_file)
+else:
+    # Try backend directory
+    _backend_env = Path(__file__).parent.parent / ".env"
+    if _backend_env.exists():
+        load_dotenv(_backend_env)
 
 
 # ============================================================================
@@ -53,18 +66,20 @@ def setup_test_environment() -> Generator[None, None, None]:
     original_env = os.environ.copy()
 
     # Forcefully set test environment variables (override .env values)
+    # Test database credentials come from POSTGRES_TEST_* env vars if set,
+    # otherwise fall back to defaults for CI environments
     test_env = {
-        "POSTGRES_HOST": "localhost",
-        "POSTGRES_PORT": "5432",
-        "POSTGRES_USER": "testuser",
-        "POSTGRES_PASSWORD": "testpass",
-        "POSTGRES_DB": "testdb",
-        "REDIS_URL": "redis://localhost:6379/1",
-        "NEO4J_URI": "bolt://localhost:7687",
-        "NEO4J_USER": "neo4j",
-        "NEO4J_PASSWORD": "testpass",
-        "OPENAI_API_KEY": "test-api-key",
-        "OBSIDIAN_VAULT_PATH": "/tmp/test_vault",
+        "POSTGRES_HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+        "POSTGRES_PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        "POSTGRES_USER": os.environ.get("POSTGRES_TEST_USER", "testuser"),
+        "POSTGRES_PASSWORD": os.environ.get("POSTGRES_TEST_PASSWORD", "testpass"),
+        "POSTGRES_DB": os.environ.get("POSTGRES_TEST_DB", "testdb"),
+        "REDIS_URL": os.environ.get("REDIS_URL", "redis://localhost:6379/1"),
+        "NEO4J_URI": os.environ.get("NEO4J_URI", "bolt://localhost:7687"),
+        "NEO4J_USER": os.environ.get("NEO4J_USER", "neo4j"),
+        "NEO4J_PASSWORD": os.environ.get("NEO4J_PASSWORD", "testpass"),
+        "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", "test-api-key"),
+        "OBSIDIAN_VAULT_PATH": os.environ.get("OBSIDIAN_VAULT_PATH", "/tmp/test_vault"),
         "DEBUG": "true",
     }
     os.environ.update(test_env)

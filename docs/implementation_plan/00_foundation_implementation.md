@@ -3959,7 +3959,16 @@ Integration tests require a running PostgreSQL database with a dedicated test us
 
 #### 4.8.1 Test Database Setup (One-Time)
 
-The integration tests expect specific credentials. You need to create a test user and database in PostgreSQL:
+The integration tests expect specific credentials defined in your `.env` file. Add these variables to your `.env`:
+
+```bash
+# Test Database Credentials (add to .env)
+POSTGRES_TEST_USER=testuser
+POSTGRES_TEST_PASSWORD="your-secure-test-password"
+POSTGRES_TEST_DB=testdb
+```
+
+Then create the test user and database in PostgreSQL:
 
 ```bash
 # Option 1: Using docker-compose exec (if PostgreSQL is running in Docker)
@@ -3968,32 +3977,34 @@ docker-compose up -d postgres
 # Connect to PostgreSQL as the admin user
 docker-compose exec postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB}
 
-# Inside psql, create the test user and database:
-CREATE USER testuser WITH PASSWORD 'testpass';
+# Inside psql, create the test user and database using your chosen password:
+CREATE USER testuser WITH PASSWORD 'your-secure-test-password';
 CREATE DATABASE testdb OWNER testuser;
 GRANT ALL PRIVILEGES ON DATABASE testdb TO testuser;
 \q
 
 # Option 2: Using local psql (if PostgreSQL is running locally)
-psql -U postgres -c "CREATE USER testuser WITH PASSWORD 'testpass';"
+psql -U postgres -c "CREATE USER testuser WITH PASSWORD 'your-secure-test-password';"
 psql -U postgres -c "CREATE DATABASE testdb OWNER testuser;"
 psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE testdb TO testuser;"
 ```
 
+**Note:** The test fixtures in `conftest.py` read credentials from `POSTGRES_TEST_*` environment variables, falling back to defaults (`testuser`/`testpass`) for CI environments.
+
 #### 4.8.2 Test Environment Variables
 
-The test fixtures automatically set these environment variables (see `tests/conftest.py`):
+The test fixtures read credentials from environment variables (see `tests/conftest.py`). Add these to your `.env` file:
 
-| Variable | Test Value | Purpose |
-|----------|------------|---------|
+| Environment Variable | Default Value | Purpose |
+|---------------------|---------------|---------|
 | `POSTGRES_HOST` | `localhost` | Database host |
 | `POSTGRES_PORT` | `5432` | Database port |
-| `POSTGRES_USER` | `testuser` | Test database user |
-| `POSTGRES_PASSWORD` | `testpass` | Test database password |
-| `POSTGRES_DB` | `testdb` | Test database name |
+| `POSTGRES_TEST_USER` | `testuser` | Test database user |
+| `POSTGRES_TEST_PASSWORD` | `testpass` | Test database password |
+| `POSTGRES_TEST_DB` | `testdb` | Test database name |
 | `REDIS_URL` | `redis://localhost:6379/1` | Redis (database 1 for isolation) |
 
-You can override these by setting environment variables before running tests.
+**Security Note:** Store your actual test credentials in `.env` (which is gitignored). The defaults are only used for CI environments where `.env` may not exist.
 
 #### 4.8.3 Running Integration Tests
 
@@ -4068,6 +4079,7 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
+          # CI uses default test credentials (no .env file available)
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: testpass
           POSTGRES_DB: testdb
@@ -4088,9 +4100,10 @@ jobs:
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_DB: testdb
+          # Use POSTGRES_TEST_* variables (conftest.py reads these)
+          POSTGRES_TEST_USER: testuser
+          POSTGRES_TEST_PASSWORD: testpass
+          POSTGRES_TEST_DB: testdb
           REDIS_URL: redis://localhost:6379/0
         run: |
           cd backend

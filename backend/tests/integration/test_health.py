@@ -209,9 +209,9 @@ class TestRootEndpoint:
         assert response.status_code == 200
 
     def test_root_returns_message(self, test_client) -> None:
-        """Root endpoint should return a welcome message."""
+        """Root endpoint should return API info with name."""
         response = test_client.get("/")
         data = response.json()
 
-        assert "message" in data
-        assert "Second Brain" in data["message"]
+        assert "name" in data
+        assert "Second Brain" in data["name"]

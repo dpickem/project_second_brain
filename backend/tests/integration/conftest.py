@@ -10,35 +10,48 @@ in the parent conftest.py.
 """
 
 import os
+from pathlib import Path
 from typing import AsyncGenerator
+from urllib.parse import quote_plus
 
 import httpx
 import pytest
 import pytest_asyncio
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+# Load .env file FIRST, before reading any environment variables
+# This ensures POSTGRES_TEST_* variables are available
+_project_root = Path(__file__).parent.parent.parent.parent
+_env_file = _project_root / ".env"
+if _env_file.exists():
+    load_dotenv(_env_file)
 
-# Test database credentials (matches conftest.py setup_test_environment)
-TEST_DB_CONFIG = {
-    "host": "localhost",
-    "port": "5432",
-    "user": "testuser",
-    "password": "testpass",
-    "db": "testdb",
-}
+
+def get_test_db_config() -> dict:
+    """
+    Get test database configuration from environment variables.
+    
+    Called at runtime (not module load) to ensure .env is loaded first.
+    """
+    return {
+        "host": os.environ.get("POSTGRES_HOST", "localhost"),
+        "port": os.environ.get("POSTGRES_PORT", "5432"),
+        "user": os.environ.get("POSTGRES_TEST_USER", "testuser"),
+        "password": os.environ.get("POSTGRES_TEST_PASSWORD", "testpass"),
+        "db": os.environ.get("POSTGRES_TEST_DB", "testdb"),
+    }
 
 
 def get_test_db_url(async_driver: bool = True) -> str:
-    """Build database URL from test config or environment."""
-    host = os.environ.get("POSTGRES_HOST", TEST_DB_CONFIG["host"])
-    port = os.environ.get("POSTGRES_PORT", TEST_DB_CONFIG["port"])
-    user = os.environ.get("POSTGRES_USER", TEST_DB_CONFIG["user"])
-    password = os.environ.get("POSTGRES_PASSWORD", TEST_DB_CONFIG["password"])
-    db = os.environ.get("POSTGRES_DB", TEST_DB_CONFIG["db"])
+    """Build database URL from test config environment variables."""
+    config = get_test_db_config()
+    # URL-encode the password to handle special characters
+    encoded_password = quote_plus(config["password"])
     driver = "postgresql+asyncpg" if async_driver else "postgresql+psycopg2"
-    return f"{driver}://{user}:{password}@{host}:{port}/{db}"
+    return f"{driver}://{config['user']}:{encoded_password}@{config['host']}:{config['port']}/{config['db']}"
 
 
 # Skip marker removed - tests will fail with clear DB connection errors if unavailable
