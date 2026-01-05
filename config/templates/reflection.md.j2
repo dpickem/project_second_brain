@@ -8,8 +8,8 @@ created: {{ created_date }}
 
 ## What Went Well
 {% if went_well %}
-{% for i, item in enumerate(went_well, 1) %}
-{{ i }}. {{ item }}
+{% for item in went_well %}
+{{ loop.index }}. {{ item }}
 {% endfor %}
 {% else %}
 1. 
@@ -19,8 +19,8 @@ created: {{ created_date }}
 
 ## What Could Be Better
 {% if could_be_better %}
-{% for i, item in enumerate(could_be_better, 1) %}
-{{ i }}. {{ item }}
+{% for item in could_be_better %}
+{{ loop.index }}. {{ item }}
 {% endfor %}
 {% else %}
 1. 
@@ -48,8 +48,8 @@ created: {{ created_date }}
 ## Gratitude
 <!-- What am I thankful for? -->
 {% if gratitude %}
-{% for i, item in enumerate(gratitude, 1) %}
-{{ i }}. {{ item }}
+{% for item in gratitude %}
+{{ loop.index }}. {{ item }}
 {% endfor %}
 {% else %}
 1. 
@@ -67,8 +67,8 @@ created: {{ created_date }}
 
 ## Priorities for Next Period
 {% if priorities %}
-{% for i, priority in enumerate(priorities, 1) %}
-{{ i }}. {{ priority }}
+{% for priority in priorities %}
+{{ loop.index }}. {{ priority }}
 {% endfor %}
 {% else %}
 1. 

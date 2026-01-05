@@ -310,7 +310,7 @@ async def _load_content_impl(
             annotations.append(
                 Annotation(
                     id=str(db_annot.id),  # Annotation's own db_id as string
-                    type=AnnotationType(db_annot.annotation_type),
+                    type=AnnotationType(db_annot.annotation_type.upper()),
                     content=db_annot.text,
                     page_number=db_annot.page_number,
                     context=db_annot.context,
@@ -324,7 +324,7 @@ async def _load_content_impl(
     return UnifiedContent(
         # content_uuid is the primary identifier (NOT NULL, unique)
         id=db_content.content_uuid,
-        source_type=ContentType(db_content.content_type),
+        source_type=ContentType(db_content.content_type.upper()),
         source_url=db_content.source_url,
         source_file_path=db_content.source_path,
         title=db_content.title,

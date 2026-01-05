@@ -169,6 +169,7 @@ async def generate_followups(
             temperature=processing_settings.FOLLOWUP_TEMPERATURE,
             max_tokens=processing_settings.FOLLOWUP_MAX_TOKENS,
             json_mode=True,
+            content_id=content.id,
         )
 
         tasks = []

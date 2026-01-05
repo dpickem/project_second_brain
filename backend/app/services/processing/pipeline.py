@@ -254,6 +254,7 @@ async def process_content(
                 analysis=analysis,
                 summary=standard_summary,
                 llm_client=llm_client,
+                content_id=content.id,
             )
             all_usages.extend(tagging_usages)
             logger.info(

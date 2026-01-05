@@ -23,8 +23,8 @@ created: {{ created_date }}
 
 ## Key Insights
 {% if insights %}
-{% for i, insight in enumerate(insights, 1) %}
-{{ i }}. {{ insight }}
+{% for insight in insights %}
+{{ loop.index }}. {{ insight }}
 {% endfor %}
 {% else %}
 1. 

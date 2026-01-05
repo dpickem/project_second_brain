@@ -69,6 +69,7 @@ async def assign_tags(
     summary: str,
     llm_client: LLMClient,
     taxonomy: TagTaxonomy = None,
+    content_id: str | None = None,
 ) -> tuple[TagAssignment, list[LLMUsage]]:
     """
     Assign tags from controlled vocabulary.
@@ -117,6 +118,7 @@ async def assign_tags(
             temperature=processing_settings.TAGGING_TEMPERATURE,
             max_tokens=processing_settings.TAGGING_MAX_TOKENS,
             json_mode=True,
+            content_id=content_id,
         )
 
         # Extract and validate tags

@@ -142,6 +142,7 @@ async def generate_mastery_questions(
             temperature=processing_settings.QUESTIONS_TEMPERATURE,
             max_tokens=processing_settings.QUESTIONS_MAX_TOKENS,
             json_mode=True,
+            content_id=content.id,
         )
 
         questions = []

@@ -19,6 +19,7 @@ Usage:
     node_id = await client.create_content_node(content, embedding, tags)
 """
 
+import json
 import logging
 from typing import Optional
 
@@ -66,7 +67,7 @@ class Neo4jClient:
         self._initialized = False
 
     async def _ensure_initialized(self):
-        """Lazily initialize drivers on first use."""
+        """Lazily initialize drivers and indexes on first use."""
         if not self._initialized:
             try:
                 self._async_driver = AsyncGraphDatabase.driver(
@@ -79,9 +80,38 @@ class Neo4jClient:
                 )
                 self._initialized = True
                 logger.info(f"Neo4j client connected to {settings.NEO4J_URI}")
+                
+                # Only setup indexes if they don't exist
+                if not await self._are_indexes_initialized():
+                    await self._setup_indexes_internal()
             except Exception as e:
                 logger.error(f"Failed to connect to Neo4j: {e}")
                 raise
+
+    async def _are_indexes_initialized(self) -> bool:
+        """
+        Check if required vector indexes already exist.
+        
+        Returns:
+            True if all required indexes exist, False otherwise
+        """
+        required_indexes = {"content_embedding_index", "concept_embedding_index"}
+        
+        try:
+            async with self._async_driver.session(
+                database=settings.NEO4J_DATABASE
+            ) as session:
+                result = await session.run("SHOW INDEXES YIELD name")
+                existing_indexes = {record["name"] async for record in result}
+                
+                missing = required_indexes - existing_indexes
+                if missing:
+                    logger.debug(f"Missing Neo4j indexes: {missing}")
+                    return False
+                return True
+        except Exception as e:
+            logger.debug(f"Could not check indexes: {e}")
+            return False
 
     async def close(self):
         """Close database connections."""
@@ -110,21 +140,13 @@ class Neo4jClient:
             logger.error(f"Neo4j connectivity check failed: {e}")
             return False
 
-    async def setup_indexes(self):
+    async def _setup_indexes_internal(self):
         """
-        Create necessary indexes for efficient querying.
-
-        Creates:
-        - Vector index on Content.embedding
-        - Vector index on Concept.embedding
-        - Unique constraint on Content.id
-        - Unique constraint on Concept.name
-        - Regular indexes for type and created_at
-
-        Queries are defined in app.services.knowledge_graph.queries
+        Internal method to create indexes (called during initialization).
+        
+        Does NOT call _ensure_initialized() to avoid circular calls.
         """
-        await self._ensure_initialized()
-
+        logger.info("Creating Neo4j indexes (first-time setup)...")
         async with self._async_driver.session(
             database=settings.NEO4J_DATABASE
         ) as session:
@@ -137,6 +159,26 @@ class Neo4jClient:
                     logger.debug(f"Index creation note: {e}")
 
         logger.info("Neo4j indexes setup complete")
+
+    async def setup_indexes(self):
+        """
+        Create necessary indexes for efficient querying.
+
+        Creates:
+        - Vector index on Content.embedding
+        - Vector index on Concept.embedding
+        - Unique constraint on Content.id
+        - Unique constraint on Concept.name
+        - Regular indexes for type and created_at
+
+        Queries are defined in app.services.knowledge_graph.queries
+        
+        Note: Indexes are automatically created on first connection,
+        but this method can be called explicitly if needed.
+        """
+        await self._ensure_initialized()
+        # Indexes already created during initialization, but run again to be safe
+        await self._setup_indexes_internal()
 
     async def vector_search(
         self,
@@ -210,6 +252,9 @@ class Neo4jClient:
         """
         await self._ensure_initialized()
 
+        # Convert metadata dict to JSON string to avoid Neo4j nested collection issues
+        metadata_json = json.dumps(metadata) if metadata else "{}"
+
         async with self._async_driver.session(
             database=settings.NEO4J_DATABASE
         ) as session:
@@ -226,7 +271,7 @@ class Neo4jClient:
                 embedding=embedding,
                 tags=tags,
                 source_url=source_url,
-                metadata=metadata or {},
+                metadata=metadata_json,
             )
             record = await result.single()
             return record["id"]

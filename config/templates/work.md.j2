@@ -24,8 +24,8 @@ created: {{ created_date }}
 
 ## Key Points
 {% if key_points %}
-{% for i, point in enumerate(key_points, 1) %}
-{{ i }}. {{ point }}
+{% for point in key_points %}
+{{ loop.index }}. {{ point }}
 {% endfor %}
 {% else %}
 1. 

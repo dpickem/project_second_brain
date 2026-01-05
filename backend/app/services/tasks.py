@@ -100,6 +100,7 @@ from app.pipelines import (
     get_registry,
 )
 from app.db.models import ContentStatus
+from app.enums import ProcessingRunStatus
 from app.services.queue import celery_app
 from app.services.storage import load_content, update_content, update_status
 
@@ -194,9 +195,9 @@ def _process_content_impl(
             metadata=result.metadata,
             task_context=True,
         )
-        await update_status(
-            content_id, ContentStatus.PROCESSED.value, task_context=True
-        )
+        # Note: Status remains PENDING after ingestion.
+        # Status changes to PROCESSED only after LLM processing pipeline runs.
+        # See: app/services/processing/pipeline.py
 
         return result
 
@@ -206,19 +207,19 @@ def _process_content_impl(
     if result is None:
         logger.warning(f"No pipeline found for content type: {content_type}")
         return {
-            "status": "failed",
+            "status": ProcessingRunStatus.FAILED.value,
             "content_id": content_id,
             "error": f"No pipeline found for content type: {content_type}",
         }
 
-    logger.info(f"Content {content_id} processing completed")
+    logger.info(f"Content {content_id} ingestion completed")
 
     return {
-        "status": "completed",
+        "status": ProcessingRunStatus.INGESTED.value,
         "content_id": content_id,
         "content_type": content_type,
         "title": result.title,
-        "processed_at": datetime.utcnow().isoformat(),
+        "ingested_at": datetime.utcnow().isoformat(),
     }
 
 
@@ -352,9 +353,9 @@ def _process_book_impl(
             metadata=result.metadata,
             task_context=True,
         )
-        await update_status(
-            content_id, ContentStatus.PROCESSED.value, task_context=True
-        )
+        # Note: Status remains PENDING after ingestion.
+        # Status changes to PROCESSED only after LLM processing pipeline runs.
+        # See: app/services/processing/pipeline.py
 
         return result
 
@@ -362,18 +363,18 @@ def _process_book_impl(
     result = asyncio.run(run_pipeline_and_update())
 
     logger.info(
-        f"Book {content_id} processing complete: "
+        f"Book {content_id} ingestion complete: "
         f"{result.metadata.get('total_pages_processed', 0)} pages, "
         f"${result.metadata.get('llm_cost_usd', 0):.4f} LLM cost"
     )
 
     return {
-        "status": "completed",
+        "status": ProcessingRunStatus.INGESTED.value,
         "content_id": content_id,
         "title": result.title,
         "pages_processed": result.metadata.get("total_pages_processed", 0),
         "llm_cost_usd": result.metadata.get("llm_cost_usd", 0),
-        "processed_at": datetime.utcnow().isoformat(),
+        "ingested_at": datetime.utcnow().isoformat(),
     }
 
 
@@ -482,7 +483,7 @@ def sync_raindrop(since: Optional[str] = None) -> dict[str, Any]:
     # Check for API token early (skip without retry)
     if not settings.RAINDROP_ACCESS_TOKEN:
         logger.warning("RAINDROP_ACCESS_TOKEN not set, skipping sync")
-        return {"status": "skipped", "reason": "No API token"}
+        return {"status": ProcessingRunStatus.SKIPPED.value, "reason": "No API token"}
 
     try:
         items = _sync_raindrop_impl(since_dt)
@@ -501,7 +502,7 @@ def sync_raindrop(since: Optional[str] = None) -> dict[str, Any]:
     logger.info(f"Raindrop sync complete: {len(items)} items queued")
 
     return {
-        "status": "completed",
+        "status": ProcessingRunStatus.COMPLETED.value,
         "items_synced": len(items),
         "synced_at": datetime.utcnow().isoformat(),
     }
@@ -550,7 +551,7 @@ def sync_github(limit: int = 50) -> dict[str, Any]:
     # Check for API token early (skip without retry)
     if not settings.GITHUB_ACCESS_TOKEN:
         logger.warning("GITHUB_ACCESS_TOKEN not set, skipping sync")
-        return {"status": "skipped", "reason": "No API token"}
+        return {"status": ProcessingRunStatus.SKIPPED.value, "reason": "No API token"}
 
     try:
         items = _sync_github_impl(limit)
@@ -569,7 +570,7 @@ def sync_github(limit: int = 50) -> dict[str, Any]:
     logger.info(f"GitHub sync complete: {len(items)} repos queued")
 
     return {
-        "status": "completed",
+        "status": ProcessingRunStatus.COMPLETED.value,
         "repos_synced": len(items),
         "synced_at": datetime.utcnow().isoformat(),
     }
@@ -598,4 +599,4 @@ def cleanup_old_tasks() -> dict[str, str]:
     # - Remove old task results from Redis
     # - Retry or mark as failed any stuck processing items
 
-    return {"status": "completed", "cleaned_at": datetime.utcnow().isoformat()}
+    return {"status": ProcessingRunStatus.COMPLETED.value, "cleaned_at": datetime.utcnow().isoformat()}

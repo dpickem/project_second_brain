@@ -138,7 +138,9 @@ async def discover_connections(
     # Generate embedding for new content
     embedding_text = f"{content.title}\n\n{summary[:processing_settings.CONNECTION_EMBEDDING_TRUNCATE]}"
     try:
-        embeddings, embed_usage = await llm_client.embed([embedding_text])
+        embeddings, embed_usage = await llm_client.embed(
+            [embedding_text], content_id=content.id
+        )
         usages.append(embed_usage)
         if not embeddings:
             logger.warning("Failed to generate embedding for connection discovery")
@@ -180,6 +182,7 @@ async def discover_connections(
             candidate=candidate,
             llm_client=llm_client,
             threshold=connection_threshold,
+            content_id=content.id,
         )
 
         if eval_usage:
@@ -206,6 +209,7 @@ async def _evaluate_connection(
     candidate: dict,
     llm_client: LLMClient,
     threshold: float,
+    content_id: str | None = None,
 ) -> tuple[Optional[Connection], Optional[LLMUsage]]:
     """
     Evaluate a single potential connection using LLM.
@@ -238,6 +242,7 @@ async def _evaluate_connection(
             temperature=processing_settings.CONNECTION_TEMPERATURE,
             max_tokens=processing_settings.CONNECTION_MAX_TOKENS,
             json_mode=True,
+            content_id=content_id,
         )
 
         if not data.get("has_connection"):

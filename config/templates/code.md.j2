@@ -54,8 +54,8 @@ created: {{ created_date }}
 
 ## Key Learnings
 {% if learnings %}
-{% for i, learning in enumerate(learnings, 1) %}
-{{ i }}. {{ learning }}
+{% for learning in learnings %}
+{{ loop.index }}. {{ learning }}
 {% endfor %}
 {% else %}
 1. 

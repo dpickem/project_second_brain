@@ -19,8 +19,8 @@ processed: {{ processed_date | default('') }}
 
 ## Key Takeaways
 {% if takeaways %}
-{% for i, takeaway in enumerate(takeaways, 1) %}
-{{ i }}. {{ takeaway }}
+{% for takeaway in takeaways %}
+{{ loop.index }}. {{ takeaway }}
 {% endfor %}
 {% else %}
 1. 

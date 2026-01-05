@@ -82,6 +82,12 @@ else:
 # Override DEBUG to suppress SQLAlchemy echo (engine uses echo=settings.DEBUG)
 os.environ["DEBUG"] = "false"
 
+# Set local Obsidian vault path (Docker uses /vault mount point)
+# Always override for local script execution - .env may have Docker's /vault path
+os.environ["OBSIDIAN_VAULT_PATH"] = os.path.expanduser(
+    "~/workspace/obsidian/second_brain/obsidian"
+)
+
 # App imports (after sys.path setup and env loading)
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -92,6 +98,16 @@ from app.models.content import ProcessingStatus
 from app.models.processing import ProcessingResult
 from app.services.storage import load_content, update_status
 from app.services.processing import process_content, PipelineConfig
+from app.services.knowledge_graph.client import get_neo4j_client
+
+
+async def ensure_neo4j_indexes() -> None:
+    """Ensure Neo4j vector indexes exist (creates them if missing)."""
+    try:
+        client = await get_neo4j_client()
+        await client.setup_indexes()
+    except Exception as e:
+        logging.warning(f"Could not setup Neo4j indexes (Neo4j may not be running): {e}")
 
 
 def setup_logging(debug: bool = False) -> None:
@@ -236,9 +252,34 @@ def format_processing_result(result: ProcessingResult) -> str:
     if result.extraction:
         lines.append(f"\n🔍 Extraction:")
         lines.append(f"   Concepts: {len(result.extraction.concepts)}")
+        if result.extraction.concepts:
+            for concept in result.extraction.concepts[:5]:
+                importance_icon = "⭐" if concept.importance == "core" else "○"
+                definition_preview = concept.definition[:80] + "..." if len(concept.definition) > 80 else concept.definition
+                lines.append(f"      {importance_icon} {concept.name}: {definition_preview}")
+            if len(result.extraction.concepts) > 5:
+                lines.append(f"      ... and {len(result.extraction.concepts) - 5} more")
+        
         lines.append(f"   Key findings: {len(result.extraction.key_findings)}")
+        if result.extraction.key_findings:
+            for finding in result.extraction.key_findings[:3]:
+                finding_preview = finding[:80] + "..." if len(finding) > 80 else finding
+                lines.append(f"      • {finding_preview}")
+            if len(result.extraction.key_findings) > 3:
+                lines.append(f"      ... and {len(result.extraction.key_findings) - 3} more")
+        
         lines.append(f"   Methodologies: {len(result.extraction.methodologies)}")
+        if result.extraction.methodologies:
+            for method in result.extraction.methodologies[:3]:
+                method_preview = method[:80] + "..." if len(method) > 80 else method
+                lines.append(f"      • {method_preview}")
+        
         lines.append(f"   Tools mentioned: {len(result.extraction.tools_mentioned)}")
+        if result.extraction.tools_mentioned:
+            tools_str = ", ".join(result.extraction.tools_mentioned[:8])
+            if len(result.extraction.tools_mentioned) > 8:
+                tools_str += f", ... +{len(result.extraction.tools_mentioned) - 8} more"
+            lines.append(f"      {tools_str}")
 
     # Tags
     if result.tags:
@@ -481,7 +522,8 @@ def add_processing_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--output-file",
         "-o",
-        help="Save full result to JSON file",
+        metavar="FILE",
+        help="Save full processing result to JSON file (includes all extraction details)",
     )
 
     # Stage toggles
@@ -562,6 +604,8 @@ async def main() -> None:
         )
 
     elif args.command == "process":
+        # Ensure Neo4j indexes exist before processing
+        await ensure_neo4j_indexes()
         config = build_config(args)
         await process_single_content(
             args.content_id,
@@ -572,6 +616,8 @@ async def main() -> None:
         )
 
     elif args.command == "process-pending":
+        # Ensure Neo4j indexes exist before processing
+        await ensure_neo4j_indexes()
         config = build_config(args)
         await process_pending_content(
             config=config,

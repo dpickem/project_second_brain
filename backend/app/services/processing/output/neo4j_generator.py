@@ -59,12 +59,17 @@ async def create_knowledge_nodes(
         summary = result.summaries.get(SummaryLevel.STANDARD.value, content.title)
         embedding_text = f"{content.title}\n\n{summary}"
 
-        # Generate embedding
-        embeddings = await llm_client.embed([embedding_text])
+        # Generate embedding - embed() returns (list[list[float]], LLMUsage)
+        embeddings, _usage = await llm_client.embed([embedding_text])
         embedding = embeddings[0] if embeddings else []
 
-        # Combine all tags
-        all_tags = result.tags.domain_tags + result.tags.meta_tags
+        # Combine all tags and ensure flat list of strings (no nested lists)
+        all_tags = []
+        for tag in result.tags.domain_tags + result.tags.meta_tags:
+            if isinstance(tag, list):
+                all_tags.extend(str(t) for t in tag)
+            else:
+                all_tags.append(str(tag))
 
         # Create content node
         content_node_id = await neo4j_client.create_content_node(
@@ -76,9 +81,9 @@ async def create_knowledge_nodes(
             tags=all_tags,
             source_url=content.source_url,
             metadata={
-                "domain": result.analysis.domain,
-                "complexity": result.analysis.complexity,
-                "authors": content.authors,
+                "domain": str(result.analysis.domain) if result.analysis.domain else "",
+                "complexity": str(result.analysis.complexity) if result.analysis.complexity else "",
+                "authors": ", ".join(content.authors) if content.authors else "",
             },
         )
 
@@ -93,13 +98,14 @@ async def create_knowledge_nodes(
 
         for concept in core_concepts:
             try:
-                # Generate concept embedding
+                # Generate concept embedding - embed() returns (list[list[float]], LLMUsage)
                 concept_text = f"{concept.name}: {concept.definition}"
-                concept_emb = await llm_client.embed([concept_text])
+                concept_emb, _usage = await llm_client.embed([concept_text])
+                concept_embedding = concept_emb[0] if concept_emb else []
 
                 # Create concept node
                 await neo4j_client.create_concept_node(
-                    concept=concept, embedding=concept_emb[0] if concept_emb else []
+                    concept=concept, embedding=concept_embedding
                 )
 
                 # Link content to concept
@@ -178,12 +184,18 @@ async def update_content_node(
         deleted_count = await neo4j_client.delete_content_relationships(content_id)
         logger.debug(f"Deleted {deleted_count} old relationships for {content_id}")
 
-        # Step 2: Update content node with new embedding
+        # Step 2: Update content node with new embedding - embed() returns (list[list[float]], LLMUsage)
         summary = result.summaries.get(SummaryLevel.STANDARD.value, "")
         embedding_text = f"{title}\n\n{summary}"
-        embeddings = await llm_client.embed([embedding_text])
+        embeddings, _usage = await llm_client.embed([embedding_text])
 
-        all_tags = result.tags.domain_tags + result.tags.meta_tags
+        # Flatten tags to ensure no nested lists
+        all_tags = []
+        for tag in result.tags.domain_tags + result.tags.meta_tags:
+            if isinstance(tag, list):
+                all_tags.extend(str(t) for t in tag)
+            else:
+                all_tags.append(str(tag))
 
         await neo4j_client.create_content_node(
             content_id=content_id,
@@ -193,8 +205,8 @@ async def update_content_node(
             embedding=embeddings[0] if embeddings else [],
             tags=all_tags,
             metadata={
-                "domain": result.analysis.domain,
-                "complexity": result.analysis.complexity,
+                "domain": str(result.analysis.domain) if result.analysis.domain else "",
+                "complexity": str(result.analysis.complexity) if result.analysis.complexity else "",
             },
         )
 
@@ -208,7 +220,7 @@ async def update_content_node(
         for concept in core_concepts:
             try:
                 concept_text = f"{concept.name}: {concept.definition}"
-                concept_emb = await llm_client.embed([concept_text])
+                concept_emb, _usage = await llm_client.embed([concept_text])
 
                 await neo4j_client.create_concept_node(
                     concept=concept, embedding=concept_emb[0] if concept_emb else []

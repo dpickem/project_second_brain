@@ -129,6 +129,7 @@ async def generate_summary(
     analysis: ContentAnalysis,
     level: SummaryLevel,
     llm_client: LLMClient,
+    content_id: str | None = None,
 ) -> tuple[str, LLMUsage]:
     """
     Generate a summary at the specified level.
@@ -185,6 +186,7 @@ async def generate_summary(
         messages=[{"role": "user", "content": prompt}],
         temperature=processing_settings.SUMMARY_TEMPERATURE,
         max_tokens=max_tokens,
+        content_id=content_id or content.id,
     )
 
 

@@ -130,6 +130,7 @@ async def extract_concepts(
             temperature=processing_settings.EXTRACTION_TEMPERATURE,
             max_tokens=processing_settings.EXTRACTION_MAX_TOKENS,
             json_mode=True,
+            content_id=content.id,
         )
 
         # Parse concepts

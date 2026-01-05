@@ -187,7 +187,7 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
             # Convert to UnifiedContent
             content = UnifiedContent(
                 id=db_content.content_uuid,
-                source_type=ContentType(db_content.content_type),
+                source_type=ContentType(db_content.content_type.upper()),
                 title=db_content.title,
                 source_url=db_content.source_url,
                 source_file_path=db_content.source_path,

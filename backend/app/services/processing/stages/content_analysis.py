@@ -123,6 +123,7 @@ async def analyze_content(
             temperature=processing_settings.ANALYSIS_TEMPERATURE,
             max_tokens=processing_settings.ANALYSIS_MAX_TOKENS,
             json_mode=True,
+            content_id=content.id,
         )
 
         # Validate and normalize values against enums

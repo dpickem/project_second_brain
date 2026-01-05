@@ -20,12 +20,27 @@ class ProcessingStage(str, Enum):
 
 
 class ProcessingRunStatus(str, Enum):
-    """Status of a processing run."""
+    """
+    Status of a processing run or task result.
+
+    Used for both LLM processing pipeline tracking and Celery task results.
+
+    Values:
+        PENDING: Waiting to be processed.
+        PROCESSING: Currently being processed.
+        INGESTED: Content was successfully ingested (raw text extracted).
+            Content remains PENDING for LLM processing.
+        COMPLETED: Processing/task completed successfully.
+        FAILED: Processing/task failed.
+        SKIPPED: Task was skipped (e.g., missing API token).
+    """
 
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
+    INGESTED = "INGESTED"  # Content ingestion completed (text extracted)
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    SKIPPED = "SKIPPED"  # Task skipped (e.g., no API token)
 
 
 class SummaryLevel(str, Enum):
