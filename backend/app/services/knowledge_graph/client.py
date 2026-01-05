@@ -80,7 +80,7 @@ class Neo4jClient:
                 )
                 self._initialized = True
                 logger.info(f"Neo4j client connected to {settings.NEO4J_URI}")
-                
+
                 # Only setup indexes if they don't exist
                 if not await self._are_indexes_initialized():
                     await self._setup_indexes_internal()
@@ -91,19 +91,19 @@ class Neo4jClient:
     async def _are_indexes_initialized(self) -> bool:
         """
         Check if required vector indexes already exist.
-        
+
         Returns:
             True if all required indexes exist, False otherwise
         """
         required_indexes = {"content_embedding_index", "concept_embedding_index"}
-        
+
         try:
             async with self._async_driver.session(
                 database=settings.NEO4J_DATABASE
             ) as session:
                 result = await session.run("SHOW INDEXES YIELD name")
                 existing_indexes = {record["name"] async for record in result}
-                
+
                 missing = required_indexes - existing_indexes
                 if missing:
                     logger.debug(f"Missing Neo4j indexes: {missing}")
@@ -143,7 +143,7 @@ class Neo4jClient:
     async def _setup_indexes_internal(self):
         """
         Internal method to create indexes (called during initialization).
-        
+
         Does NOT call _ensure_initialized() to avoid circular calls.
         """
         logger.info("Creating Neo4j indexes (first-time setup)...")
@@ -172,7 +172,7 @@ class Neo4jClient:
         - Regular indexes for type and created_at
 
         Queries are defined in app.services.knowledge_graph.queries
-        
+
         Note: Indexes are automatically created on first connection,
         but this method can be called explicitly if needed.
         """

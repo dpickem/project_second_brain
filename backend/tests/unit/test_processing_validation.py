@@ -666,7 +666,9 @@ class TestValidateConceptsDetail:
         issues = _validate_concepts(concepts)
 
         # Should be valid at boundary
-        insufficient_count = sum(1 for issue in issues if "insufficient definition" in issue.lower())
+        insufficient_count = sum(
+            1 for issue in issues if "insufficient definition" in issue.lower()
+        )
         assert insufficient_count == 0
 
     def test_validate_concept_with_empty_string_definition(self):

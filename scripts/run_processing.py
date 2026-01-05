@@ -107,7 +107,9 @@ async def ensure_neo4j_indexes() -> None:
         client = await get_neo4j_client()
         await client.setup_indexes()
     except Exception as e:
-        logging.warning(f"Could not setup Neo4j indexes (Neo4j may not be running): {e}")
+        logging.warning(
+            f"Could not setup Neo4j indexes (Neo4j may not be running): {e}"
+        )
 
 
 def setup_logging(debug: bool = False) -> None:
@@ -179,7 +181,10 @@ async def list_content(
             print(f"  {emoji} {status}: {count}")
 
         print(f"\n{'─' * 70}")
-        print(f"Showing {len(items)} items" + (f" (filtered by: {status_filter})" if status_filter else ""))
+        print(
+            f"Showing {len(items)} items"
+            + (f" (filtered by: {status_filter})" if status_filter else "")
+        )
         print(f"{'─' * 70}\n")
 
         if output_format == "json":
@@ -188,9 +193,17 @@ async def list_content(
                     "content_uuid": item.content_uuid,
                     "title": item.title,
                     "content_type": item.content_type,
-                    "status": item.status.value if hasattr(item.status, "value") else str(item.status),
-                    "created_at": item.created_at.isoformat() if item.created_at else None,
-                    "processed_at": item.processed_at.isoformat() if item.processed_at else None,
+                    "status": (
+                        item.status.value
+                        if hasattr(item.status, "value")
+                        else str(item.status)
+                    ),
+                    "created_at": (
+                        item.created_at.isoformat() if item.created_at else None
+                    ),
+                    "processed_at": (
+                        item.processed_at.isoformat() if item.processed_at else None
+                    ),
                     "source_url": item.source_url,
                 }
                 for item in items
@@ -198,7 +211,11 @@ async def list_content(
             print(json.dumps(data, indent=2))
         else:
             for item in items:
-                status_str = item.status.value if hasattr(item.status, "value") else str(item.status)
+                status_str = (
+                    item.status.value
+                    if hasattr(item.status, "value")
+                    else str(item.status)
+                )
                 emoji = {
                     "PENDING": "⏳",
                     "PROCESSING": "🔄",
@@ -206,12 +223,20 @@ async def list_content(
                     "FAILED": "❌",
                 }.get(status_str, "❓")
 
-                title_display = item.title[:50] + "..." if len(item.title or "") > 50 else item.title
+                title_display = (
+                    item.title[:50] + "..."
+                    if len(item.title or "") > 50
+                    else item.title
+                )
                 print(f"{emoji} [{item.content_type}] {title_display}")
                 print(f"   ID: {item.content_uuid}")
                 print(f"   Status: {status_str}")
                 if item.source_url:
-                    url_display = item.source_url[:60] + "..." if len(item.source_url) > 60 else item.source_url
+                    url_display = (
+                        item.source_url[:60] + "..."
+                        if len(item.source_url) > 60
+                        else item.source_url
+                    )
                     print(f"   URL: {url_display}")
                 if item.created_at:
                     print(f"   Created: {item.created_at.strftime('%Y-%m-%d %H:%M')}")
@@ -255,25 +280,35 @@ def format_processing_result(result: ProcessingResult) -> str:
         if result.extraction.concepts:
             for concept in result.extraction.concepts[:5]:
                 importance_icon = "⭐" if concept.importance == "core" else "○"
-                definition_preview = concept.definition[:80] + "..." if len(concept.definition) > 80 else concept.definition
-                lines.append(f"      {importance_icon} {concept.name}: {definition_preview}")
+                definition_preview = (
+                    concept.definition[:80] + "..."
+                    if len(concept.definition) > 80
+                    else concept.definition
+                )
+                lines.append(
+                    f"      {importance_icon} {concept.name}: {definition_preview}"
+                )
             if len(result.extraction.concepts) > 5:
-                lines.append(f"      ... and {len(result.extraction.concepts) - 5} more")
-        
+                lines.append(
+                    f"      ... and {len(result.extraction.concepts) - 5} more"
+                )
+
         lines.append(f"   Key findings: {len(result.extraction.key_findings)}")
         if result.extraction.key_findings:
             for finding in result.extraction.key_findings[:3]:
                 finding_preview = finding[:80] + "..." if len(finding) > 80 else finding
                 lines.append(f"      • {finding_preview}")
             if len(result.extraction.key_findings) > 3:
-                lines.append(f"      ... and {len(result.extraction.key_findings) - 3} more")
-        
+                lines.append(
+                    f"      ... and {len(result.extraction.key_findings) - 3} more"
+                )
+
         lines.append(f"   Methodologies: {len(result.extraction.methodologies)}")
         if result.extraction.methodologies:
             for method in result.extraction.methodologies[:3]:
                 method_preview = method[:80] + "..." if len(method) > 80 else method
                 lines.append(f"      • {method_preview}")
-        
+
         lines.append(f"   Tools mentioned: {len(result.extraction.tools_mentioned)}")
         if result.extraction.tools_mentioned:
             tools_str = ", ".join(result.extraction.tools_mentioned[:8])
@@ -399,7 +434,9 @@ async def process_pending_content(
     print("=" * 60)
 
     for i, item in enumerate(pending_items, 1):
-        title_display = item.title[:50] + "..." if len(item.title or "") > 50 else item.title
+        title_display = (
+            item.title[:50] + "..." if len(item.title or "") > 50 else item.title
+        )
         print(f"  {i}. [{item.content_type}] {title_display}")
         print(f"     ID: {item.content_uuid}")
 
@@ -647,4 +684,3 @@ async def run_with_cleanup() -> None:
 
 if __name__ == "__main__":
     asyncio.run(run_with_cleanup())
-

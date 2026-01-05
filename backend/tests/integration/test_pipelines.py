@@ -54,8 +54,12 @@ def mock_cost_tracker():
     This ensures NO database writes occur during pipeline testing.
     CostTracker.log_usages_batch is the main method that writes to the database.
     """
-    with patch("app.services.cost_tracking.CostTracker.log_usages_batch", new_callable=AsyncMock) as mock_batch, \
-         patch("app.services.cost_tracking.CostTracker.log_usage", new_callable=AsyncMock) as mock_single:
+    with patch(
+        "app.services.cost_tracking.CostTracker.log_usages_batch",
+        new_callable=AsyncMock,
+    ) as mock_batch, patch(
+        "app.services.cost_tracking.CostTracker.log_usage", new_callable=AsyncMock
+    ) as mock_single:
         # Return empty lists/objects to simulate successful logging
         mock_batch.return_value = []
         mock_single.return_value = MagicMock()
@@ -155,15 +159,27 @@ def mock_vision_completion():
             {
                 "page_number": 42,
                 "page_number_location": "bottom-right",
-                "chapter": {"number": "5", "title": "Test Chapter", "location": "header"},
+                "chapter": {
+                    "number": "5",
+                    "title": "Test Chapter",
+                    "location": "header",
+                },
                 "is_two_page_spread": False,
                 "spread_pages": None,
                 "full_text": "This is the extracted text from the book page. It contains important information about the topic.",
                 "highlights": [
-                    {"text": "important information", "type": "underline", "location": "middle"}
+                    {
+                        "text": "important information",
+                        "type": "underline",
+                        "location": "middle",
+                    }
                 ],
                 "margin_notes": [
-                    {"text": "Remember this!", "location": "right-margin", "related_text": "important information"}
+                    {
+                        "text": "Remember this!",
+                        "location": "right-margin",
+                        "related_text": "important information",
+                    }
                 ],
             }
         )
@@ -214,7 +230,10 @@ def mock_ocr_result():
                         bottom_right_x=300,
                         bottom_right_y=400,
                         image_base64=None,
-                        annotation={"image_type": "graph", "description": "A sample figure"},
+                        annotation={
+                            "image_type": "graph",
+                            "description": "A sample figure",
+                        },
                     )
                 ],
             ),
@@ -313,17 +332,16 @@ class TestWebArticlePipelineIntegration:
         assert pipeline.supports(no_url_input) is False
 
     @pytest.mark.asyncio
-    async def test_process_article_with_jina(
-        self, mock_jina_response, mock_llm_client
-    ):
+    async def test_process_article_with_jina(self, mock_jina_response, mock_llm_client):
         """Test article processing using Jina Reader.
 
         Note: CostTracker is mocked via autouse fixture - no database writes.
         """
         from app.pipelines.web_article import WebArticlePipeline
 
-        with patch("app.pipelines.web_article.get_llm_client") as mock_get_client, \
-             patch("httpx.AsyncClient.get") as mock_get:
+        with patch(
+            "app.pipelines.web_article.get_llm_client"
+        ) as mock_get_client, patch("httpx.AsyncClient.get") as mock_get:
             mock_get_client.return_value = mock_llm_client
 
             # Mock Jina response
@@ -354,9 +372,15 @@ class TestWebArticlePipelineIntegration:
         """Test article processing falls back to trafilatura when Jina fails."""
         from app.pipelines.web_article import WebArticlePipeline
 
-        with patch("app.pipelines.web_article.get_llm_client") as mock_get_client, \
-             patch.object(WebArticlePipeline, "_extract_with_jina", return_value={}), \
-             patch.object(WebArticlePipeline, "_extract_with_trafilatura", return_value=mock_trafilatura_extraction):
+        with patch(
+            "app.pipelines.web_article.get_llm_client"
+        ) as mock_get_client, patch.object(
+            WebArticlePipeline, "_extract_with_jina", return_value={}
+        ), patch.object(
+            WebArticlePipeline,
+            "_extract_with_trafilatura",
+            return_value=mock_trafilatura_extraction,
+        ):
             mock_get_client.return_value = mock_llm_client
 
             pipeline = WebArticlePipeline()
@@ -438,15 +462,25 @@ class TestPDFProcessorIntegration:
         """
         from app.pipelines.pdf_processor import PDFProcessor
 
-        with patch("app.pipelines.pdf_processor.ocr_pdf_document_annotated", return_value=mock_ocr_result), \
-             patch("app.pipelines.pdf_processor.get_llm_client", return_value=mock_llm_client):
+        with patch(
+            "app.pipelines.pdf_processor.ocr_pdf_document_annotated",
+            return_value=mock_ocr_result,
+        ), patch(
+            "app.pipelines.pdf_processor.get_llm_client", return_value=mock_llm_client
+        ):
             processor = PDFProcessor(track_costs=False)
-            input_data = PipelineInput(path=SAMPLE_PDF, content_type=PipelineContentType.PDF)
+            input_data = PipelineInput(
+                path=SAMPLE_PDF, content_type=PipelineContentType.PDF
+            )
 
             result = await processor.process(input_data)
 
             assert isinstance(result, UnifiedContent)
-            assert result.source_type in [ContentType.PAPER, ContentType.BOOK, ContentType.ARTICLE]
+            assert result.source_type in [
+                ContentType.PAPER,
+                ContentType.BOOK,
+                ContentType.ARTICLE,
+            ]
             assert len(result.full_text) > 0
             assert result.source_file_path == str(SAMPLE_PDF)
             assert result.raw_file_hash is not None
@@ -485,10 +519,16 @@ class TestPDFProcessorIntegration:
         """
         from app.pipelines.pdf_processor import PDFProcessor
 
-        with patch("app.pipelines.pdf_processor.ocr_pdf_document_annotated", return_value=mock_ocr_result), \
-             patch("app.pipelines.pdf_processor.get_llm_client", return_value=mock_llm_client):
+        with patch(
+            "app.pipelines.pdf_processor.ocr_pdf_document_annotated",
+            return_value=mock_ocr_result,
+        ), patch(
+            "app.pipelines.pdf_processor.get_llm_client", return_value=mock_llm_client
+        ):
             processor = PDFProcessor(track_costs=False)
-            input_data = PipelineInput(path=SAMPLE_PDF, content_type=PipelineContentType.PDF)
+            input_data = PipelineInput(
+                path=SAMPLE_PDF, content_type=PipelineContentType.PDF
+            )
 
             result = await processor.process(input_data)
 
@@ -546,8 +586,9 @@ class TestBookOCRPipelineIntegration:
         """
         from app.pipelines.book_ocr import BookOCRPipeline
 
-        with patch("app.pipelines.book_ocr.vision_completion", mock_vision_completion), \
-             patch("app.pipelines.book_ocr.get_llm_client", return_value=mock_llm_client):
+        with patch(
+            "app.pipelines.book_ocr.vision_completion", mock_vision_completion
+        ), patch("app.pipelines.book_ocr.get_llm_client", return_value=mock_llm_client):
             pipeline = BookOCRPipeline(track_costs=False, max_concurrency=2)
 
             # Get a single image file for testing
@@ -570,15 +611,18 @@ class TestBookOCRPipelineIntegration:
     @pytest.mark.skipif(
         not SAMPLE_BOOK_IMAGES.exists(), reason="Sample book images directory not found"
     )
-    async def test_process_book_directory(self, mock_vision_completion, mock_llm_client):
+    async def test_process_book_directory(
+        self, mock_vision_completion, mock_llm_client
+    ):
         """Test processing a directory of book images.
 
         Note: CostTracker is mocked via autouse fixture - no database writes.
         """
         from app.pipelines.book_ocr import BookOCRPipeline
 
-        with patch("app.pipelines.book_ocr.vision_completion", mock_vision_completion), \
-             patch("app.pipelines.book_ocr.get_llm_client", return_value=mock_llm_client):
+        with patch(
+            "app.pipelines.book_ocr.vision_completion", mock_vision_completion
+        ), patch("app.pipelines.book_ocr.get_llm_client", return_value=mock_llm_client):
             pipeline = BookOCRPipeline(track_costs=False, max_concurrency=2)
             input_data = PipelineInput(
                 path=SAMPLE_BOOK_IMAGES, content_type=PipelineContentType.BOOK
@@ -655,7 +699,9 @@ class TestVoiceTranscriberIntegration:
         assert transcriber.supports(wrong_type) is False
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not SAMPLE_VOICE_MEMO.exists(), reason="Sample voice memo not found")
+    @pytest.mark.skipif(
+        not SAMPLE_VOICE_MEMO.exists(), reason="Sample voice memo not found"
+    )
     async def test_process_voice_memo(
         self, mock_transcription_response, mock_llm_client
     ):
@@ -665,8 +711,13 @@ class TestVoiceTranscriberIntegration:
         """
         from app.pipelines.voice_transcribe import VoiceTranscriber
 
-        with patch("app.pipelines.voice_transcribe.transcription", return_value=mock_transcription_response), \
-             patch("app.pipelines.voice_transcribe.get_llm_client", return_value=mock_llm_client):
+        with patch(
+            "app.pipelines.voice_transcribe.transcription",
+            return_value=mock_transcription_response,
+        ), patch(
+            "app.pipelines.voice_transcribe.get_llm_client",
+            return_value=mock_llm_client,
+        ):
             transcriber = VoiceTranscriber(
                 text_model="test-model", expand_notes=True, track_costs=False
             )
@@ -683,7 +734,9 @@ class TestVoiceTranscriberIntegration:
             assert result.raw_file_hash is not None
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not SAMPLE_VOICE_MEMO.exists(), reason="Sample voice memo not found")
+    @pytest.mark.skipif(
+        not SAMPLE_VOICE_MEMO.exists(), reason="Sample voice memo not found"
+    )
     async def test_process_without_expansion(self, mock_transcription_response):
         """Test processing voice memo without note expansion.
 
@@ -691,7 +744,10 @@ class TestVoiceTranscriberIntegration:
         """
         from app.pipelines.voice_transcribe import VoiceTranscriber
 
-        with patch("app.pipelines.voice_transcribe.transcription", return_value=mock_transcription_response):
+        with patch(
+            "app.pipelines.voice_transcribe.transcription",
+            return_value=mock_transcription_response,
+        ):
             transcriber = VoiceTranscriber(expand_notes=False, track_costs=False)
             input_data = PipelineInput(
                 path=SAMPLE_VOICE_MEMO, content_type=PipelineContentType.VOICE_MEMO
@@ -704,7 +760,9 @@ class TestVoiceTranscriberIntegration:
             assert "original_transcript" in result.metadata
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not SAMPLE_VOICE_MEMO.exists(), reason="Sample voice memo not found")
+    @pytest.mark.skipif(
+        not SAMPLE_VOICE_MEMO.exists(), reason="Sample voice memo not found"
+    )
     async def test_audio_duration_extraction(self):
         """Test extraction of audio duration from file."""
         from app.pipelines.voice_transcribe import VoiceTranscriber
@@ -814,7 +872,9 @@ class TestGitHubImporterIntegration:
         """
         from app.pipelines.github_importer import GitHubImporter
 
-        with patch("app.pipelines.github_importer.get_llm_client", return_value=mock_llm_client):
+        with patch(
+            "app.pipelines.github_importer.get_llm_client", return_value=mock_llm_client
+        ):
             importer = GitHubImporter(access_token="test-token", track_costs=False)
 
             # Mock HTTP client
@@ -832,7 +892,9 @@ class TestGitHubImporterIntegration:
 
             importer.client.get = mock_get
 
-            result = await importer.import_repo("https://github.com/test-user/test-repo")
+            result = await importer.import_repo(
+                "https://github.com/test-user/test-repo"
+            )
 
             assert isinstance(result, UnifiedContent)
             assert result.source_type == ContentType.CODE
@@ -858,7 +920,9 @@ class TestGitHubImporterIntegration:
         """
         from app.pipelines.github_importer import GitHubImporter
 
-        with patch("app.pipelines.github_importer.get_llm_client", return_value=mock_llm_client):
+        with patch(
+            "app.pipelines.github_importer.get_llm_client", return_value=mock_llm_client
+        ):
             importer = GitHubImporter(access_token="test-token", track_costs=False)
 
             # Mock HTTP client
@@ -949,9 +1013,7 @@ class TestRaindropSyncIntegration:
         await sync.close()
 
     @pytest.mark.asyncio
-    async def test_sync_collection(
-        self, mock_raindrop_item, mock_raindrop_highlights
-    ):
+    async def test_sync_collection(self, mock_raindrop_item, mock_raindrop_highlights):
         """Test syncing a Raindrop collection."""
         from app.pipelines.raindrop_sync import RaindropSync
 
@@ -1090,8 +1152,9 @@ class TestPipelineRegistryIntegration:
 
         mock_response = "# Test Article\n\nContent here."
 
-        with patch("app.pipelines.web_article.get_llm_client", return_value=mock_llm_client), \
-             patch("httpx.AsyncClient.get") as mock_get:
+        with patch(
+            "app.pipelines.web_article.get_llm_client", return_value=mock_llm_client
+        ), patch("httpx.AsyncClient.get") as mock_get:
             mock_http_response = AsyncMock()
             mock_http_response.status_code = 200
             mock_http_response.text = mock_response
@@ -1159,7 +1222,8 @@ class TestPipelineErrorHandling:
 
         transcriber = VoiceTranscriber()
         input_data = PipelineInput(
-            path=Path("/nonexistent/audio.mp3"), content_type=PipelineContentType.VOICE_MEMO
+            path=Path("/nonexistent/audio.mp3"),
+            content_type=PipelineContentType.VOICE_MEMO,
         )
 
         with pytest.raises(FileNotFoundError):
@@ -1178,7 +1242,9 @@ class TestPipelineErrorHandling:
 
             response = Response(404)
             response._request = Request("GET", url)
-            raise HTTPStatusError("Not Found", request=response.request, response=response)
+            raise HTTPStatusError(
+                "Not Found", request=response.request, response=response
+            )
 
         importer.client.get = mock_get
 
@@ -1192,9 +1258,13 @@ class TestPipelineErrorHandling:
         """Test WebArticlePipeline handles extraction failures."""
         from app.pipelines.web_article import WebArticlePipeline
 
-        with patch("app.pipelines.web_article.get_llm_client", return_value=mock_llm_client), \
-             patch.object(WebArticlePipeline, "_extract_with_jina", return_value={}), \
-             patch.object(WebArticlePipeline, "_extract_with_trafilatura", return_value={}):
+        with patch(
+            "app.pipelines.web_article.get_llm_client", return_value=mock_llm_client
+        ), patch.object(
+            WebArticlePipeline, "_extract_with_jina", return_value={}
+        ), patch.object(
+            WebArticlePipeline, "_extract_with_trafilatura", return_value={}
+        ):
             pipeline = WebArticlePipeline()
             input_data = PipelineInput(
                 url="https://example.com/broken-article",
@@ -1205,5 +1275,7 @@ class TestPipelineErrorHandling:
             result = await pipeline.process(input_data)
 
             assert isinstance(result, UnifiedContent)
-            assert "could not be extracted" in result.full_text.lower() or len(result.full_text) >= 0
-
+            assert (
+                "could not be extracted" in result.full_text.lower()
+                or len(result.full_text) >= 0
+            )

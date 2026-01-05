@@ -43,7 +43,11 @@ def sample_content() -> UnifiedContent:
         authors=["Vaswani et al."],
         full_text="Abstract: Transformer architecture based on attention mechanisms.",
         annotations=[
-            Annotation(type=AnnotationType.DIGITAL_HIGHLIGHT, content="attention", page_number=1)
+            Annotation(
+                type=AnnotationType.DIGITAL_HIGHLIGHT,
+                content="attention",
+                page_number=1,
+            )
         ],
         source_url="https://arxiv.org/abs/1706.03762",
     )
@@ -67,7 +71,13 @@ def mock_analysis() -> ContentAnalysis:
 def mock_extraction() -> ExtractionResult:
     """Create mock extraction result."""
     return ExtractionResult(
-        concepts=[Concept(name="Transformer", definition="Neural network", importance=ConceptImportance.CORE.value)],
+        concepts=[
+            Concept(
+                name="Transformer",
+                definition="Neural network",
+                importance=ConceptImportance.CORE.value,
+            )
+        ],
         key_findings=["Transformers outperform RNNs"],
     )
 
@@ -75,13 +85,17 @@ def mock_extraction() -> ExtractionResult:
 @pytest.fixture
 def mock_tags() -> TagAssignment:
     """Create mock tag assignment."""
-    return TagAssignment(domain_tags=["ml/transformers"], meta_tags=["status/actionable"])
+    return TagAssignment(
+        domain_tags=["ml/transformers"], meta_tags=["status/actionable"]
+    )
 
 
 @pytest.fixture
 def mock_usage() -> LLMUsage:
     """Create mock LLM usage."""
-    return LLMUsage(model="gpt-4o-mini", provider="openai", request_type="text", cost_usd=0.001)
+    return LLMUsage(
+        model="gpt-4o-mini", provider="openai", request_type="text", cost_usd=0.001
+    )
 
 
 @pytest.fixture
@@ -150,70 +164,89 @@ def pipeline_mocks(
 ):
     """Context manager providing all pipeline stage mocks."""
     usage = LLMUsage(cost_usd=0.01)
-    
-    with patch("app.services.processing.pipeline.analyze_content") as m_analyze, \
-         patch("app.services.processing.pipeline.generate_all_summaries") as m_summarize, \
-         patch("app.services.processing.pipeline.extract_concepts") as m_extract, \
-         patch("app.services.processing.pipeline.assign_tags") as m_tag, \
-         patch("app.services.processing.pipeline.discover_connections") as m_connections, \
-         patch("app.services.processing.pipeline.generate_followups") as m_followups, \
-         patch("app.services.processing.pipeline.generate_mastery_questions") as m_questions, \
-         patch("app.services.processing.pipeline.validate_processing_result") as m_validate, \
-         patch("app.services.processing.pipeline.generate_obsidian_note") as m_obsidian, \
-         patch("app.services.processing.pipeline.create_knowledge_nodes") as m_neo4j, \
-         patch("app.services.processing.pipeline.CostTracker") as m_cost, \
-         patch("app.config.processing.processing_settings") as m_settings, \
-         patch("app.services.processing.pipeline.get_llm_client") as m_get_llm:
+
+    with patch("app.services.processing.pipeline.analyze_content") as m_analyze, patch(
+        "app.services.processing.pipeline.generate_all_summaries"
+    ) as m_summarize, patch(
+        "app.services.processing.pipeline.extract_concepts"
+    ) as m_extract, patch(
+        "app.services.processing.pipeline.assign_tags"
+    ) as m_tag, patch(
+        "app.services.processing.pipeline.discover_connections"
+    ) as m_connections, patch(
+        "app.services.processing.pipeline.generate_followups"
+    ) as m_followups, patch(
+        "app.services.processing.pipeline.generate_mastery_questions"
+    ) as m_questions, patch(
+        "app.services.processing.pipeline.validate_processing_result"
+    ) as m_validate, patch(
+        "app.services.processing.pipeline.generate_obsidian_note"
+    ) as m_obsidian, patch(
+        "app.services.processing.pipeline.create_knowledge_nodes"
+    ) as m_neo4j, patch(
+        "app.services.processing.pipeline.CostTracker"
+    ) as m_cost, patch(
+        "app.config.processing.processing_settings"
+    ) as m_settings, patch(
+        "app.services.processing.pipeline.get_llm_client"
+    ) as m_get_llm:
 
         # Configure analysis
         if analysis_error:
             m_analyze.side_effect = analysis_error
         elif analysis:
             m_analyze.return_value = (analysis, [usage])
-        
+
         # Configure other stages
         if summarize_error:
             m_summarize.side_effect = summarize_error
         else:
-            m_summarize.return_value = (summaries or {SummaryLevel.STANDARD.value: "Summary"}, [usage])
-        
+            m_summarize.return_value = (
+                summaries or {SummaryLevel.STANDARD.value: "Summary"},
+                [usage],
+            )
+
         if extract_error:
             m_extract.side_effect = extract_error
         else:
             m_extract.return_value = (extraction or ExtractionResult(), [usage])
-        
+
         if tag_error:
             m_tag.side_effect = tag_error
         else:
             m_tag.return_value = (tags or TagAssignment(), [usage])
-        
+
         m_connections.return_value = (connections or [], [usage])
-        
+
         if followup_error:
             m_followups.side_effect = followup_error
         else:
             m_followups.return_value = (followups or [], [usage])
-        
+
         if question_error:
             m_questions.side_effect = question_error
         else:
             m_questions.return_value = (questions or [], [usage])
-        
+
         m_validate.return_value = validation_issues or []
-        
+
         if obsidian_error:
             m_obsidian.side_effect = obsidian_error
         else:
             m_obsidian.return_value = obsidian_path
-        
+
         if neo4j_error:
             m_neo4j.side_effect = neo4j_error
         else:
             m_neo4j.return_value = neo4j_id
-        
+
         m_cost.log_usages_batch = AsyncMock()
-        m_settings.GENERATE_OBSIDIAN_NOTES = obsidian_path is not None or obsidian_error is not None
-        m_settings.GENERATE_NEO4J_NODES = neo4j_id is not None or neo4j_error is not None
+        m_settings.GENERATE_OBSIDIAN_NOTES = (
+            obsidian_path is not None or obsidian_error is not None
+        )
+        m_settings.GENERATE_NEO4J_NODES = (
+            neo4j_id is not None or neo4j_error is not None
+        )
         m_get_llm.return_value = MagicMock()
 
         yield {
@@ -244,27 +277,32 @@ class TestPipelineConfig:
     def test_default_config_enables_all_stages(self):
         """Test default configuration enables all stages."""
         config = PipelineConfig()
-        
-        assert all([
-            config.generate_summaries,
-            config.extract_concepts,
-            config.assign_tags,
-            config.discover_connections,
-            config.generate_followups,
-            config.generate_questions,
-            config.create_obsidian_note,
-            config.create_neo4j_nodes,
-            config.validate_output,
-        ])
+
+        assert all(
+            [
+                config.generate_summaries,
+                config.extract_concepts,
+                config.assign_tags,
+                config.discover_connections,
+                config.generate_followups,
+                config.generate_questions,
+                config.create_obsidian_note,
+                config.create_neo4j_nodes,
+                config.validate_output,
+            ]
+        )
         assert config.max_connection_candidates == 10
 
-    @pytest.mark.parametrize("field,value", [
-        ("discover_connections", False),
-        ("max_connection_candidates", 5),
-        ("create_obsidian_note", False),
-        ("create_neo4j_nodes", False),
-        ("validate_output", False),
-    ])
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("discover_connections", False),
+            ("max_connection_candidates", 5),
+            ("create_obsidian_note", False),
+            ("create_neo4j_nodes", False),
+            ("validate_output", False),
+        ],
+    )
     def test_custom_config_values(self, field, value):
         """Test configuration accepts custom values (non-dependency fields)."""
         config = PipelineConfig(**{field: value})
@@ -384,11 +422,19 @@ class TestProcessContent:
 
     @pytest.mark.asyncio
     async def test_full_pipeline_returns_complete_result(
-        self, sample_content, mock_llm_client, mock_neo4j_client, mock_analysis, mock_extraction, mock_tags
+        self,
+        sample_content,
+        mock_llm_client,
+        mock_neo4j_client,
+        mock_analysis,
+        mock_extraction,
+        mock_tags,
     ):
         """Test full pipeline execution returns complete ProcessingResult."""
         followup = FollowupTask(task="Implement", task_type="PRACTICE", priority="HIGH")
-        question = MasteryQuestion(question="What is attention?", hints=["Think"], key_points=["Focus"])
+        question = MasteryQuestion(
+            question="What is attention?", hints=["Think"], key_points=["Focus"]
+        )
         summaries = {level.value: f"{level.value} summary" for level in SummaryLevel}
 
         with pipeline_mocks(
@@ -458,13 +504,22 @@ class TestProcessContent:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("content_id", ["id-1", "id-2", "unique-uuid-123"])
-    async def test_different_content_ids(self, mock_llm_client, mock_analysis, minimal_config, content_id):
+    async def test_different_content_ids(
+        self, mock_llm_client, mock_analysis, minimal_config, content_id
+    ):
         """Test pipeline preserves different content IDs."""
-        content = UnifiedContent(id=content_id, source_type=ContentType.ARTICLE, title="Test", full_text="Content")
-        
+        content = UnifiedContent(
+            id=content_id,
+            source_type=ContentType.ARTICLE,
+            title="Test",
+            full_text="Content",
+        )
+
         with pipeline_mocks(analysis=mock_analysis):
-            result = await process_content(content=content, config=minimal_config, llm_client=mock_llm_client)
-        
+            result = await process_content(
+                content=content, config=minimal_config, llm_client=mock_llm_client
+            )
+
         assert result.content_id == content_id
 
 
@@ -487,7 +542,7 @@ class TestStageSkipping:
                 config=minimal_config,
                 llm_client=mock_llm_client,
             )
-            
+
         mocks["connections"].assert_not_called()
         assert result.connections == []
 
@@ -502,21 +557,28 @@ class TestStageSkipping:
             create_neo4j_nodes=False,
             validate_output=False,
         )
-        
-        with pipeline_mocks(analysis=mock_analysis, extraction=mock_extraction, tags=mock_tags) as mocks:
+
+        with pipeline_mocks(
+            analysis=mock_analysis, extraction=mock_extraction, tags=mock_tags
+        ) as mocks:
             result = await process_content(
                 content=sample_content,
                 config=config,
                 llm_client=mock_llm_client,
                 neo4j_client=None,
             )
-            
+
         mocks["connections"].assert_not_called()
         assert result.connections == []
 
     @pytest.mark.asyncio
     async def test_custom_connection_candidates_passed_to_stage(
-        self, sample_content, mock_llm_client, mock_neo4j_client, mock_analysis, mock_extraction
+        self,
+        sample_content,
+        mock_llm_client,
+        mock_neo4j_client,
+        mock_analysis,
+        mock_extraction,
     ):
         """Test custom max_connection_candidates is passed to discover_connections."""
         config = PipelineConfig(
@@ -529,15 +591,17 @@ class TestStageSkipping:
             validate_output=False,
             max_connection_candidates=3,
         )
-        
-        with pipeline_mocks(analysis=mock_analysis, extraction=mock_extraction) as mocks:
+
+        with pipeline_mocks(
+            analysis=mock_analysis, extraction=mock_extraction
+        ) as mocks:
             await process_content(
                 content=sample_content,
                 config=config,
                 llm_client=mock_llm_client,
                 neo4j_client=mock_neo4j_client,
             )
-            
+
         mocks["connections"].assert_called_once()
         assert mocks["connections"].call_args.kwargs["top_k"] == 3
 
@@ -551,7 +615,9 @@ class TestErrorHandling:
     """Tests for pipeline error handling."""
 
     @pytest.mark.asyncio
-    async def test_analysis_failure_propagates(self, sample_content, mock_llm_client, minimal_config):
+    async def test_analysis_failure_propagates(
+        self, sample_content, mock_llm_client, minimal_config
+    ):
         """Test that analysis failure (critical stage) propagates."""
         with pipeline_mocks(analysis_error=Exception("Analysis failed")):
             with pytest.raises(Exception, match="Analysis failed"):
@@ -562,7 +628,9 @@ class TestErrorHandling:
                 )
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("error_stage", ["summarize", "extract", "tag", "followup", "question"])
+    @pytest.mark.parametrize(
+        "error_stage", ["summarize", "extract", "tag", "followup", "question"]
+    )
     async def test_non_critical_stage_failures_continue(
         self, sample_content, mock_llm_client, mock_analysis, error_stage
     ):
@@ -574,19 +642,21 @@ class TestErrorHandling:
             create_neo4j_nodes=False,
             validate_output=False,
         )
-        
+
         with pipeline_mocks(analysis=mock_analysis, **error_kwargs):
             result = await process_content(
                 content=sample_content,
                 config=config,
                 llm_client=mock_llm_client,
             )
-        
+
         assert result is not None
         assert result.analysis == mock_analysis
 
     @pytest.mark.asyncio
-    async def test_obsidian_failure_continues(self, sample_content, mock_llm_client, mock_analysis):
+    async def test_obsidian_failure_continues(
+        self, sample_content, mock_llm_client, mock_analysis
+    ):
         """Test Obsidian generation failure doesn't stop pipeline."""
         config = PipelineConfig(
             generate_summaries=False,
@@ -599,14 +669,16 @@ class TestErrorHandling:
             create_neo4j_nodes=False,
             validate_output=False,
         )
-        
-        with pipeline_mocks(analysis=mock_analysis, obsidian_error=Exception("Template error")):
+
+        with pipeline_mocks(
+            analysis=mock_analysis, obsidian_error=Exception("Template error")
+        ):
             result = await process_content(
                 content=sample_content,
                 config=config,
                 llm_client=mock_llm_client,
             )
-        
+
         assert result is not None
         assert result.obsidian_note_path is None
 
@@ -626,30 +698,36 @@ class TestErrorHandling:
             create_neo4j_nodes=True,
             validate_output=False,
         )
-        
-        with pipeline_mocks(analysis=mock_analysis, neo4j_error=Exception("Neo4j error")):
+
+        with pipeline_mocks(
+            analysis=mock_analysis, neo4j_error=Exception("Neo4j error")
+        ):
             result = await process_content(
                 content=sample_content,
                 config=config,
                 llm_client=mock_llm_client,
                 neo4j_client=mock_neo4j_client,
             )
-        
+
         assert result is not None
         assert result.neo4j_node_id is None
 
     @pytest.mark.asyncio
-    async def test_cost_tracking_failure_continues(self, sample_content, mock_llm_client, mock_analysis, minimal_config):
+    async def test_cost_tracking_failure_continues(
+        self, sample_content, mock_llm_client, mock_analysis, minimal_config
+    ):
         """Test cost tracking failure doesn't stop pipeline."""
         with pipeline_mocks(analysis=mock_analysis) as mocks:
-            mocks["cost_tracker"].log_usages_batch = AsyncMock(side_effect=Exception("DB error"))
-            
+            mocks["cost_tracker"].log_usages_batch = AsyncMock(
+                side_effect=Exception("DB error")
+            )
+
             result = await process_content(
                 content=sample_content,
                 config=minimal_config,
                 llm_client=mock_llm_client,
             )
-        
+
         assert result is not None
         assert result.analysis == mock_analysis
 
@@ -664,7 +742,7 @@ class TestErrorHandling:
             create_neo4j_nodes=False,
             validate_output=False,
         )
-        
+
         with pipeline_mocks(
             analysis=mock_analysis,
             extraction=mock_extraction,
@@ -676,7 +754,7 @@ class TestErrorHandling:
                 config=config,
                 llm_client=mock_llm_client,
             )
-        
+
         assert "standard" in result.summaries
         assert "failed" in result.summaries["standard"].lower()
 
@@ -690,7 +768,9 @@ class TestOutputGeneration:
     """Tests for output generation (Obsidian, Neo4j)."""
 
     @pytest.mark.asyncio
-    async def test_obsidian_path_returned(self, sample_content, mock_llm_client, mock_analysis):
+    async def test_obsidian_path_returned(
+        self, sample_content, mock_llm_client, mock_analysis
+    ):
         """Test Obsidian note path is returned in result."""
         config = PipelineConfig(
             generate_summaries=False,
@@ -703,14 +783,16 @@ class TestOutputGeneration:
             create_neo4j_nodes=False,
             validate_output=False,
         )
-        
-        with pipeline_mocks(analysis=mock_analysis, obsidian_path="/vault/papers/test.md") as mocks:
+
+        with pipeline_mocks(
+            analysis=mock_analysis, obsidian_path="/vault/papers/test.md"
+        ) as mocks:
             result = await process_content(
                 content=sample_content,
                 config=config,
                 llm_client=mock_llm_client,
             )
-            
+
         mocks["obsidian"].assert_called_once()
         assert result.obsidian_note_path == "/vault/papers/test.md"
 
@@ -730,7 +812,7 @@ class TestOutputGeneration:
             create_neo4j_nodes=True,
             validate_output=False,
         )
-        
+
         with pipeline_mocks(analysis=mock_analysis, neo4j_id="neo4j-node-456") as mocks:
             result = await process_content(
                 content=sample_content,
@@ -738,7 +820,7 @@ class TestOutputGeneration:
                 llm_client=mock_llm_client,
                 neo4j_client=mock_neo4j_client,
             )
-            
+
         mocks["neo4j"].assert_called_once()
         assert result.neo4j_node_id == "neo4j-node-456"
 
@@ -762,7 +844,7 @@ class TestValidation:
             create_neo4j_nodes=False,
             validate_output=True,
         )
-        
+
         with pipeline_mocks(
             analysis=mock_analysis,
             extraction=mock_extraction,
@@ -773,7 +855,7 @@ class TestValidation:
                 config=config,
                 llm_client=mock_llm_client,
             )
-            
+
         mocks["validate"].assert_called_once()
         assert result is not None  # Pipeline completes despite validation issues
 
@@ -797,7 +879,7 @@ class TestCostTracking:
             create_neo4j_nodes=False,
             validate_output=False,
         )
-        
+
         with pipeline_mocks(
             analysis=mock_analysis,
             extraction=mock_extraction,
@@ -808,7 +890,7 @@ class TestCostTracking:
                 config=config,
                 llm_client=mock_llm_client,
             )
-            
+
         mocks["cost_tracker"].log_usages_batch.assert_called_once()
         # Each stage returns usage with cost_usd=0.01
         assert result.estimated_cost_usd >= 0
@@ -833,5 +915,5 @@ class TestTiming:
                 config=minimal_config,
                 llm_client=mock_llm_client,
             )
-        
+
         assert result.processing_time_seconds >= 0

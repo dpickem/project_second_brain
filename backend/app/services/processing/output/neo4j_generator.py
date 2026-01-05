@@ -82,7 +82,11 @@ async def create_knowledge_nodes(
             source_url=content.source_url,
             metadata={
                 "domain": str(result.analysis.domain) if result.analysis.domain else "",
-                "complexity": str(result.analysis.complexity) if result.analysis.complexity else "",
+                "complexity": (
+                    str(result.analysis.complexity)
+                    if result.analysis.complexity
+                    else ""
+                ),
                 "authors": ", ".join(content.authors) if content.authors else "",
             },
         )
@@ -206,7 +210,11 @@ async def update_content_node(
             tags=all_tags,
             metadata={
                 "domain": str(result.analysis.domain) if result.analysis.domain else "",
-                "complexity": str(result.analysis.complexity) if result.analysis.complexity else "",
+                "complexity": (
+                    str(result.analysis.complexity)
+                    if result.analysis.complexity
+                    else ""
+                ),
             },
         )
 

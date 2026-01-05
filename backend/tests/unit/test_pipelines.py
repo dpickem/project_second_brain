@@ -336,15 +336,24 @@ class TestPDFProcessor:
 
         # Mock the LLM client to return "paper"
         mock_client = AsyncMock()
+
         async def mock_complete(**kwargs):
             return "paper", LLMUsage(
-                model="test-model", provider="test", request_type="completion",
-                prompt_tokens=100, completion_tokens=10, total_tokens=110,
-                cost_usd=0.001, latency_ms=100,
+                model="test-model",
+                provider="test",
+                request_type="completion",
+                prompt_tokens=100,
+                completion_tokens=10,
+                total_tokens=110,
+                cost_usd=0.001,
+                latency_ms=100,
             )
+
         mock_client.complete = mock_complete
 
-        with patch("app.pipelines.pdf_processor.get_llm_client", return_value=mock_client):
+        with patch(
+            "app.pipelines.pdf_processor.get_llm_client", return_value=mock_client
+        ):
             content_type = await pdf_processor._infer_content_type(title, text)
             assert content_type == ContentType.PAPER
 
@@ -361,15 +370,24 @@ class TestPDFProcessor:
 
         # Mock the LLM client to return "book"
         mock_client = AsyncMock()
+
         async def mock_complete(**kwargs):
             return "book", LLMUsage(
-                model="test-model", provider="test", request_type="completion",
-                prompt_tokens=100, completion_tokens=10, total_tokens=110,
-                cost_usd=0.001, latency_ms=100,
+                model="test-model",
+                provider="test",
+                request_type="completion",
+                prompt_tokens=100,
+                completion_tokens=10,
+                total_tokens=110,
+                cost_usd=0.001,
+                latency_ms=100,
             )
+
         mock_client.complete = mock_complete
 
-        with patch("app.pipelines.pdf_processor.get_llm_client", return_value=mock_client):
+        with patch(
+            "app.pipelines.pdf_processor.get_llm_client", return_value=mock_client
+        ):
             content_type = await pdf_processor._infer_content_type(title, text)
             assert content_type == ContentType.BOOK
 

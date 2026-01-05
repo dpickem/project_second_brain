@@ -240,7 +240,9 @@ def reset_redis(dry_run: bool = False) -> bool:
         # Get info before flush
         info = client.info("keyspace")
         key_count = sum(
-            db_info.get("keys", 0) for db_info in info.values() if isinstance(db_info, dict)
+            db_info.get("keys", 0)
+            for db_info in info.values()
+            if isinstance(db_info, dict)
         )
 
         # Flush all databases
@@ -313,7 +315,9 @@ def reset_neo4j(dry_run: bool = False) -> bool:
 
         driver.close()
 
-        print(f"   ✅ Neo4j reset complete ({node_count} nodes, {rel_count} relationships deleted)")
+        print(
+            f"   ✅ Neo4j reset complete ({node_count} nodes, {rel_count} relationships deleted)"
+        )
         return True
 
     except Exception as e:
@@ -322,7 +326,9 @@ def reset_neo4j(dry_run: bool = False) -> bool:
         return False
 
 
-def reset_vault(vault_path: Path, keep_structure: bool = False, dry_run: bool = False) -> bool:
+def reset_vault(
+    vault_path: Path, keep_structure: bool = False, dry_run: bool = False
+) -> bool:
     """
     Reset Obsidian vault by removing all content.
 
@@ -359,12 +365,16 @@ def reset_vault(vault_path: Path, keep_structure: bool = False, dry_run: bool = 
                     item.unlink()
                     file_count += 1
 
-            print(f"   ✅ Vault reset complete ({file_count} files removed, structure preserved)")
+            print(
+                f"   ✅ Vault reset complete ({file_count} files removed, structure preserved)"
+            )
         else:
             # Remove entire vault directory
             shutil.rmtree(vault_path)
             print("   ✅ Vault directory removed completely")
-            print("   💡 Run 'python scripts/setup/setup_vault.py' to recreate structure")
+            print(
+                "   💡 Run 'python scripts/setup/setup_vault.py' to recreate structure"
+            )
 
         return True
 
@@ -522,7 +532,9 @@ Examples:
     if reset_neo4j_flag:
         print("  • Neo4j (all nodes and relationships)")
     if reset_vault_flag:
-        structure_note = " (keeping structure)" if args.keep_structure else " (complete removal)"
+        structure_note = (
+            " (keeping structure)" if args.keep_structure else " (complete removal)"
+        )
         print(f"  • Obsidian Vault{structure_note}")
         print(f"    Path: {vault_path}")
     if reset_uploads_flag:

@@ -599,4 +599,7 @@ def cleanup_old_tasks() -> dict[str, str]:
     # - Remove old task results from Redis
     # - Retry or mark as failed any stuck processing items
 
-    return {"status": ProcessingRunStatus.COMPLETED.value, "cleaned_at": datetime.utcnow().isoformat()}
+    return {
+        "status": ProcessingRunStatus.COMPLETED.value,
+        "cleaned_at": datetime.utcnow().isoformat(),
+    }

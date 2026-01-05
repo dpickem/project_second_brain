@@ -33,13 +33,19 @@ from app.models.processing import (
     MasteryQuestion,
 )
 from app.pipelines.utils.cost_types import LLMUsage
-from app.services.processing.stages.content_analysis import analyze_content, _default_analysis
+from app.services.processing.stages.content_analysis import (
+    analyze_content,
+    _default_analysis,
+)
 from app.services.processing.stages.summarization import (
     generate_summary,
     generate_all_summaries,
     _format_annotations,
 )
-from app.services.processing.stages.extraction import extract_concepts, _validate_importance
+from app.services.processing.stages.extraction import (
+    extract_concepts,
+    _validate_importance,
+)
 from app.services.processing.stages.tagging import assign_tags
 from app.services.processing.stages.connections import (
     discover_connections,
@@ -94,7 +100,10 @@ def make_analysis_response(
 def make_extraction_response(concepts: list = None, findings: list = None) -> dict:
     """Create a standard extraction response dict."""
     return {
-        "concepts": concepts or [{"name": "Transformer", "definition": "Architecture", "importance": "CORE"}],
+        "concepts": concepts
+        or [
+            {"name": "Transformer", "definition": "Architecture", "importance": "CORE"}
+        ],
         "key_findings": findings or ["Finding 1"],
         "methodologies": ["Multi-head attention"],
         "tools_mentioned": ["PyTorch"],
@@ -115,9 +124,20 @@ def make_tagging_response(domain_tags: list = None, meta_tags: list = None) -> d
 def make_followup_response(tasks: list = None) -> dict:
     """Create a standard followup response dict."""
     return {
-        "tasks": tasks or [
-            {"task": "Implement transformer", "type": "PRACTICE", "priority": "HIGH", "estimated_time": "2HR_PLUS"},
-            {"task": "Read BERT paper", "type": "RESEARCH", "priority": "MEDIUM", "estimated_time": "1HR"},
+        "tasks": tasks
+        or [
+            {
+                "task": "Implement transformer",
+                "type": "PRACTICE",
+                "priority": "HIGH",
+                "estimated_time": "2HR_PLUS",
+            },
+            {
+                "task": "Read BERT paper",
+                "type": "RESEARCH",
+                "priority": "MEDIUM",
+                "estimated_time": "1HR",
+            },
         ]
     }
 
@@ -125,7 +145,8 @@ def make_followup_response(tasks: list = None) -> dict:
 def make_question_response(questions: list = None) -> dict:
     """Create a standard question response dict."""
     return {
-        "questions": questions or [
+        "questions": questions
+        or [
             {
                 "question": "What is the advantage of self-attention?",
                 "type": "conceptual",
@@ -137,7 +158,9 @@ def make_question_response(questions: list = None) -> dict:
     }
 
 
-def make_connection_response(has_connection: bool = True, strength: float = 0.8) -> dict:
+def make_connection_response(
+    has_connection: bool = True, strength: float = 0.8
+) -> dict:
     """Create a standard connection evaluation response dict."""
     return {
         "has_connection": has_connection,
@@ -170,8 +193,17 @@ def sample_content() -> UnifiedContent:
         Results: We achieve state-of-the-art results on machine translation benchmarks.
         """,
         annotations=[
-            Annotation(type=AnnotationType.DIGITAL_HIGHLIGHT, content="attention mechanisms", page_number=1),
-            Annotation(type=AnnotationType.HANDWRITTEN_NOTE, content="Key insight about self-attention", page_number=2, context="self-attention layer"),
+            Annotation(
+                type=AnnotationType.DIGITAL_HIGHLIGHT,
+                content="attention mechanisms",
+                page_number=1,
+            ),
+            Annotation(
+                type=AnnotationType.HANDWRITTEN_NOTE,
+                content="Key insight about self-attention",
+                page_number=2,
+                context="self-attention layer",
+            ),
         ],
         source_url="https://arxiv.org/abs/1706.03762",
     )
@@ -198,10 +230,23 @@ def sample_extraction() -> ExtractionResult:
     """Create sample extraction result for testing."""
     return ExtractionResult(
         concepts=[
-            Concept(name="Transformer", definition="Architecture based on self-attention", importance=ConceptImportance.CORE.value, related_concepts=["attention"]),
-            Concept(name="Self-attention", definition="Mechanism relating positions", importance=ConceptImportance.CORE.value, related_concepts=["transformer"]),
+            Concept(
+                name="Transformer",
+                definition="Architecture based on self-attention",
+                importance=ConceptImportance.CORE.value,
+                related_concepts=["attention"],
+            ),
+            Concept(
+                name="Self-attention",
+                definition="Mechanism relating positions",
+                importance=ConceptImportance.CORE.value,
+                related_concepts=["transformer"],
+            ),
         ],
-        key_findings=["Transformers outperform RNNs", "Self-attention is parallelizable"],
+        key_findings=[
+            "Transformers outperform RNNs",
+            "Self-attention is parallelizable",
+        ],
         methodologies=["Multi-head attention"],
         tools_mentioned=["TensorFlow"],
         people_mentioned=["Vaswani"],
@@ -244,7 +289,12 @@ def sample_usage() -> LLMUsage:
 def sample_taxonomy() -> TagTaxonomy:
     """Create sample tag taxonomy for testing."""
     return TagTaxonomy(
-        domains=["ml/transformers/attention", "ml/transformers/llms", "ml/training/optimization", "systems/distributed/consensus"],
+        domains=[
+            "ml/transformers/attention",
+            "ml/transformers/llms",
+            "ml/training/optimization",
+            "systems/distributed/consensus",
+        ],
         status=["actionable", "review", "archived"],
         quality=["foundational", "deep-dive", "reference"],
     )
@@ -259,7 +309,9 @@ class TestContentAnalysis:
     """Tests for the content analysis stage."""
 
     @pytest.mark.asyncio
-    async def test_analyze_content_success(self, sample_content, mock_llm_client, sample_usage):
+    async def test_analyze_content_success(
+        self, sample_content, mock_llm_client, sample_usage
+    ):
         """Test successful content analysis."""
         mock_llm_client.complete.return_value = (make_analysis_response(), sample_usage)
 
@@ -274,7 +326,9 @@ class TestContentAnalysis:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("empty_text", ["", "   \n\t   "])
-    async def test_analyze_content_empty_text(self, sample_content, mock_llm_client, empty_text):
+    async def test_analyze_content_empty_text(
+        self, sample_content, mock_llm_client, empty_text
+    ):
         """Test content analysis with empty/whitespace text returns defaults."""
         sample_content.full_text = empty_text
 
@@ -290,11 +344,21 @@ class TestContentAnalysis:
         "field,invalid_value,expected_default",
         [
             ("domain", "invalid_domain", ContentDomain.GENERAL.value.lower()),
-            ("complexity", "invalid_level", ContentComplexity.INTERMEDIATE.value.lower()),
+            (
+                "complexity",
+                "invalid_level",
+                ContentComplexity.INTERMEDIATE.value.lower(),
+            ),
         ],
     )
     async def test_analyze_content_normalizes_invalid_values(
-        self, sample_content, mock_llm_client, sample_usage, field, invalid_value, expected_default
+        self,
+        sample_content,
+        mock_llm_client,
+        sample_usage,
+        field,
+        invalid_value,
+        expected_default,
     ):
         """Test that invalid enum values are normalized."""
         response = make_analysis_response()
@@ -306,7 +370,9 @@ class TestContentAnalysis:
         assert getattr(result, field) == expected_default
 
     @pytest.mark.asyncio
-    async def test_analyze_content_exception_returns_defaults(self, sample_content, mock_llm_client):
+    async def test_analyze_content_exception_returns_defaults(
+        self, sample_content, mock_llm_client
+    ):
         """Test that exception returns default analysis."""
         mock_llm_client.complete.side_effect = Exception("LLM error")
 
@@ -326,10 +392,15 @@ class TestContentAnalysis:
         assert result.estimated_length == ContentLength.MEDIUM.value.lower()
 
     @pytest.mark.asyncio
-    async def test_analyze_content_long_text_truncation(self, sample_content, mock_llm_client, sample_usage):
+    async def test_analyze_content_long_text_truncation(
+        self, sample_content, mock_llm_client, sample_usage
+    ):
         """Test that very long content is truncated before analysis."""
         sample_content.full_text = "A" * 100000
-        mock_llm_client.complete.return_value = (make_analysis_response(length="long"), sample_usage)
+        mock_llm_client.complete.return_value = (
+            make_analysis_response(length="long"),
+            sample_usage,
+        )
 
         result, _ = await analyze_content(sample_content, mock_llm_client)
 
@@ -347,22 +418,33 @@ class TestSummarization:
     """Tests for the summarization stage."""
 
     @pytest.mark.asyncio
-    async def test_generate_summary_success(self, sample_content, sample_analysis, mock_llm_client, sample_usage):
+    async def test_generate_summary_success(
+        self, sample_content, sample_analysis, mock_llm_client, sample_usage
+    ):
         """Test successful summary generation."""
-        mock_llm_client.complete.return_value = ("This paper introduces the Transformer architecture.", sample_usage)
+        mock_llm_client.complete.return_value = (
+            "This paper introduces the Transformer architecture.",
+            sample_usage,
+        )
 
-        result, usage = await generate_summary(sample_content, sample_analysis, SummaryLevel.BRIEF, mock_llm_client)
+        result, usage = await generate_summary(
+            sample_content, sample_analysis, SummaryLevel.BRIEF, mock_llm_client
+        )
 
         assert isinstance(result, str)
         assert "Transformer" in result
         assert isinstance(usage, LLMUsage)
 
     @pytest.mark.asyncio
-    async def test_generate_all_summaries(self, sample_content, sample_analysis, mock_llm_client, sample_usage):
+    async def test_generate_all_summaries(
+        self, sample_content, sample_analysis, mock_llm_client, sample_usage
+    ):
         """Test generating all summary levels."""
         mock_llm_client.complete.return_value = ("Summary at level X", sample_usage)
 
-        summaries, usages = await generate_all_summaries(sample_content, sample_analysis, mock_llm_client)
+        summaries, usages = await generate_all_summaries(
+            sample_content, sample_analysis, mock_llm_client
+        )
 
         assert len(summaries) == 3
         assert all(level.value in summaries for level in SummaryLevel)
@@ -375,7 +457,9 @@ class TestSummarization:
         """Test that exceptions are handled in generate_all_summaries."""
         mock_llm_client.complete.side_effect = Exception("LLM error")
 
-        summaries, _ = await generate_all_summaries(sample_content, sample_analysis, mock_llm_client)
+        summaries, _ = await generate_all_summaries(
+            sample_content, sample_analysis, mock_llm_client
+        )
 
         assert len(summaries) == 3
         assert all("failed" in s.lower() for s in summaries.values())
@@ -387,7 +471,9 @@ class TestSummarization:
             (None, "None provided"),
         ],
     )
-    def test_format_annotations_empty(self, sample_content, annotations, expected_contains):
+    def test_format_annotations_empty(
+        self, sample_content, annotations, expected_contains
+    ):
         """Test annotation formatting with no annotations."""
         sample_content.annotations = annotations or []
         result = _format_annotations(sample_content, max_annotations=20)
@@ -403,7 +489,11 @@ class TestSummarization:
     def test_format_annotations_respects_max_count(self, sample_content):
         """Test that annotation formatting respects max count."""
         sample_content.annotations = [
-            Annotation(type=AnnotationType.DIGITAL_HIGHLIGHT, content=f"Highlight {i}", page_number=i)
+            Annotation(
+                type=AnnotationType.DIGITAL_HIGHLIGHT,
+                content=f"Highlight {i}",
+                page_number=i,
+            )
             for i in range(20)
         ]
         result = _format_annotations(sample_content, max_annotations=5)
@@ -421,11 +511,18 @@ class TestExtraction:
     """Tests for the concept extraction stage."""
 
     @pytest.mark.asyncio
-    async def test_extract_concepts_success(self, sample_content, sample_analysis, mock_llm_client, sample_usage):
+    async def test_extract_concepts_success(
+        self, sample_content, sample_analysis, mock_llm_client, sample_usage
+    ):
         """Test successful concept extraction."""
-        mock_llm_client.complete.return_value = (make_extraction_response(), sample_usage)
+        mock_llm_client.complete.return_value = (
+            make_extraction_response(),
+            sample_usage,
+        )
 
-        result, usages = await extract_concepts(sample_content, sample_analysis, mock_llm_client)
+        result, usages = await extract_concepts(
+            sample_content, sample_analysis, mock_llm_client
+        )
 
         assert isinstance(result, ExtractionResult)
         assert len(result.concepts) == 1
@@ -433,35 +530,52 @@ class TestExtraction:
         assert len(usages) == 1
 
     @pytest.mark.asyncio
-    async def test_extract_concepts_empty_text(self, sample_content, sample_analysis, mock_llm_client):
+    async def test_extract_concepts_empty_text(
+        self, sample_content, sample_analysis, mock_llm_client
+    ):
         """Test extraction with empty text returns empty result."""
         sample_content.full_text = ""
 
-        result, usages = await extract_concepts(sample_content, sample_analysis, mock_llm_client)
+        result, usages = await extract_concepts(
+            sample_content, sample_analysis, mock_llm_client
+        )
 
         assert len(result.concepts) == 0
         assert len(usages) == 0
         mock_llm_client.complete.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_extract_concepts_skips_empty_names(self, sample_content, sample_analysis, mock_llm_client, sample_usage):
+    async def test_extract_concepts_skips_empty_names(
+        self, sample_content, sample_analysis, mock_llm_client, sample_usage
+    ):
         """Test that concepts with empty names are skipped."""
         mock_llm_client.complete.return_value = (
-            make_extraction_response(concepts=[{"name": "", "definition": "Empty"}, {"name": "Valid", "definition": "Valid"}]),
+            make_extraction_response(
+                concepts=[
+                    {"name": "", "definition": "Empty"},
+                    {"name": "Valid", "definition": "Valid"},
+                ]
+            ),
             sample_usage,
         )
 
-        result, _ = await extract_concepts(sample_content, sample_analysis, mock_llm_client)
+        result, _ = await extract_concepts(
+            sample_content, sample_analysis, mock_llm_client
+        )
 
         assert len(result.concepts) == 1
         assert result.concepts[0].name == "Valid"
 
     @pytest.mark.asyncio
-    async def test_extract_concepts_exception_returns_empty(self, sample_content, sample_analysis, mock_llm_client):
+    async def test_extract_concepts_exception_returns_empty(
+        self, sample_content, sample_analysis, mock_llm_client
+    ):
         """Test that exception returns empty result."""
         mock_llm_client.complete.side_effect = Exception("LLM error")
 
-        result, usages = await extract_concepts(sample_content, sample_analysis, mock_llm_client)
+        result, usages = await extract_concepts(
+            sample_content, sample_analysis, mock_llm_client
+        )
 
         assert len(result.concepts) == 0
         assert len(usages) == 0
@@ -482,17 +596,23 @@ class TestExtraction:
         assert _validate_importance(input_val) == expected
 
     @pytest.mark.asyncio
-    async def test_extract_normalizes_importance(self, sample_content, sample_analysis, mock_llm_client, sample_usage):
+    async def test_extract_normalizes_importance(
+        self, sample_content, sample_analysis, mock_llm_client, sample_usage
+    ):
         """Test that various importance formats are normalized."""
         mock_llm_client.complete.return_value = (
-            make_extraction_response(concepts=[
-                {"name": "A", "definition": "Def A", "importance": "core"},
-                {"name": "B", "definition": "Def B", "importance": "supporting"},
-            ]),
+            make_extraction_response(
+                concepts=[
+                    {"name": "A", "definition": "Def A", "importance": "core"},
+                    {"name": "B", "definition": "Def B", "importance": "supporting"},
+                ]
+            ),
             sample_usage,
         )
 
-        result, _ = await extract_concepts(sample_content, sample_analysis, mock_llm_client)
+        result, _ = await extract_concepts(
+            sample_content, sample_analysis, mock_llm_client
+        )
 
         for concept in result.concepts:
             assert concept.importance in ["CORE", "SUPPORTING", "TANGENTIAL"]
@@ -507,25 +627,40 @@ class TestTagging:
     """Tests for the tagging stage."""
 
     @pytest.mark.asyncio
-    async def test_assign_tags_success(self, sample_analysis, mock_llm_client, sample_usage, sample_taxonomy):
+    async def test_assign_tags_success(
+        self, sample_analysis, mock_llm_client, sample_usage, sample_taxonomy
+    ):
         """Test successful tag assignment."""
         mock_llm_client.complete.return_value = (make_tagging_response(), sample_usage)
 
-        result, usages = await assign_tags("Attention Is All You Need", sample_analysis, "Paper about transformers", mock_llm_client, sample_taxonomy)
+        result, usages = await assign_tags(
+            "Attention Is All You Need",
+            sample_analysis,
+            "Paper about transformers",
+            mock_llm_client,
+            sample_taxonomy,
+        )
 
         assert isinstance(result, TagAssignment)
         assert "ml/transformers/attention" in result.domain_tags
         assert len(usages) == 1
 
     @pytest.mark.asyncio
-    async def test_assign_tags_filters_invalid_tags(self, sample_analysis, mock_llm_client, sample_usage, sample_taxonomy):
+    async def test_assign_tags_filters_invalid_tags(
+        self, sample_analysis, mock_llm_client, sample_usage, sample_taxonomy
+    ):
         """Test that invalid tags are filtered out."""
         mock_llm_client.complete.return_value = (
-            make_tagging_response(domain_tags=["ml/transformers/attention", "invalid/tag"], meta_tags=["status/actionable", "invalid/meta"]),
+            make_tagging_response(
+                domain_tags=["ml/transformers/attention", "invalid/tag"],
+                meta_tags=["status/actionable", "invalid/meta"],
+            ),
             sample_usage,
         )
 
-        result, _ = await assign_tags("Test", sample_analysis, "Test", mock_llm_client, sample_taxonomy)
+        result, _ = await assign_tags(
+            "Test", sample_analysis, "Test", mock_llm_client, sample_taxonomy
+        )
 
         assert "ml/transformers/attention" in result.domain_tags
         assert "invalid/tag" not in result.domain_tags
@@ -533,11 +668,15 @@ class TestTagging:
         assert "invalid/meta" not in result.meta_tags
 
     @pytest.mark.asyncio
-    async def test_assign_tags_exception_returns_default(self, sample_analysis, mock_llm_client, sample_taxonomy):
+    async def test_assign_tags_exception_returns_default(
+        self, sample_analysis, mock_llm_client, sample_taxonomy
+    ):
         """Test that exception returns default tag assignment."""
         mock_llm_client.complete.side_effect = Exception("LLM error")
 
-        result, usages = await assign_tags("Test", sample_analysis, "Test", mock_llm_client, sample_taxonomy)
+        result, usages = await assign_tags(
+            "Test", sample_analysis, "Test", mock_llm_client, sample_taxonomy
+        )
 
         assert isinstance(result, TagAssignment)
         assert "status/review" in result.meta_tags
@@ -554,15 +693,31 @@ class TestConnectionDiscovery:
 
     @pytest.mark.asyncio
     async def test_discover_connections_success(
-        self, sample_content, sample_extraction, sample_analysis, mock_llm_client, mock_neo4j_client, sample_usage
+        self,
+        sample_content,
+        sample_extraction,
+        sample_analysis,
+        mock_llm_client,
+        mock_neo4j_client,
+        sample_usage,
     ):
         """Test successful connection discovery."""
         mock_llm_client.embed.return_value = ([[0.1] * 1536], sample_usage)
-        mock_neo4j_client.vector_search.return_value = [{"id": "other-1", "title": "RNN Paper", "summary": "About RNNs"}]
-        mock_llm_client.complete.return_value = (make_connection_response(), sample_usage)
+        mock_neo4j_client.vector_search.return_value = [
+            {"id": "other-1", "title": "RNN Paper", "summary": "About RNNs"}
+        ]
+        mock_llm_client.complete.return_value = (
+            make_connection_response(),
+            sample_usage,
+        )
 
         connections, _ = await discover_connections(
-            sample_content, "Paper about transformers", sample_extraction, sample_analysis, mock_llm_client, mock_neo4j_client
+            sample_content,
+            "Paper about transformers",
+            sample_extraction,
+            sample_analysis,
+            mock_llm_client,
+            mock_neo4j_client,
         )
 
         assert len(connections) == 1
@@ -571,28 +726,52 @@ class TestConnectionDiscovery:
 
     @pytest.mark.asyncio
     async def test_discover_connections_no_candidates(
-        self, sample_content, sample_extraction, sample_analysis, mock_llm_client, mock_neo4j_client, sample_usage
+        self,
+        sample_content,
+        sample_extraction,
+        sample_analysis,
+        mock_llm_client,
+        mock_neo4j_client,
+        sample_usage,
     ):
         """Test connection discovery with no candidates found."""
         mock_llm_client.embed.return_value = ([[0.1] * 1536], sample_usage)
         mock_neo4j_client.vector_search.return_value = []
 
         connections, _ = await discover_connections(
-            sample_content, "Paper", sample_extraction, sample_analysis, mock_llm_client, mock_neo4j_client
+            sample_content,
+            "Paper",
+            sample_extraction,
+            sample_analysis,
+            mock_llm_client,
+            mock_neo4j_client,
         )
 
         assert len(connections) == 0
 
     @pytest.mark.asyncio
     async def test_discover_connections_skips_self(
-        self, sample_content, sample_extraction, sample_analysis, mock_llm_client, mock_neo4j_client, sample_usage
+        self,
+        sample_content,
+        sample_extraction,
+        sample_analysis,
+        mock_llm_client,
+        mock_neo4j_client,
+        sample_usage,
     ):
         """Test that self-connections are skipped."""
         mock_llm_client.embed.return_value = ([[0.1] * 1536], sample_usage)
-        mock_neo4j_client.vector_search.return_value = [{"id": sample_content.id, "title": sample_content.title, "summary": "Self"}]
+        mock_neo4j_client.vector_search.return_value = [
+            {"id": sample_content.id, "title": sample_content.title, "summary": "Self"}
+        ]
 
         connections, _ = await discover_connections(
-            sample_content, "Paper", sample_extraction, sample_analysis, mock_llm_client, mock_neo4j_client
+            sample_content,
+            "Paper",
+            sample_extraction,
+            sample_analysis,
+            mock_llm_client,
+            mock_neo4j_client,
         )
 
         assert len(connections) == 0
@@ -606,12 +785,22 @@ class TestConnectionDiscovery:
             (False, 0.8, False),  # No connection
         ],
     )
-    async def test_evaluate_connection_scenarios(self, mock_llm_client, sample_usage, has_connection, strength, expect_connection):
+    async def test_evaluate_connection_scenarios(
+        self, mock_llm_client, sample_usage, has_connection, strength, expect_connection
+    ):
         """Test various connection evaluation scenarios."""
-        mock_llm_client.complete.return_value = (make_connection_response(has_connection, strength), sample_usage)
+        mock_llm_client.complete.return_value = (
+            make_connection_response(has_connection, strength),
+            sample_usage,
+        )
 
         connection, _ = await _evaluate_connection(
-            "Test", "Summary", ["concept"], {"id": "c1", "title": "Candidate", "summary": "Sum"}, mock_llm_client, 0.4
+            "Test",
+            "Summary",
+            ["concept"],
+            {"id": "c1", "title": "Candidate", "summary": "Sum"},
+            mock_llm_client,
+            0.4,
         )
 
         assert (connection is not None) == expect_connection
@@ -627,12 +816,23 @@ class TestFollowupGeneration:
 
     @pytest.mark.asyncio
     async def test_generate_followups_success(
-        self, sample_content, sample_analysis, sample_extraction, mock_llm_client, sample_usage
+        self,
+        sample_content,
+        sample_analysis,
+        sample_extraction,
+        mock_llm_client,
+        sample_usage,
     ):
         """Test successful follow-up generation."""
         mock_llm_client.complete.return_value = (make_followup_response(), sample_usage)
 
-        tasks, usages = await generate_followups(sample_content, sample_analysis, "Summary", sample_extraction, mock_llm_client)
+        tasks, usages = await generate_followups(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
 
         assert len(tasks) == 2
         assert all(isinstance(t, FollowupTask) for t in tasks)
@@ -642,15 +842,31 @@ class TestFollowupGeneration:
 
     @pytest.mark.asyncio
     async def test_generate_followups_skips_empty_tasks(
-        self, sample_content, sample_analysis, sample_extraction, mock_llm_client, sample_usage
+        self,
+        sample_content,
+        sample_analysis,
+        sample_extraction,
+        mock_llm_client,
+        sample_usage,
     ):
         """Test that empty tasks are skipped."""
         mock_llm_client.complete.return_value = (
-            make_followup_response(tasks=[{"task": "", "type": "RESEARCH"}, {"task": "Valid", "type": "PRACTICE"}]),
+            make_followup_response(
+                tasks=[
+                    {"task": "", "type": "RESEARCH"},
+                    {"task": "Valid", "type": "PRACTICE"},
+                ]
+            ),
             sample_usage,
         )
 
-        tasks, _ = await generate_followups(sample_content, sample_analysis, "Summary", sample_extraction, mock_llm_client)
+        tasks, _ = await generate_followups(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
 
         assert len(tasks) == 1
         assert tasks[0].task == "Valid"
@@ -662,7 +878,13 @@ class TestFollowupGeneration:
         """Test that exception returns empty list."""
         mock_llm_client.complete.side_effect = Exception("LLM error")
 
-        tasks, usages = await generate_followups(sample_content, sample_analysis, "Summary", sample_extraction, mock_llm_client)
+        tasks, usages = await generate_followups(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
 
         assert len(tasks) == 0
         assert len(usages) == 0
@@ -728,12 +950,23 @@ class TestQuestionGeneration:
 
     @pytest.mark.asyncio
     async def test_generate_mastery_questions_success(
-        self, sample_content, sample_analysis, sample_extraction, mock_llm_client, sample_usage
+        self,
+        sample_content,
+        sample_analysis,
+        sample_extraction,
+        mock_llm_client,
+        sample_usage,
     ):
         """Test successful question generation."""
         mock_llm_client.complete.return_value = (make_question_response(), sample_usage)
 
-        questions, usages = await generate_mastery_questions(sample_content, sample_analysis, "Summary", sample_extraction, mock_llm_client)
+        questions, usages = await generate_mastery_questions(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
 
         assert len(questions) == 1
         assert all(isinstance(q, MasteryQuestion) for q in questions)
@@ -743,18 +976,31 @@ class TestQuestionGeneration:
 
     @pytest.mark.asyncio
     async def test_generate_questions_skips_empty_questions(
-        self, sample_content, sample_analysis, sample_extraction, mock_llm_client, sample_usage
+        self,
+        sample_content,
+        sample_analysis,
+        sample_extraction,
+        mock_llm_client,
+        sample_usage,
     ):
         """Test that empty questions are skipped."""
         mock_llm_client.complete.return_value = (
-            make_question_response(questions=[
-                {"question": "", "type": "conceptual"},
-                {"question": "Valid?", "type": "application"},
-            ]),
+            make_question_response(
+                questions=[
+                    {"question": "", "type": "conceptual"},
+                    {"question": "Valid?", "type": "application"},
+                ]
+            ),
             sample_usage,
         )
 
-        questions, _ = await generate_mastery_questions(sample_content, sample_analysis, "Summary", sample_extraction, mock_llm_client)
+        questions, _ = await generate_mastery_questions(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
 
         assert len(questions) == 1
         assert questions[0].question == "Valid?"
@@ -766,7 +1012,13 @@ class TestQuestionGeneration:
         """Test that exception returns empty list."""
         mock_llm_client.complete.side_effect = Exception("LLM error")
 
-        questions, usages = await generate_mastery_questions(sample_content, sample_analysis, "Summary", sample_extraction, mock_llm_client)
+        questions, usages = await generate_mastery_questions(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
 
         assert len(questions) == 0
         assert len(usages) == 0
@@ -799,15 +1051,35 @@ class TestQuestionGeneration:
 
     @pytest.mark.asyncio
     async def test_question_handles_missing_hints(
-        self, sample_content, sample_analysis, sample_extraction, mock_llm_client, sample_usage
+        self,
+        sample_content,
+        sample_analysis,
+        sample_extraction,
+        mock_llm_client,
+        sample_usage,
     ):
         """Test question generation with missing hints."""
         mock_llm_client.complete.return_value = (
-            make_question_response(questions=[{"question": "What?", "type": "conceptual", "difficulty": "intermediate", "key_points": ["point"]}]),
+            make_question_response(
+                questions=[
+                    {
+                        "question": "What?",
+                        "type": "conceptual",
+                        "difficulty": "intermediate",
+                        "key_points": ["point"],
+                    }
+                ]
+            ),
             sample_usage,
         )
 
-        questions, _ = await generate_mastery_questions(sample_content, sample_analysis, "Summary", sample_extraction, mock_llm_client)
+        questions, _ = await generate_mastery_questions(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
 
         assert len(questions) == 1
         assert isinstance(questions[0].hints, list)
@@ -854,7 +1126,12 @@ class TestTagTaxonomy:
 
     def test_taxonomy_filter_valid_tags(self, sample_taxonomy):
         """Test filtering valid tags from a list."""
-        tags = ["ml/transformers/attention", "invalid/domain", "status/actionable", "invalid/meta"]
+        tags = [
+            "ml/transformers/attention",
+            "invalid/domain",
+            "status/actionable",
+            "invalid/meta",
+        ]
         domain_tags, meta_tags = sample_taxonomy.filter_valid_tags(tags)
         assert domain_tags == ["ml/transformers/attention"]
         assert meta_tags == ["status/actionable"]
@@ -896,20 +1173,27 @@ class TestTagTaxonomy:
 
     def test_flatten_domain_tags_nested(self):
         """Test flattening nested domain structure."""
-        domains = {"ml": {"categories": {"transformers": {"topics": ["attention", "llms"]}}}}
+        domains = {
+            "ml": {"categories": {"transformers": {"topics": ["attention", "llms"]}}}
+        }
         tags = TagTaxonomyLoader._flatten_domain_tags(domains)
         assert "ml/transformers/attention" in tags
         assert "ml/transformers/llms" in tags
 
     def test_process_topics_simple(self):
         """Test processing simple topic list."""
-        tags = TagTaxonomyLoader._process_topics(["attention", "llms"], "ml/transformers")
+        tags = TagTaxonomyLoader._process_topics(
+            ["attention", "llms"], "ml/transformers"
+        )
         assert "ml/transformers/attention" in tags
         assert "ml/transformers/llms" in tags
 
     def test_process_topics_with_descriptions(self):
         """Test processing topics with descriptions."""
-        topics = [{"attention": "Attention mechanisms"}, {"llms": "Large language models"}]
+        topics = [
+            {"attention": "Attention mechanisms"},
+            {"llms": "Large language models"},
+        ]
         tags = TagTaxonomyLoader._process_topics(topics, "ml/transformers")
         assert "ml/transformers/attention" in tags
         assert "ml/transformers/llms" in tags
@@ -930,14 +1214,18 @@ class TestEdgeCases:
     """Consolidated edge case tests across all stages."""
 
     @pytest.mark.asyncio
-    async def test_analysis_handles_malformed_json(self, sample_content, mock_llm_client, sample_usage):
+    async def test_analysis_handles_malformed_json(
+        self, sample_content, mock_llm_client, sample_usage
+    ):
         """Test handling of malformed JSON response from LLM."""
         mock_llm_client.complete.return_value = ({"incomplete": True}, sample_usage)
         result, _ = await analyze_content(sample_content, mock_llm_client)
         assert isinstance(result, ContentAnalysis)
 
     @pytest.mark.asyncio
-    async def test_analysis_validates_length_enum(self, sample_content, mock_llm_client, sample_usage):
+    async def test_analysis_validates_length_enum(
+        self, sample_content, mock_llm_client, sample_usage
+    ):
         """Test that invalid length values are normalized."""
         response = make_analysis_response()
         response["estimated_length"] = "invalid_length"
@@ -947,11 +1235,23 @@ class TestEdgeCases:
         assert result.estimated_length in [e.value.lower() for e in ContentLength]
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("content_type", [ContentType.ARTICLE, ContentType.BOOK, ContentType.PAPER])
-    async def test_analyze_different_source_types(self, mock_llm_client, sample_usage, content_type):
+    @pytest.mark.parametrize(
+        "content_type", [ContentType.ARTICLE, ContentType.BOOK, ContentType.PAPER]
+    )
+    async def test_analyze_different_source_types(
+        self, mock_llm_client, sample_usage, content_type
+    ):
         """Test analysis with different content source types."""
-        content = UnifiedContent(id=f"test-{content_type.value}", source_type=content_type, title="Test", full_text="Some text")
-        mock_llm_client.complete.return_value = (make_analysis_response("article"), sample_usage)
+        content = UnifiedContent(
+            id=f"test-{content_type.value}",
+            source_type=content_type,
+            title="Test",
+            full_text="Some text",
+        )
+        mock_llm_client.complete.return_value = (
+            make_analysis_response("article"),
+            sample_usage,
+        )
         result, _ = await analyze_content(content, mock_llm_client)
         assert isinstance(result, ContentAnalysis)
 
@@ -961,27 +1261,50 @@ class TestEdgeCases:
     ):
         """Test summarization with many annotations."""
         sample_content.annotations = [
-            Annotation(type=AnnotationType.DIGITAL_HIGHLIGHT, content=f"Highlight {i}", page_number=i % 10)
+            Annotation(
+                type=AnnotationType.DIGITAL_HIGHLIGHT,
+                content=f"Highlight {i}",
+                page_number=i % 10,
+            )
             for i in range(50)
         ]
         mock_llm_client.complete.return_value = ("Summary text", sample_usage)
-        summaries, _ = await generate_all_summaries(sample_content, sample_analysis, mock_llm_client)
+        summaries, _ = await generate_all_summaries(
+            sample_content, sample_analysis, mock_llm_client
+        )
         assert len(summaries) == 3
 
     @pytest.mark.asyncio
-    async def test_extract_handles_unicode_content(self, sample_content, sample_analysis, mock_llm_client, sample_usage):
+    async def test_extract_handles_unicode_content(
+        self, sample_content, sample_analysis, mock_llm_client, sample_usage
+    ):
         """Test extraction with unicode characters in content."""
         sample_content.full_text = "Transformers: über-efficient 日本語 émojis 🤖"
         mock_llm_client.complete.return_value = (
-            make_extraction_response(concepts=[{"name": "トランスフォーマー", "definition": "Japanese name", "importance": "CORE"}]),
+            make_extraction_response(
+                concepts=[
+                    {
+                        "name": "トランスフォーマー",
+                        "definition": "Japanese name",
+                        "importance": "CORE",
+                    }
+                ]
+            ),
             sample_usage,
         )
-        result, _ = await extract_concepts(sample_content, sample_analysis, mock_llm_client)
+        result, _ = await extract_concepts(
+            sample_content, sample_analysis, mock_llm_client
+        )
         assert result.concepts[0].name == "トランスフォーマー"
 
     @pytest.mark.asyncio
     async def test_connection_handles_empty_concepts(
-        self, sample_content, sample_analysis, mock_llm_client, mock_neo4j_client, sample_usage
+        self,
+        sample_content,
+        sample_analysis,
+        mock_llm_client,
+        mock_neo4j_client,
+        sample_usage,
     ):
         """Test connection discovery with no concepts."""
         extraction = ExtractionResult(concepts=[], key_findings=[])
@@ -989,24 +1312,52 @@ class TestEdgeCases:
         mock_neo4j_client.vector_search.return_value = []
 
         connections, _ = await discover_connections(
-            sample_content, "Summary", extraction, sample_analysis, mock_llm_client, mock_neo4j_client
+            sample_content,
+            "Summary",
+            extraction,
+            sample_analysis,
+            mock_llm_client,
+            mock_neo4j_client,
         )
         assert len(connections) == 0
 
     @pytest.mark.asyncio
     async def test_followup_normalizes_all_enum_values(
-        self, sample_content, sample_analysis, sample_extraction, mock_llm_client, sample_usage
+        self,
+        sample_content,
+        sample_analysis,
+        sample_extraction,
+        mock_llm_client,
+        sample_usage,
     ):
         """Test that all enum values are properly normalized."""
         mock_llm_client.complete.return_value = (
-            make_followup_response(tasks=[
-                {"task": "Task 1", "type": "research", "priority": "high", "estimated_time": "1hr"},
-                {"task": "Task 2", "type": "PRACTICE", "priority": "Low", "estimated_time": "15min"},
-            ]),
+            make_followup_response(
+                tasks=[
+                    {
+                        "task": "Task 1",
+                        "type": "research",
+                        "priority": "high",
+                        "estimated_time": "1hr",
+                    },
+                    {
+                        "task": "Task 2",
+                        "type": "PRACTICE",
+                        "priority": "Low",
+                        "estimated_time": "15min",
+                    },
+                ]
+            ),
             sample_usage,
         )
 
-        tasks, _ = await generate_followups(sample_content, sample_analysis, "Summary", sample_extraction, mock_llm_client)
+        tasks, _ = await generate_followups(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
 
         assert tasks[0].task_type == "RESEARCH"
         assert tasks[0].priority == "HIGH"
@@ -1014,12 +1365,26 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_followup_handles_missing_optional_fields(
-        self, sample_content, sample_analysis, sample_extraction, mock_llm_client, sample_usage
+        self,
+        sample_content,
+        sample_analysis,
+        sample_extraction,
+        mock_llm_client,
+        sample_usage,
     ):
         """Test followup generation with missing optional fields."""
-        mock_llm_client.complete.return_value = (make_followup_response(tasks=[{"task": "Minimal task"}]), sample_usage)
+        mock_llm_client.complete.return_value = (
+            make_followup_response(tasks=[{"task": "Minimal task"}]),
+            sample_usage,
+        )
 
-        tasks, _ = await generate_followups(sample_content, sample_analysis, "Summary", sample_extraction, mock_llm_client)
+        tasks, _ = await generate_followups(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
 
         assert len(tasks) == 1
         assert tasks[0].task == "Minimal task"
@@ -1027,19 +1392,47 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_question_difficulty_distribution(
-        self, sample_content, sample_analysis, sample_extraction, mock_llm_client, sample_usage
+        self,
+        sample_content,
+        sample_analysis,
+        sample_extraction,
+        mock_llm_client,
+        sample_usage,
     ):
         """Test that questions can have different difficulty levels."""
         mock_llm_client.complete.return_value = (
-            make_question_response(questions=[
-                {"question": "Basic?", "type": "conceptual", "difficulty": "foundational", "key_points": ["p"]},
-                {"question": "Medium?", "type": "application", "difficulty": "intermediate", "key_points": ["p"]},
-                {"question": "Hard?", "type": "analysis", "difficulty": "advanced", "key_points": ["p"]},
-            ]),
+            make_question_response(
+                questions=[
+                    {
+                        "question": "Basic?",
+                        "type": "conceptual",
+                        "difficulty": "foundational",
+                        "key_points": ["p"],
+                    },
+                    {
+                        "question": "Medium?",
+                        "type": "application",
+                        "difficulty": "intermediate",
+                        "key_points": ["p"],
+                    },
+                    {
+                        "question": "Hard?",
+                        "type": "analysis",
+                        "difficulty": "advanced",
+                        "key_points": ["p"],
+                    },
+                ]
+            ),
             sample_usage,
         )
 
-        questions, _ = await generate_mastery_questions(sample_content, sample_analysis, "Summary", sample_extraction, mock_llm_client)
+        questions, _ = await generate_mastery_questions(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
 
         difficulties = [q.difficulty for q in questions]
         assert "foundational" in difficulties
@@ -1047,24 +1440,37 @@ class TestEdgeCases:
         assert "advanced" in difficulties
 
     @pytest.mark.asyncio
-    async def test_tagging_preserves_reasoning(self, sample_analysis, mock_llm_client, sample_usage, sample_taxonomy):
+    async def test_tagging_preserves_reasoning(
+        self, sample_analysis, mock_llm_client, sample_usage, sample_taxonomy
+    ):
         """Test that tagging reasoning is preserved."""
         reasoning_text = "Detailed explanation of tag choices."
         response = make_tagging_response()
         response["reasoning"] = reasoning_text
         mock_llm_client.complete.return_value = (response, sample_usage)
 
-        result, _ = await assign_tags("Test", sample_analysis, "Test", mock_llm_client, sample_taxonomy)
+        result, _ = await assign_tags(
+            "Test", sample_analysis, "Test", mock_llm_client, sample_taxonomy
+        )
         assert result.reasoning == reasoning_text
 
     @pytest.mark.asyncio
-    async def test_tagging_handles_empty_response(self, sample_analysis, mock_llm_client, sample_usage, sample_taxonomy):
+    async def test_tagging_handles_empty_response(
+        self, sample_analysis, mock_llm_client, sample_usage, sample_taxonomy
+    ):
         """Test tagging with empty LLM response."""
         mock_llm_client.complete.return_value = (
-            {"domain_tags": [], "meta_tags": [], "suggested_new_tags": [], "reasoning": ""},
+            {
+                "domain_tags": [],
+                "meta_tags": [],
+                "suggested_new_tags": [],
+                "reasoning": "",
+            },
             sample_usage,
         )
 
-        result, _ = await assign_tags("Test", sample_analysis, "Test", mock_llm_client, sample_taxonomy)
+        result, _ = await assign_tags(
+            "Test", sample_analysis, "Test", mock_llm_client, sample_taxonomy
+        )
         assert isinstance(result, TagAssignment)
         assert len(result.domain_tags) == 0

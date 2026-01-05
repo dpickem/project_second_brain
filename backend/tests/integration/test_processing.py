@@ -82,8 +82,13 @@ def make_extraction_response(
 ) -> dict:
     """Create a standard extraction response dict."""
     return {
-        "concepts": concepts or [
-            {"name": "Transformer", "definition": "Attention-based architecture", "importance": "CORE"}
+        "concepts": concepts
+        or [
+            {
+                "name": "Transformer",
+                "definition": "Attention-based architecture",
+                "importance": "CORE",
+            }
         ],
         "key_findings": findings or ["Finding 1"],
         "methodologies": [],
@@ -108,15 +113,25 @@ def make_tagging_response(
 @contextmanager
 def pipeline_mocks(mock_llm_usage):
     """Context manager that sets up all pipeline stage mocks."""
-    with patch("app.services.processing.pipeline.analyze_content") as mock_analyze, \
-         patch("app.services.processing.pipeline.generate_all_summaries") as mock_summarize, \
-         patch("app.services.processing.pipeline.extract_concepts") as mock_extract, \
-         patch("app.services.processing.pipeline.assign_tags") as mock_tag, \
-         patch("app.services.processing.pipeline.discover_connections") as mock_connections, \
-         patch("app.services.processing.pipeline.generate_followups") as mock_followups, \
-         patch("app.services.processing.pipeline.generate_mastery_questions") as mock_questions, \
-         patch("app.services.processing.pipeline.CostTracker") as mock_cost_tracker, \
-         patch("app.config.processing.processing_settings") as mock_settings:
+    with patch(
+        "app.services.processing.pipeline.analyze_content"
+    ) as mock_analyze, patch(
+        "app.services.processing.pipeline.generate_all_summaries"
+    ) as mock_summarize, patch(
+        "app.services.processing.pipeline.extract_concepts"
+    ) as mock_extract, patch(
+        "app.services.processing.pipeline.assign_tags"
+    ) as mock_tag, patch(
+        "app.services.processing.pipeline.discover_connections"
+    ) as mock_connections, patch(
+        "app.services.processing.pipeline.generate_followups"
+    ) as mock_followups, patch(
+        "app.services.processing.pipeline.generate_mastery_questions"
+    ) as mock_questions, patch(
+        "app.services.processing.pipeline.CostTracker"
+    ) as mock_cost_tracker, patch(
+        "app.config.processing.processing_settings"
+    ) as mock_settings:
 
         mock_cost_tracker.log_usages_batch = AsyncMock()
         mock_settings.GENERATE_OBSIDIAN_NOTES = False
@@ -143,7 +158,9 @@ def configure_pipeline_mocks(mocks: dict, mock_llm_usage, content_type: str = "p
             domain="ml",
             complexity="advanced" if content_type == "paper" else "foundational",
             estimated_length="long" if content_type == "paper" else "medium",
-            key_topics=["transformers"] if content_type == "paper" else ["machine learning"],
+            key_topics=(
+                ["transformers"] if content_type == "paper" else ["machine learning"]
+            ),
         ),
         [mock_llm_usage],
     )
@@ -159,8 +176,14 @@ def configure_pipeline_mocks(mocks: dict, mock_llm_usage, content_type: str = "p
         ExtractionResult(
             concepts=[
                 Concept(
-                    name="Transformer" if content_type == "paper" else "Machine Learning",
-                    definition="Attention architecture" if content_type == "paper" else "Learning from data",
+                    name=(
+                        "Transformer" if content_type == "paper" else "Machine Learning"
+                    ),
+                    definition=(
+                        "Attention architecture"
+                        if content_type == "paper"
+                        else "Learning from data"
+                    ),
                     importance=ConceptImportance.CORE.value,
                 )
             ],
@@ -170,7 +193,11 @@ def configure_pipeline_mocks(mocks: dict, mock_llm_usage, content_type: str = "p
     )
     mocks["tag"].return_value = (
         TagAssignment(
-            domain_tags=["ml/transformers/attention"] if content_type == "paper" else ["ml/foundational"],
+            domain_tags=(
+                ["ml/transformers/attention"]
+                if content_type == "paper"
+                else ["ml/foundational"]
+            ),
             meta_tags=["status/actionable"],
         ),
         [mock_llm_usage],
@@ -188,13 +215,28 @@ def configure_pipeline_mocks(mocks: dict, mock_llm_usage, content_type: str = "p
         [mock_llm_usage],
     )
     mocks["followups"].return_value = (
-        [FollowupTask(task="Implement attention", task_type="PRACTICE", priority="HIGH", estimated_time="2HR_PLUS")],
+        [
+            FollowupTask(
+                task="Implement attention",
+                task_type="PRACTICE",
+                priority="HIGH",
+                estimated_time="2HR_PLUS",
+            )
+        ],
         [mock_llm_usage],
     )
     mocks["questions"].return_value = (
         [
-            MasteryQuestion(question="What is self-attention?" * 3, hints=["hint"], key_points=["point"]),
-            MasteryQuestion(question="How does multi-head attention work?" * 2, hints=["hint"], key_points=["point"]),
+            MasteryQuestion(
+                question="What is self-attention?" * 3,
+                hints=["hint"],
+                key_points=["point"],
+            ),
+            MasteryQuestion(
+                question="How does multi-head attention work?" * 2,
+                hints=["hint"],
+                key_points=["point"],
+            ),
         ],
         [mock_llm_usage],
     )
@@ -347,8 +389,16 @@ def mock_neo4j_client() -> MagicMock:
     mock = MagicMock()
     mock.vector_search = AsyncMock(
         return_value=[
-            {"id": "existing-content-1", "title": "BERT", "summary": "A language model"},
-            {"id": "existing-content-2", "title": "GPT-3", "summary": "A large language model"},
+            {
+                "id": "existing-content-1",
+                "title": "BERT",
+                "summary": "A language model",
+            },
+            {
+                "id": "existing-content-2",
+                "title": "GPT-3",
+                "summary": "A large language model",
+            },
         ]
     )
     mock.create_content_node = AsyncMock(return_value="neo4j-content-node-123")
@@ -402,8 +452,14 @@ class TestStageCoordination:
         """Test that analysis results properly flow to summarization."""
         mock_llm_client.complete.side_effect = [
             (make_analysis_response(), mock_llm_usage),
-            ("Brief: The Transformer paper introduces attention-based architecture.", mock_llm_usage),
-            ("Standard: This seminal paper introduces the Transformer...", mock_llm_usage),
+            (
+                "Brief: The Transformer paper introduces attention-based architecture.",
+                mock_llm_usage,
+            ),
+            (
+                "Standard: This seminal paper introduces the Transformer...",
+                mock_llm_usage,
+            ),
             ("Detailed: ## Overview\n\nThe Transformer paper...", mock_llm_usage),
         ]
 
@@ -411,40 +467,74 @@ class TestStageCoordination:
         assert analysis.content_type == "paper"
         assert analysis.domain == "ml"
 
-        summaries, usages = await generate_all_summaries(sample_paper_content, analysis, mock_llm_client)
+        summaries, usages = await generate_all_summaries(
+            sample_paper_content, analysis, mock_llm_client
+        )
         assert all(level.value in summaries for level in SummaryLevel)
         assert len(usages) == 3
 
     @pytest.mark.asyncio
     async def test_extraction_to_tagging_flow(
-        self, sample_paper_content, mock_llm_client, mock_llm_usage, sample_taxonomy, base_analysis
+        self,
+        sample_paper_content,
+        mock_llm_client,
+        mock_llm_usage,
+        sample_taxonomy,
+        base_analysis,
     ):
         """Test that extraction results feed into tagging appropriately."""
         extraction_response = make_extraction_response(
             concepts=[
-                {"name": "Transformer", "definition": "Neural network architecture", "importance": "CORE"},
-                {"name": "Self-attention", "definition": "Attention within sequence", "importance": "CORE"},
+                {
+                    "name": "Transformer",
+                    "definition": "Neural network architecture",
+                    "importance": "CORE",
+                },
+                {
+                    "name": "Self-attention",
+                    "definition": "Attention within sequence",
+                    "importance": "CORE",
+                },
             ],
-            findings=["Transformers outperform RNNs", "Attention enables parallelization"],
+            findings=[
+                "Transformers outperform RNNs",
+                "Attention enables parallelization",
+            ],
         )
         mock_llm_client.complete.side_effect = [
             (extraction_response, mock_llm_usage),
-            (make_tagging_response(meta_tags=["status/actionable", "quality/deep-dive"]), mock_llm_usage),
+            (
+                make_tagging_response(
+                    meta_tags=["status/actionable", "quality/deep-dive"]
+                ),
+                mock_llm_usage,
+            ),
         ]
 
-        extraction, _ = await extract_concepts(sample_paper_content, base_analysis, mock_llm_client)
+        extraction, _ = await extract_concepts(
+            sample_paper_content, base_analysis, mock_llm_client
+        )
         assert len(extraction.concepts) == 2
         assert all(c.importance == "CORE" for c in extraction.concepts)
 
         tags, _ = await assign_tags(
-            sample_paper_content.title, base_analysis, "Paper about transformers", mock_llm_client, sample_taxonomy
+            sample_paper_content.title,
+            base_analysis,
+            "Paper about transformers",
+            mock_llm_client,
+            sample_taxonomy,
         )
         assert "ml/transformers/attention" in tags.domain_tags
         assert "status/actionable" in tags.meta_tags
 
     @pytest.mark.asyncio
     async def test_full_stage_chain(
-        self, sample_paper_content, mock_llm_client, mock_neo4j_client, mock_llm_usage, sample_taxonomy
+        self,
+        sample_paper_content,
+        mock_llm_client,
+        mock_neo4j_client,
+        mock_llm_usage,
+        sample_taxonomy,
     ):
         """Test complete stage chain from analysis to questions."""
         responses = [
@@ -454,20 +544,90 @@ class TestStageCoordination:
             ("Detailed summary.", mock_llm_usage),
             (make_extraction_response(), mock_llm_usage),
             (make_tagging_response(meta_tags=["quality/deep-dive"]), mock_llm_usage),
-            ({"has_connection": True, "relationship_type": RelationshipType.EXTENDS, "strength": 0.85, "explanation": "BERT builds on transformers"}, mock_llm_usage),
-            ({"has_connection": True, "relationship_type": RelationshipType.EXTENDS, "strength": 0.75, "explanation": "GPT uses transformers"}, mock_llm_usage),
-            ({"tasks": [{"task": "Implement self-attention", "type": "PRACTICE", "priority": "HIGH", "estimated_time": "2HR_PLUS"}]}, mock_llm_usage),
-            ({"questions": [{"question": "What is self-attention?", "type": "conceptual", "difficulty": "intermediate", "hints": ["Think about parallelization"], "key_points": ["Parallel processing"]}]}, mock_llm_usage),
+            (
+                {
+                    "has_connection": True,
+                    "relationship_type": RelationshipType.EXTENDS,
+                    "strength": 0.85,
+                    "explanation": "BERT builds on transformers",
+                },
+                mock_llm_usage,
+            ),
+            (
+                {
+                    "has_connection": True,
+                    "relationship_type": RelationshipType.EXTENDS,
+                    "strength": 0.75,
+                    "explanation": "GPT uses transformers",
+                },
+                mock_llm_usage,
+            ),
+            (
+                {
+                    "tasks": [
+                        {
+                            "task": "Implement self-attention",
+                            "type": "PRACTICE",
+                            "priority": "HIGH",
+                            "estimated_time": "2HR_PLUS",
+                        }
+                    ]
+                },
+                mock_llm_usage,
+            ),
+            (
+                {
+                    "questions": [
+                        {
+                            "question": "What is self-attention?",
+                            "type": "conceptual",
+                            "difficulty": "intermediate",
+                            "hints": ["Think about parallelization"],
+                            "key_points": ["Parallel processing"],
+                        }
+                    ]
+                },
+                mock_llm_usage,
+            ),
         ]
         mock_llm_client.complete.side_effect = responses
 
         analysis, _ = await analyze_content(sample_paper_content, mock_llm_client)
-        summaries, _ = await generate_all_summaries(sample_paper_content, analysis, mock_llm_client)
-        extraction, _ = await extract_concepts(sample_paper_content, analysis, mock_llm_client)
-        tags, _ = await assign_tags(sample_paper_content.title, analysis, summaries.get(SummaryLevel.STANDARD.value, ""), mock_llm_client, sample_taxonomy)
-        connections, _ = await discover_connections(sample_paper_content, summaries.get(SummaryLevel.STANDARD.value, ""), extraction, analysis, mock_llm_client, mock_neo4j_client)
-        followups, _ = await generate_followups(sample_paper_content, analysis, summaries.get(SummaryLevel.STANDARD.value, ""), extraction, mock_llm_client)
-        questions, _ = await generate_mastery_questions(sample_paper_content, analysis, summaries.get(SummaryLevel.DETAILED.value, ""), extraction, mock_llm_client)
+        summaries, _ = await generate_all_summaries(
+            sample_paper_content, analysis, mock_llm_client
+        )
+        extraction, _ = await extract_concepts(
+            sample_paper_content, analysis, mock_llm_client
+        )
+        tags, _ = await assign_tags(
+            sample_paper_content.title,
+            analysis,
+            summaries.get(SummaryLevel.STANDARD.value, ""),
+            mock_llm_client,
+            sample_taxonomy,
+        )
+        connections, _ = await discover_connections(
+            sample_paper_content,
+            summaries.get(SummaryLevel.STANDARD.value, ""),
+            extraction,
+            analysis,
+            mock_llm_client,
+            mock_neo4j_client,
+        )
+        followups, _ = await generate_followups(
+            sample_paper_content,
+            analysis,
+            summaries.get(SummaryLevel.STANDARD.value, ""),
+            extraction,
+            mock_llm_client,
+        )
+        questions, _ = await generate_mastery_questions(
+            sample_paper_content,
+            analysis,
+            summaries.get(SummaryLevel.DETAILED.value, ""),
+            extraction,
+            mock_llm_client,
+        )
 
         assert analysis.content_type == "paper"
         assert len(summaries) == 3
@@ -495,7 +655,14 @@ class TestFullPipeline:
         ],
     )
     async def test_full_pipeline(
-        self, content_fixture, content_type, has_connections, mock_llm_client, mock_neo4j_client, mock_llm_usage, request
+        self,
+        content_fixture,
+        content_type,
+        has_connections,
+        mock_llm_client,
+        mock_neo4j_client,
+        mock_llm_usage,
+        request,
     ):
         """Test full pipeline processing of different content types."""
         content = request.getfixturevalue(content_fixture)
@@ -536,7 +703,12 @@ class TestValidationIntegration:
         """Create a complete, valid processing result."""
         return ProcessingResult(
             content_id="test-123",
-            analysis=ContentAnalysis(content_type="paper", domain="ml", complexity="advanced", estimated_length="medium"),
+            analysis=ContentAnalysis(
+                content_type="paper",
+                domain="ml",
+                complexity="advanced",
+                estimated_length="medium",
+            ),
             summaries={
                 SummaryLevel.BRIEF.value: "A" * 60,
                 SummaryLevel.STANDARD.value: "B" * 200,
@@ -544,14 +716,32 @@ class TestValidationIntegration:
             },
             extraction=ExtractionResult(
                 concepts=[
-                    Concept(name="Concept 1", definition="A detailed definition that is long enough", importance=ConceptImportance.CORE.value),
-                    Concept(name="Concept 2", definition="Another detailed definition here", importance=ConceptImportance.SUPPORTING.value),
+                    Concept(
+                        name="Concept 1",
+                        definition="A detailed definition that is long enough",
+                        importance=ConceptImportance.CORE.value,
+                    ),
+                    Concept(
+                        name="Concept 2",
+                        definition="Another detailed definition here",
+                        importance=ConceptImportance.SUPPORTING.value,
+                    ),
                 ]
             ),
-            tags=TagAssignment(domain_tags=["ml/transformers"], meta_tags=["status/actionable"]),
+            tags=TagAssignment(
+                domain_tags=["ml/transformers"], meta_tags=["status/actionable"]
+            ),
             mastery_questions=[
-                MasteryQuestion(question="What is the main concept?" * 3, hints=["hint"], key_points=["point 1", "point 2"]),
-                MasteryQuestion(question="How does it relate to other work?" * 3, hints=["hint"], key_points=["point"]),
+                MasteryQuestion(
+                    question="What is the main concept?" * 3,
+                    hints=["hint"],
+                    key_points=["point 1", "point 2"],
+                ),
+                MasteryQuestion(
+                    question="How does it relate to other work?" * 3,
+                    hints=["hint"],
+                    key_points=["point"],
+                ),
             ],
         )
 
@@ -560,7 +750,12 @@ class TestValidationIntegration:
         """Create an incomplete processing result."""
         return ProcessingResult(
             content_id="test-123",
-            analysis=ContentAnalysis(content_type="paper", domain="ml", complexity="advanced", estimated_length="medium"),
+            analysis=ContentAnalysis(
+                content_type="paper",
+                domain="ml",
+                complexity="advanced",
+                estimated_length="medium",
+            ),
             summaries={},
             extraction=ExtractionResult(),
             tags=TagAssignment(),
@@ -601,22 +796,54 @@ class TestOutputGeneration:
             authors=["Author One", "Author Two"],
             full_text="Content",
             annotations=[
-                Annotation(type=AnnotationType.DIGITAL_HIGHLIGHT, content="Important highlight", page_number=1),
-                Annotation(type=AnnotationType.HANDWRITTEN_NOTE, content="My note", page_number=2, context="Context text"),
+                Annotation(
+                    type=AnnotationType.DIGITAL_HIGHLIGHT,
+                    content="Important highlight",
+                    page_number=1,
+                ),
+                Annotation(
+                    type=AnnotationType.HANDWRITTEN_NOTE,
+                    content="My note",
+                    page_number=2,
+                    context="Context text",
+                ),
             ],
         )
         result = ProcessingResult(
             content_id="test-123",
-            analysis=ContentAnalysis(content_type="paper", domain="ml", complexity="advanced", estimated_length="medium"),
+            analysis=ContentAnalysis(
+                content_type="paper",
+                domain="ml",
+                complexity="advanced",
+                estimated_length="medium",
+            ),
             summaries={SummaryLevel.STANDARD.value: "Standard summary text"},
             extraction=ExtractionResult(
-                concepts=[Concept(name="Concept 1", definition="Definition 1", importance=ConceptImportance.CORE.value)],
+                concepts=[
+                    Concept(
+                        name="Concept 1",
+                        definition="Definition 1",
+                        importance=ConceptImportance.CORE.value,
+                    )
+                ],
                 key_findings=["Finding 1"],
             ),
             tags=TagAssignment(domain_tags=["ml/test"], meta_tags=["status/new"]),
-            connections=[Connection(target_id="other", target_title="Related Paper", relationship_type=RelationshipType.RELATES_TO, strength=0.7, explanation="Related topic")],
+            connections=[
+                Connection(
+                    target_id="other",
+                    target_title="Related Paper",
+                    relationship_type=RelationshipType.RELATES_TO,
+                    strength=0.7,
+                    explanation="Related topic",
+                )
+            ],
             followups=[FollowupTask(task="Do something", task_type="PRACTICE")],
-            mastery_questions=[MasteryQuestion(question="Test question?", hints=["hint"], key_points=["point"])],
+            mastery_questions=[
+                MasteryQuestion(
+                    question="Test question?", hints=["hint"], key_points=["point"]
+                )
+            ],
         )
 
         data = _prepare_template_data(content, result)
@@ -662,7 +889,12 @@ class TestTaxonomyIntegration:
 
     def test_taxonomy_filter_valid_tags(self, sample_taxonomy):
         """Test filtering of valid tags."""
-        tags = ["ml/transformers/attention", "invalid/domain", "status/actionable", "invalid/meta"]
+        tags = [
+            "ml/transformers/attention",
+            "invalid/domain",
+            "status/actionable",
+            "invalid/meta",
+        ]
         valid_domain, valid_meta = sample_taxonomy.filter_valid_tags(tags)
         assert valid_domain == ["ml/transformers/attention"]
         assert valid_meta == ["status/actionable"]
@@ -707,10 +939,23 @@ class TestContentTypeProcessing:
         ],
     )
     async def test_content_type_processing_flow(
-        self, content_type, source_type, title, text, expected_topics, expected_code, mock_llm_client, mock_llm_usage
+        self,
+        content_type,
+        source_type,
+        title,
+        text,
+        expected_topics,
+        expected_code,
+        mock_llm_client,
+        mock_llm_usage,
     ):
         """Test processing flow for different content types."""
-        content = UnifiedContent(id=f"{content_type}-test", source_type=source_type, title=title, full_text=text)
+        content = UnifiedContent(
+            id=f"{content_type}-test",
+            source_type=source_type,
+            title=title,
+            full_text=text,
+        )
         mock_llm_client.complete.return_value = (
             make_analysis_response(
                 content_type=content_type,
@@ -745,26 +990,43 @@ class TestErrorRecovery:
         assert analysis.content_type == sample_paper_content.source_type.value
 
     @pytest.mark.asyncio
-    async def test_partial_llm_response_handling(self, sample_paper_content, mock_llm_client, mock_llm_usage):
+    async def test_partial_llm_response_handling(
+        self, sample_paper_content, mock_llm_client, mock_llm_usage
+    ):
         """Test handling of partial/incomplete LLM responses."""
-        mock_llm_client.complete.return_value = ({"content_type": "paper"}, mock_llm_usage)
+        mock_llm_client.complete.return_value = (
+            {"content_type": "paper"},
+            mock_llm_usage,
+        )
         analysis, _ = await analyze_content(sample_paper_content, mock_llm_client)
         assert analysis is not None
         assert analysis.content_type == "paper"
 
     @pytest.mark.asyncio
-    async def test_extraction_with_valid_concepts(self, sample_paper_content, mock_llm_client, mock_llm_usage, base_analysis):
+    async def test_extraction_with_valid_concepts(
+        self, sample_paper_content, mock_llm_client, mock_llm_usage, base_analysis
+    ):
         """Test extraction handles valid concept data correctly."""
         mock_llm_client.complete.return_value = (
             make_extraction_response(
                 concepts=[
-                    {"name": "Valid", "definition": "A valid concept", "importance": "CORE"},
-                    {"name": "Another", "definition": "Another valid concept", "importance": "SUPPORTING"},
+                    {
+                        "name": "Valid",
+                        "definition": "A valid concept",
+                        "importance": "CORE",
+                    },
+                    {
+                        "name": "Another",
+                        "definition": "Another valid concept",
+                        "importance": "SUPPORTING",
+                    },
                 ]
             ),
             mock_llm_usage,
         )
-        extraction, _ = await extract_concepts(sample_paper_content, base_analysis, mock_llm_client)
+        extraction, _ = await extract_concepts(
+            sample_paper_content, base_analysis, mock_llm_client
+        )
         assert len(extraction.concepts) == 2
         assert extraction.concepts[0].name == "Valid"
 
@@ -779,25 +1041,63 @@ class TestStageDependencies:
 
     @pytest.mark.asyncio
     async def test_tagging_uses_analysis_domain(
-        self, sample_paper_content, mock_llm_client, mock_llm_usage, sample_taxonomy, base_analysis
+        self,
+        sample_paper_content,
+        mock_llm_client,
+        mock_llm_usage,
+        sample_taxonomy,
+        base_analysis,
     ):
         """Test that tagging considers analysis domain."""
-        mock_llm_client.complete.return_value = (make_tagging_response(), mock_llm_usage)
-        tags, _ = await assign_tags(sample_paper_content.title, base_analysis, "Paper about transformers", mock_llm_client, sample_taxonomy)
+        mock_llm_client.complete.return_value = (
+            make_tagging_response(),
+            mock_llm_usage,
+        )
+        tags, _ = await assign_tags(
+            sample_paper_content.title,
+            base_analysis,
+            "Paper about transformers",
+            mock_llm_client,
+            sample_taxonomy,
+        )
         assert any("ml/" in tag for tag in tags.domain_tags)
 
     @pytest.mark.asyncio
-    async def test_questions_use_extraction_concepts(self, sample_paper_content, mock_llm_client, mock_llm_usage, base_analysis):
+    async def test_questions_use_extraction_concepts(
+        self, sample_paper_content, mock_llm_client, mock_llm_usage, base_analysis
+    ):
         """Test that question generation uses extracted concepts."""
         extraction = ExtractionResult(
-            concepts=[Concept(name="Self-attention", definition="Attention mechanism within a sequence", importance=ConceptImportance.CORE.value)],
+            concepts=[
+                Concept(
+                    name="Self-attention",
+                    definition="Attention mechanism within a sequence",
+                    importance=ConceptImportance.CORE.value,
+                )
+            ],
             key_findings=["Self-attention enables parallelization"],
         )
         mock_llm_client.complete.return_value = (
-            {"questions": [{"question": "What is the role of self-attention?", "type": "conceptual", "difficulty": "intermediate", "hints": ["Think about sequence relationships"], "key_points": ["Position-independent processing"]}]},
+            {
+                "questions": [
+                    {
+                        "question": "What is the role of self-attention?",
+                        "type": "conceptual",
+                        "difficulty": "intermediate",
+                        "hints": ["Think about sequence relationships"],
+                        "key_points": ["Position-independent processing"],
+                    }
+                ]
+            },
             mock_llm_usage,
         )
-        questions, _ = await generate_mastery_questions(sample_paper_content, base_analysis, "Paper about self-attention", extraction, mock_llm_client)
+        questions, _ = await generate_mastery_questions(
+            sample_paper_content,
+            base_analysis,
+            "Paper about self-attention",
+            extraction,
+            mock_llm_client,
+        )
         assert len(questions) >= 1
         assert "attention" in questions[0].question.lower()
 
@@ -812,16 +1112,36 @@ class TestConcurrentProcessing:
 
     @pytest.mark.asyncio
     async def test_multiple_contents_in_sequence(
-        self, sample_paper_content, sample_article_content, mock_llm_client, mock_llm_usage
+        self,
+        sample_paper_content,
+        sample_article_content,
+        mock_llm_client,
+        mock_llm_usage,
     ):
         """Test processing multiple contents sequentially."""
         mock_llm_client.complete.side_effect = [
-            (make_analysis_response("paper", "ml", "advanced", "long", ["transformers"]), mock_llm_usage),
-            (make_analysis_response("article", "ml", "foundational", "medium", ["machine learning basics"]), mock_llm_usage),
+            (
+                make_analysis_response(
+                    "paper", "ml", "advanced", "long", ["transformers"]
+                ),
+                mock_llm_usage,
+            ),
+            (
+                make_analysis_response(
+                    "article",
+                    "ml",
+                    "foundational",
+                    "medium",
+                    ["machine learning basics"],
+                ),
+                mock_llm_usage,
+            ),
         ]
 
         paper_analysis, _ = await analyze_content(sample_paper_content, mock_llm_client)
-        article_analysis, _ = await analyze_content(sample_article_content, mock_llm_client)
+        article_analysis, _ = await analyze_content(
+            sample_article_content, mock_llm_client
+        )
 
         assert paper_analysis.content_type == "paper"
         assert paper_analysis.complexity == "advanced"
@@ -838,19 +1158,29 @@ class TestDataIntegrity:
     """Integration tests for data integrity across stages."""
 
     @pytest.mark.asyncio
-    async def test_content_id_preserved_across_stages(self, sample_paper_content, mock_llm_client, mock_llm_usage):
+    async def test_content_id_preserved_across_stages(
+        self, sample_paper_content, mock_llm_client, mock_llm_usage
+    ):
         """Test that content ID is preserved across all stages."""
         original_id = sample_paper_content.id
-        mock_llm_client.complete.return_value = (make_analysis_response(), mock_llm_usage)
+        mock_llm_client.complete.return_value = (
+            make_analysis_response(),
+            mock_llm_usage,
+        )
         await analyze_content(sample_paper_content, mock_llm_client)
         assert sample_paper_content.id == original_id
 
     @pytest.mark.asyncio
-    async def test_annotation_data_preserved(self, sample_paper_content, mock_llm_client, mock_llm_usage):
+    async def test_annotation_data_preserved(
+        self, sample_paper_content, mock_llm_client, mock_llm_usage
+    ):
         """Test that annotation data is preserved during processing."""
         original_count = len(sample_paper_content.annotations)
         original_content = sample_paper_content.annotations[0].content
-        mock_llm_client.complete.return_value = (make_analysis_response(), mock_llm_usage)
+        mock_llm_client.complete.return_value = (
+            make_analysis_response(),
+            mock_llm_usage,
+        )
         await analyze_content(sample_paper_content, mock_llm_client)
         assert len(sample_paper_content.annotations) == original_count
         assert sample_paper_content.annotations[0].content == original_content
@@ -868,20 +1198,37 @@ class TestSpecialCharacterHandling:
     @pytest.mark.parametrize(
         "title,authors,text,expected_type",
         [
-            ("深度学习与变压器架构", ["张三", "李四"], "深度学习是机器学习的一个子集", "article"),
-            ("BERT: Pre-training <Deep> & 'Bidirectional' Transformers", None, "Paper about BERT model.", "paper"),
+            (
+                "深度学习与变压器架构",
+                ["张三", "李四"],
+                "深度学习是机器学习的一个子集",
+                "article",
+            ),
+            (
+                "BERT: Pre-training <Deep> & 'Bidirectional' Transformers",
+                None,
+                "Paper about BERT model.",
+                "paper",
+            ),
         ],
     )
-    async def test_special_characters_in_content(self, title, authors, text, expected_type, mock_llm_client, mock_llm_usage):
+    async def test_special_characters_in_content(
+        self, title, authors, text, expected_type, mock_llm_client, mock_llm_usage
+    ):
         """Test processing content with special characters."""
         content = UnifiedContent(
             id="special-char-test",
-            source_type=ContentType.ARTICLE if expected_type == "article" else ContentType.PAPER,
+            source_type=(
+                ContentType.ARTICLE if expected_type == "article" else ContentType.PAPER
+            ),
             title=title,
             authors=authors or [],
             full_text=text,
         )
-        mock_llm_client.complete.return_value = (make_analysis_response(expected_type), mock_llm_usage)
+        mock_llm_client.complete.return_value = (
+            make_analysis_response(expected_type),
+            mock_llm_usage,
+        )
         analysis, _ = await analyze_content(content, mock_llm_client)
         assert analysis is not None
         assert analysis.content_type == expected_type
@@ -894,13 +1241,46 @@ class TestEdgeCases:
     @pytest.mark.parametrize(
         "content_id,title,text,source_type,num_authors,num_annotations,expected_length",
         [
-            ("short-content", "Quick Note", "Brief.", ContentType.ARTICLE, 0, 0, "short"),
-            ("many-authors", "Collaborative Paper", "Paper with many authors.", ContentType.PAPER, 50, 0, "medium"),
-            ("many-annotations", "Heavily Annotated Book", "Book content here.", ContentType.BOOK, 0, 100, "long"),
+            (
+                "short-content",
+                "Quick Note",
+                "Brief.",
+                ContentType.ARTICLE,
+                0,
+                0,
+                "short",
+            ),
+            (
+                "many-authors",
+                "Collaborative Paper",
+                "Paper with many authors.",
+                ContentType.PAPER,
+                50,
+                0,
+                "medium",
+            ),
+            (
+                "many-annotations",
+                "Heavily Annotated Book",
+                "Book content here.",
+                ContentType.BOOK,
+                0,
+                100,
+                "long",
+            ),
         ],
     )
     async def test_edge_case_content(
-        self, content_id, title, text, source_type, num_authors, num_annotations, expected_length, mock_llm_client, mock_llm_usage
+        self,
+        content_id,
+        title,
+        text,
+        source_type,
+        num_authors,
+        num_annotations,
+        expected_length,
+        mock_llm_client,
+        mock_llm_usage,
     ):
         """Test processing of edge case content variations."""
         content = UnifiedContent(
@@ -910,7 +1290,11 @@ class TestEdgeCases:
             full_text=text,
             authors=[f"Author {i}" for i in range(num_authors)] if num_authors else [],
             annotations=[
-                Annotation(type=AnnotationType.DIGITAL_HIGHLIGHT, content=f"Highlight {i}", page_number=i)
+                Annotation(
+                    type=AnnotationType.DIGITAL_HIGHLIGHT,
+                    content=f"Highlight {i}",
+                    page_number=i,
+                )
                 for i in range(num_annotations)
             ],
         )
@@ -925,7 +1309,12 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_content_with_no_text(self, mock_llm_client):
         """Test processing content with no text."""
-        content = UnifiedContent(id="no-text-content", source_type=ContentType.ARTICLE, title="Title Only", full_text="")
+        content = UnifiedContent(
+            id="no-text-content",
+            source_type=ContentType.ARTICLE,
+            title="Title Only",
+            full_text="",
+        )
         analysis, usages = await analyze_content(content, mock_llm_client)
         assert analysis is not None
         assert len(usages) == 0
@@ -944,7 +1333,13 @@ class TestValidationChain:
         """Test validation of a complete processing result."""
         result = ProcessingResult(
             content_id=sample_paper_content.id,
-            analysis=ContentAnalysis(content_type="paper", domain="ml", complexity="advanced", estimated_length="long", key_topics=["transformers", "attention"]),
+            analysis=ContentAnalysis(
+                content_type="paper",
+                domain="ml",
+                complexity="advanced",
+                estimated_length="long",
+                key_topics=["transformers", "attention"],
+            ),
             summaries={
                 SummaryLevel.BRIEF.value: "A" * 60,
                 SummaryLevel.STANDARD.value: "B" * 200,
@@ -952,17 +1347,50 @@ class TestValidationChain:
             },
             extraction=ExtractionResult(
                 concepts=[
-                    Concept(name="Transformer", definition="A neural architecture based on self-attention", importance=ConceptImportance.CORE.value),
-                    Concept(name="Attention", definition="Mechanism for relating sequence positions", importance=ConceptImportance.CORE.value),
+                    Concept(
+                        name="Transformer",
+                        definition="A neural architecture based on self-attention",
+                        importance=ConceptImportance.CORE.value,
+                    ),
+                    Concept(
+                        name="Attention",
+                        definition="Mechanism for relating sequence positions",
+                        importance=ConceptImportance.CORE.value,
+                    ),
                 ],
                 key_findings=["Transformers enable parallelization"],
             ),
-            tags=TagAssignment(domain_tags=["ml/transformers/attention"], meta_tags=["status/actionable"]),
-            connections=[Connection(target_id="related-paper", target_title="Related Work", relationship_type=RelationshipType.RELATES_TO, strength=0.7, explanation="Related topic")],
-            followups=[FollowupTask(task="Implement attention mechanism", task_type="PRACTICE", priority="HIGH")],
+            tags=TagAssignment(
+                domain_tags=["ml/transformers/attention"],
+                meta_tags=["status/actionable"],
+            ),
+            connections=[
+                Connection(
+                    target_id="related-paper",
+                    target_title="Related Work",
+                    relationship_type=RelationshipType.RELATES_TO,
+                    strength=0.7,
+                    explanation="Related topic",
+                )
+            ],
+            followups=[
+                FollowupTask(
+                    task="Implement attention mechanism",
+                    task_type="PRACTICE",
+                    priority="HIGH",
+                )
+            ],
             mastery_questions=[
-                MasteryQuestion(question="What is the key innovation of transformers?" * 2, hints=["Think about attention"], key_points=["Self-attention", "Parallelization"]),
-                MasteryQuestion(question="How does multi-head attention work?" * 2, hints=["Consider multiple perspectives"], key_points=["Parallel heads", "Concatenation"]),
+                MasteryQuestion(
+                    question="What is the key innovation of transformers?" * 2,
+                    hints=["Think about attention"],
+                    key_points=["Self-attention", "Parallelization"],
+                ),
+                MasteryQuestion(
+                    question="How does multi-head attention work?" * 2,
+                    hints=["Consider multiple perspectives"],
+                    key_points=["Parallel heads", "Concatenation"],
+                ),
             ],
         )
         issues = validate_processing_result(result)
