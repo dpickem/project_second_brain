@@ -12,5 +12,8 @@ prototypes/ocr_results/
 scripts/pipelines/*.json
 scripts/pipelines/*.md
 
+# Processing output
+scripts/*.json
+
 # macOS
 .DS_Store
