@@ -11,9 +11,9 @@ Steps:
 4. Validates the setup
 
 Usage:
-    python scripts/setup_all.py
-    python scripts/setup_all.py --data-dir ~/my/data
-    python scripts/setup_all.py --skip-validation
+    python scripts/setup/setup_all.py
+    python scripts/setup/setup_all.py --data-dir ~/my/data
+    python scripts/setup/setup_all.py --skip-validation
 """
 
 import argparse

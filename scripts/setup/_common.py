@@ -21,13 +21,20 @@ from typing import Any, Optional
 
 import yaml
 
-# Add project root to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add project root and backend to path for imports (scripts/setup/ -> project root)
+# Must happen before importing from backend
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_BACKEND_DIR = _PROJECT_ROOT / "backend"
+sys.path.insert(0, str(_PROJECT_ROOT))
+sys.path.insert(0, str(_BACKEND_DIR))
+
+# Now import path constants from backend config
+from app.config import CONFIG_DIR
 
 
 def load_config() -> dict[str, Any]:
     """Load configuration from config/default.yaml."""
-    config_path = Path(__file__).parent.parent / "config" / "default.yaml"
+    config_path = CONFIG_DIR / "default.yaml"
 
     if not config_path.exists():
         print(f"❌ Configuration not found: {config_path}")
@@ -39,7 +46,7 @@ def load_config() -> dict[str, Any]:
 
 def load_tag_taxonomy() -> dict[str, Any]:
     """Load tag taxonomy from config/tag-taxonomy.yaml."""
-    taxonomy_path = Path(__file__).parent.parent / "config" / "tag-taxonomy.yaml"
+    taxonomy_path = CONFIG_DIR / "tag-taxonomy.yaml"
 
     if not taxonomy_path.exists():
         print(f"⚠️  Tag taxonomy not found: {taxonomy_path}")
@@ -56,7 +63,7 @@ def _get_settings_data_dir() -> Optional[Path]:
     Returns None if backend settings are not available.
     """
     try:
-        from backend.app.config.settings import settings
+        from app.config.settings import settings
 
         if settings.DATA_DIR:
             return Path(settings.DATA_DIR).expanduser().resolve()
@@ -72,7 +79,7 @@ def _get_settings_vault_path() -> Optional[Path]:
     Returns None if backend settings are not available.
     """
     try:
-        from backend.app.config.settings import settings
+        from app.config.settings import settings
 
         if settings.OBSIDIAN_VAULT_PATH:
             return Path(settings.OBSIDIAN_VAULT_PATH).expanduser().resolve()

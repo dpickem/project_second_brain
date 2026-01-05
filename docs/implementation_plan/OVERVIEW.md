@@ -31,9 +31,9 @@ This document provides the high-level implementation roadmap for the Second Brai
 > 📋 **Detailed Plan**: See [`00_foundation_implementation.md`](./00_foundation_implementation.md)
 
 ### Knowledge Hub Setup ✅
-- [x] Set up Obsidian vault with folder structure (`scripts/setup_vault.py`)
+- [x] Set up Obsidian vault with folder structure (`scripts/setup/setup_vault.py`)
 - [x] Configure essential plugins (Daily Notes, Templates, core plugins)
-- [x] Create note templates for each content type (`scripts/create_templates.py` — 13 templates)
+- [x] Create note templates for each content type (`scripts/setup/create_templates.py` — 13 templates)
 - [x] Establish tagging taxonomy (`config/tag-taxonomy.yaml`)
 
 ### Extensible Content Type System ✅

@@ -6,8 +6,8 @@ Creates the system meta notes (dashboard, workflows, plugin setup)
 in the Obsidian vault's meta folder.
 
 Usage:
-    python scripts/create_meta_notes.py
-    python scripts/create_meta_notes.py --data-dir ~/my/data
+    python scripts/setup/create_meta_notes.py
+    python scripts/setup/create_meta_notes.py --data-dir ~/my/data
 """
 
 import argparse

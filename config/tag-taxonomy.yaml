@@ -9,7 +9,7 @@
 #
 # TO ADD NEW TAGS:
 # 1. Edit this file
-# 2. Run: python scripts/setup_vault.py --regenerate-taxonomy
+# 2. Run: python scripts/setup/setup_vault.py --regenerate-taxonomy
 # 3. The vault's meta/tag-taxonomy.md will be updated
 
 # =============================================================================

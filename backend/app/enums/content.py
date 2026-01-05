@@ -20,7 +20,7 @@ class ContentType(str, Enum):
     2. Add to this enum (e.g., PODCAST = "PODCAST") for type safety
     3. Create Obsidian template in vault's templates/ folder
     4. Create Jinja2 template in config/templates/
-    5. Run `python scripts/setup_vault.py` to create folders
+    5. Run `python scripts/setup/setup_vault.py` to create folders
 
     See config/default.yaml for the full content type registry with all configuration.
     """

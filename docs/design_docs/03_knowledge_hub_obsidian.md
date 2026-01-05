@@ -924,7 +924,7 @@ The vault system is designed to be extended without code changes.
    ## Key Takeaways
    ```
 
-3. **Run vault setup**: `python scripts/setup_vault.py`
+3. **Run vault setup**: `python scripts/setup/setup_vault.py`
 
 The system will automatically:
 - Create the `sources/podcasts/` folder

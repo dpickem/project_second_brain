@@ -158,7 +158,7 @@ obsidian:
 #    for type safety in Python code (e.g., PODCAST = "podcast")
 # 3. Create Obsidian template file in vault's templates/ folder
 # 4. Create Jinja2 template file in config/templates/
-# 5. Run `python scripts/setup_vault.py` to create folders
+# 5. Run `python scripts/setup/setup_vault.py` to create folders
 # 6. The system will automatically handle ingestion, queries, and display
 #
 # NOTE: The ContentType enum in backend/app/models/content.py should stay in

@@ -6,8 +6,8 @@ Creates all note templates in the Obsidian vault's templates folder.
 Templates use Templater syntax for dynamic content.
 
 Usage:
-    python scripts/create_templates.py
-    python scripts/create_templates.py --data-dir ~/my/data
+    python scripts/setup/create_templates.py
+    python scripts/setup/create_templates.py --data-dir ~/my/data
 """
 
 import argparse

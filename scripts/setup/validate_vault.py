@@ -6,8 +6,8 @@ Validates the Obsidian vault structure and configuration.
 All expected folders and templates are read from config.
 
 Usage:
-    python scripts/validate_vault.py
-    python scripts/validate_vault.py --data-dir ~/my/data
+    python scripts/setup/validate_vault.py
+    python scripts/setup/validate_vault.py --data-dir ~/my/data
 
 Exit codes:
     0 - Validation passed
@@ -191,7 +191,7 @@ def main() -> None:
 
     if not success:
         print("\n💡 To fix missing items, run:")
-        print("   python scripts/setup_all.py")
+        print("   python scripts/setup/setup_all.py")
 
     sys.exit(0 if success else 1)
 
