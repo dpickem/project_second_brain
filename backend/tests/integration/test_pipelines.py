@@ -5,11 +5,12 @@ Tests each ingestion pipeline with real files and mocked external APIs.
 These tests verify the full pipeline flow including:
 - File processing (reading, validation, hashing)
 - Content extraction
-- Database integration (where applicable)
 - Error handling
 
-Note: External API calls (LLM, OCR services, web APIs) are mocked to ensure
-tests are deterministic and don't incur costs.
+IMPORTANT: These tests do NOT write to any database (production or test).
+- All database operations (CostTracker, etc.) are mocked
+- All external API calls (LLM, OCR, web APIs) are mocked
+- Tests only use local test data files
 
 Run with: pytest tests/integration/test_pipelines.py -v
 """
@@ -35,9 +36,51 @@ from app.pipelines.base import PipelineInput, PipelineRegistry
 # ============================================================================
 
 TEST_DATA_DIR = Path(__file__).parent.parent.parent.parent / "test_data"
-SAMPLE_PDF = TEST_DATA_DIR / "sample_paper_toolformer.pdf"
+SAMPLE_PDF = TEST_DATA_DIR / "sample_paper_async_tool_use.pdf"
 SAMPLE_VOICE_MEMO = TEST_DATA_DIR / "sample_voice_memo.m4a"
 SAMPLE_BOOK_IMAGES = TEST_DATA_DIR / "book"
+
+
+# ============================================================================
+# Database Isolation Fixture
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def mock_cost_tracker():
+    """
+    Automatically mock CostTracker for all tests in this module.
+
+    This ensures NO database writes occur during pipeline testing.
+    CostTracker.log_usages_batch is the main method that writes to the database.
+    """
+    with patch("app.services.cost_tracking.CostTracker.log_usages_batch", new_callable=AsyncMock) as mock_batch, \
+         patch("app.services.cost_tracking.CostTracker.log_usage", new_callable=AsyncMock) as mock_single:
+        # Return empty lists/objects to simulate successful logging
+        mock_batch.return_value = []
+        mock_single.return_value = MagicMock()
+        yield {"batch": mock_batch, "single": mock_single}
+
+
+@pytest.fixture(autouse=True)
+def mock_task_session_maker():
+    """
+    Mock the task_session_maker to prevent any database connections.
+
+    This is an additional safety net to ensure no database writes.
+    """
+    with patch("app.db.base.task_session_maker") as mock_session_maker:
+        # Create a mock session that does nothing
+        mock_session = MagicMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_session.add = MagicMock()
+        mock_session.flush = AsyncMock()
+        mock_session.commit = AsyncMock()
+        mock_session.rollback = AsyncMock()
+        mock_session.execute = AsyncMock()
+        mock_session_maker.return_value = mock_session
+        yield mock_session_maker
 
 
 # ============================================================================
@@ -147,17 +190,22 @@ def mock_ocr_result():
     """Mock for Mistral OCR results."""
     from app.pipelines.utils.mistral_ocr_client import (
         MistralOCRResult,
-        PageInfo,
+        OCRPage,
         ImageInfo,
         DocumentAnnotation,
     )
     from app.pipelines.utils.cost_types import LLMUsage
 
+    page1_markdown = "# Test Document\n\nThis is the content of page 1.\n\n## Section 1\n\nSome important text here."
+    page2_markdown = "## Section 2\n\nMore content on page 2. This contains references and citations."
+    full_text = page1_markdown + "\n\n" + page2_markdown
+    full_markdown = page1_markdown + "\n\n---\n\n" + page2_markdown
+
     return MistralOCRResult(
         pages=[
-            PageInfo(
+            OCRPage(
                 index=0,
-                markdown="# Test Document\n\nThis is the content of page 1.\n\n## Section 1\n\nSome important text here.",
+                markdown=page1_markdown,
                 images=[
                     ImageInfo(
                         id="img_0",
@@ -170,12 +218,14 @@ def mock_ocr_result():
                     )
                 ],
             ),
-            PageInfo(
+            OCRPage(
                 index=1,
-                markdown="## Section 2\n\nMore content on page 2. This contains references and citations.",
+                markdown=page2_markdown,
                 images=[],
             ),
         ],
+        full_text=full_text,
+        full_markdown=full_markdown,
         document_annotation=DocumentAnnotation(
             title="Test Academic Paper",
             authors=["John Doe", "Jane Smith"],
@@ -266,7 +316,10 @@ class TestWebArticlePipelineIntegration:
     async def test_process_article_with_jina(
         self, mock_jina_response, mock_llm_client
     ):
-        """Test article processing using Jina Reader."""
+        """Test article processing using Jina Reader.
+
+        Note: CostTracker is mocked via autouse fixture - no database writes.
+        """
         from app.pipelines.web_article import WebArticlePipeline
 
         with patch("app.pipelines.web_article.get_llm_client") as mock_get_client, \
@@ -379,12 +432,14 @@ class TestPDFProcessorIntegration:
     @pytest.mark.asyncio
     @pytest.mark.skipif(not SAMPLE_PDF.exists(), reason="Sample PDF not found")
     async def test_process_real_pdf(self, mock_ocr_result, mock_llm_client):
-        """Test processing a real PDF file with mocked OCR."""
+        """Test processing a real PDF file with mocked OCR.
+
+        Note: CostTracker is mocked via autouse fixture - no database writes.
+        """
         from app.pipelines.pdf_processor import PDFProcessor
 
         with patch("app.pipelines.pdf_processor.ocr_pdf_document_annotated", return_value=mock_ocr_result), \
-             patch("app.pipelines.pdf_processor.get_llm_client", return_value=mock_llm_client), \
-             patch("app.pipelines.pdf_processor.CostTracker.log_usages_batch", new_callable=AsyncMock):
+             patch("app.pipelines.pdf_processor.get_llm_client", return_value=mock_llm_client):
             processor = PDFProcessor(track_costs=False)
             input_data = PipelineInput(path=SAMPLE_PDF, content_type=PipelineContentType.PDF)
 
@@ -424,12 +479,14 @@ class TestPDFProcessorIntegration:
     @pytest.mark.asyncio
     @pytest.mark.skipif(not SAMPLE_PDF.exists(), reason="Sample PDF not found")
     async def test_extract_pdf_annotations(self, mock_ocr_result, mock_llm_client):
-        """Test extraction of PDF annotations (highlights, comments)."""
+        """Test extraction of PDF annotations (highlights, comments).
+
+        Note: CostTracker is mocked via autouse fixture - no database writes.
+        """
         from app.pipelines.pdf_processor import PDFProcessor
 
         with patch("app.pipelines.pdf_processor.ocr_pdf_document_annotated", return_value=mock_ocr_result), \
-             patch("app.pipelines.pdf_processor.get_llm_client", return_value=mock_llm_client), \
-             patch("app.pipelines.pdf_processor.CostTracker.log_usages_batch", new_callable=AsyncMock):
+             patch("app.pipelines.pdf_processor.get_llm_client", return_value=mock_llm_client):
             processor = PDFProcessor(track_costs=False)
             input_data = PipelineInput(path=SAMPLE_PDF, content_type=PipelineContentType.PDF)
 
@@ -483,12 +540,14 @@ class TestBookOCRPipelineIntegration:
         reason="Sample book images not found",
     )
     async def test_process_book_images(self, mock_vision_completion, mock_llm_client):
-        """Test processing book page images with mocked OCR."""
+        """Test processing book page images with mocked OCR.
+
+        Note: CostTracker is mocked via autouse fixture - no database writes.
+        """
         from app.pipelines.book_ocr import BookOCRPipeline
 
         with patch("app.pipelines.book_ocr.vision_completion", mock_vision_completion), \
-             patch("app.pipelines.book_ocr.get_llm_client", return_value=mock_llm_client), \
-             patch("app.pipelines.book_ocr.CostTracker.log_usages_batch", new_callable=AsyncMock):
+             patch("app.pipelines.book_ocr.get_llm_client", return_value=mock_llm_client):
             pipeline = BookOCRPipeline(track_costs=False, max_concurrency=2)
 
             # Get a single image file for testing
@@ -512,12 +571,14 @@ class TestBookOCRPipelineIntegration:
         not SAMPLE_BOOK_IMAGES.exists(), reason="Sample book images directory not found"
     )
     async def test_process_book_directory(self, mock_vision_completion, mock_llm_client):
-        """Test processing a directory of book images."""
+        """Test processing a directory of book images.
+
+        Note: CostTracker is mocked via autouse fixture - no database writes.
+        """
         from app.pipelines.book_ocr import BookOCRPipeline
 
         with patch("app.pipelines.book_ocr.vision_completion", mock_vision_completion), \
-             patch("app.pipelines.book_ocr.get_llm_client", return_value=mock_llm_client), \
-             patch("app.pipelines.book_ocr.CostTracker.log_usages_batch", new_callable=AsyncMock):
+             patch("app.pipelines.book_ocr.get_llm_client", return_value=mock_llm_client):
             pipeline = BookOCRPipeline(track_costs=False, max_concurrency=2)
             input_data = PipelineInput(
                 path=SAMPLE_BOOK_IMAGES, content_type=PipelineContentType.BOOK
@@ -598,12 +659,14 @@ class TestVoiceTranscriberIntegration:
     async def test_process_voice_memo(
         self, mock_transcription_response, mock_llm_client
     ):
-        """Test processing a real voice memo file with mocked transcription."""
+        """Test processing a real voice memo file with mocked transcription.
+
+        Note: CostTracker is mocked via autouse fixture - no database writes.
+        """
         from app.pipelines.voice_transcribe import VoiceTranscriber
 
         with patch("app.pipelines.voice_transcribe.transcription", return_value=mock_transcription_response), \
-             patch("app.pipelines.voice_transcribe.get_llm_client", return_value=mock_llm_client), \
-             patch("app.pipelines.voice_transcribe.CostTracker.log_usages_batch", new_callable=AsyncMock):
+             patch("app.pipelines.voice_transcribe.get_llm_client", return_value=mock_llm_client):
             transcriber = VoiceTranscriber(
                 text_model="test-model", expand_notes=True, track_costs=False
             )
@@ -622,11 +685,13 @@ class TestVoiceTranscriberIntegration:
     @pytest.mark.asyncio
     @pytest.mark.skipif(not SAMPLE_VOICE_MEMO.exists(), reason="Sample voice memo not found")
     async def test_process_without_expansion(self, mock_transcription_response):
-        """Test processing voice memo without note expansion."""
+        """Test processing voice memo without note expansion.
+
+        Note: CostTracker is mocked via autouse fixture - no database writes.
+        """
         from app.pipelines.voice_transcribe import VoiceTranscriber
 
-        with patch("app.pipelines.voice_transcribe.transcription", return_value=mock_transcription_response), \
-             patch("app.pipelines.voice_transcribe.CostTracker.log_usages_batch", new_callable=AsyncMock):
+        with patch("app.pipelines.voice_transcribe.transcription", return_value=mock_transcription_response):
             transcriber = VoiceTranscriber(expand_notes=False, track_costs=False)
             input_data = PipelineInput(
                 path=SAMPLE_VOICE_MEMO, content_type=PipelineContentType.VOICE_MEMO
@@ -743,11 +808,13 @@ class TestGitHubImporterIntegration:
         mock_github_tree,
         mock_llm_client,
     ):
-        """Test importing a single repository."""
+        """Test importing a single repository.
+
+        Note: CostTracker is mocked via autouse fixture - no database writes.
+        """
         from app.pipelines.github_importer import GitHubImporter
 
-        with patch("app.pipelines.github_importer.get_llm_client", return_value=mock_llm_client), \
-             patch("app.pipelines.github_importer.CostTracker.log_usages_batch", new_callable=AsyncMock):
+        with patch("app.pipelines.github_importer.get_llm_client", return_value=mock_llm_client):
             importer = GitHubImporter(access_token="test-token", track_costs=False)
 
             # Mock HTTP client
@@ -785,11 +852,13 @@ class TestGitHubImporterIntegration:
         mock_github_tree,
         mock_llm_client,
     ):
-        """Test importing starred repositories."""
+        """Test importing starred repositories.
+
+        Note: CostTracker is mocked via autouse fixture - no database writes.
+        """
         from app.pipelines.github_importer import GitHubImporter
 
-        with patch("app.pipelines.github_importer.get_llm_client", return_value=mock_llm_client), \
-             patch("app.pipelines.github_importer.CostTracker.log_usages_batch", new_callable=AsyncMock):
+        with patch("app.pipelines.github_importer.get_llm_client", return_value=mock_llm_client):
             importer = GitHubImporter(access_token="test-token", track_costs=False)
 
             # Mock HTTP client

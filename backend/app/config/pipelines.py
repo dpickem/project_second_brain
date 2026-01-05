@@ -105,6 +105,7 @@ class PipelineSettings(BaseSettings):
         env_prefix = "PIPELINE_"
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"  # Ignore extra env vars not defined in this class
 
     @property
     def effective_book_ocr_model(self) -> str:

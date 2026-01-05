@@ -12,8 +12,5 @@ prototypes/ocr_results/
 scripts/pipelines/*.json
 scripts/pipelines/*.md
 
-# Test data
-test_data/
-
 # macOS
 .DS_Store

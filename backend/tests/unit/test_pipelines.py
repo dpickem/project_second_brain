@@ -1,7 +1,64 @@
 """
-Unit tests for ingestion pipelines.
+Unit Tests for Ingestion Pipelines
 
 Tests the base pipeline and specific pipeline implementations.
+These are fast, isolated unit tests that do not require external services.
+
+Test Organization
+-----------------
+Pipeline tests are split between unit and integration:
+
+**Unit Tests (this file):**
+- Test pipeline logic in isolation with no external dependencies
+- No database, no network, no file I/O (except temp files)
+- Test: supports(), format validation, helper methods, parsing logic
+- Run fast, suitable for CI on every commit
+
+**Integration Tests (tests/integration/test_pipelines.py):**
+- Test full pipeline flow with real test files from test_data/
+- Mock external APIs (LLM, OCR, GitHub, Raindrop, Jina Reader)
+- Test: process() end-to-end, file hashing, content extraction
+- Still isolated from production - see safety guarantees below
+
+Database Safety Guarantees
+--------------------------
+NEITHER unit nor integration pipeline tests write to any database:
+
+1. **Unit tests**: No database interaction at all - pure logic testing
+
+2. **Integration tests**: Multiple layers of protection:
+   - `mock_cost_tracker` autouse fixture: Patches CostTracker.log_usages_batch
+     and CostTracker.log_usage for ALL tests
+   - `mock_task_session_maker` autouse fixture: Patches the database session
+     factory to prevent any connections
+   - `track_costs=False` parameter: Pipelines instantiated with cost tracking off
+   - All external API calls (LLM, OCR, HTTP) are mocked
+
+3. **What CostTracker does**: It logs LLM usage/costs to PostgreSQL via
+   task_session_maker(). The integration tests mock this at multiple levels
+   to ensure no database writes occur.
+
+Pipelines Covered
+-----------------
+- BasePipeline: Abstract base class with shared utilities
+- PipelineRegistry: Routes content to appropriate pipeline
+- PDFProcessor: PDF text extraction via OCR
+- VoiceTranscriber: Audio transcription via Whisper
+- BookOCRPipeline: Book page photos via Vision LLM
+- WebArticlePipeline: Article extraction via Jina/trafilatura
+- GitHubImporter: Repository analysis via GitHub API
+- RaindropSync: Bookmark sync via Raindrop.io API
+
+Running Tests
+-------------
+Unit tests only (fast):
+    pytest tests/unit/test_pipelines.py -v
+
+Integration tests only:
+    pytest tests/integration/test_pipelines.py -v
+
+All pipeline tests:
+    pytest tests/unit/test_pipelines.py tests/integration/test_pipelines.py -v
 """
 
 from datetime import datetime
@@ -13,10 +70,18 @@ import pytest
 
 from app.models.content import (
     ContentType,
-    AnnotationType,
     UnifiedContent,
 )
-from app.pipelines.base import BasePipeline, PipelineRegistry, PipelineInput, PipelineContentType
+from app.pipelines.utils.cost_types import LLMUsage
+from app.pipelines.base import (
+    BasePipeline,
+    PipelineRegistry,
+    PipelineInput,
+    PipelineContentType,
+)
+from app.pipelines.pdf_processor import PDFProcessor
+from app.pipelines.voice_transcribe import VoiceTranscriber
+from app.pipelines.book_ocr import BookOCRPipeline, ChapterInfo
 
 
 class DummyPipeline(BasePipeline):
@@ -118,15 +183,21 @@ class TestBasePipeline:
         pipeline = DummyPipeline()
 
         # With PipelineInput and correct content type
-        dummy_input = PipelineInput(text="test.dummy", content_type=PipelineContentType.IDEA)
+        dummy_input = PipelineInput(
+            text="test.dummy", content_type=PipelineContentType.IDEA
+        )
         assert pipeline.supports(dummy_input) is True
 
         # Wrong text ending
-        pdf_input = PipelineInput(text="test.pdf", content_type=PipelineContentType.IDEA)
+        pdf_input = PipelineInput(
+            text="test.pdf", content_type=PipelineContentType.IDEA
+        )
         assert pipeline.supports(pdf_input) is False
 
         # Wrong content type
-        wrong_type_input = PipelineInput(text="test.dummy", content_type=PipelineContentType.PDF)
+        wrong_type_input = PipelineInput(
+            text="test.dummy", content_type=PipelineContentType.PDF
+        )
         assert pipeline.supports(wrong_type_input) is False
 
     @pytest.mark.asyncio
@@ -134,7 +205,9 @@ class TestBasePipeline:
         """Test the process method."""
         pipeline = DummyPipeline()
 
-        input_data = PipelineInput(text="test.dummy", content_type=PipelineContentType.IDEA)
+        input_data = PipelineInput(
+            text="test.dummy", content_type=PipelineContentType.IDEA
+        )
         result = await pipeline.process(input_data)
 
         assert isinstance(result, UnifiedContent)
@@ -161,7 +234,9 @@ class TestPipelineRegistry:
         registry.register(pipeline)
 
         # Should find pipeline for .dummy files with correct content type
-        dummy_input = PipelineInput(text="test.dummy", content_type=PipelineContentType.IDEA)
+        dummy_input = PipelineInput(
+            text="test.dummy", content_type=PipelineContentType.IDEA
+        )
         found = registry.get_pipeline(dummy_input)
         assert found is pipeline
 
@@ -177,7 +252,9 @@ class TestPipelineRegistry:
         registry.register(DummyPipeline())
 
         # Process supported input
-        dummy_input = PipelineInput(text="test.dummy", content_type=PipelineContentType.IDEA)
+        dummy_input = PipelineInput(
+            text="test.dummy", content_type=PipelineContentType.IDEA
+        )
         result = await registry.process(dummy_input)
         assert isinstance(result, UnifiedContent)
 
@@ -193,32 +270,60 @@ class TestPDFProcessor:
     @pytest.fixture
     def pdf_processor(self):
         """Create a PDF processor instance."""
-        from app.pipelines.pdf_processor import PDFProcessor
-
         return PDFProcessor()
+
+    @pytest.fixture
+    def mock_llm_client(self):
+        """Create a mock LLM client for content type inference tests."""
+        mock_client = AsyncMock()
+
+        async def mock_complete(**kwargs):
+            # Return appropriate content type based on test context
+            return "paper", LLMUsage(
+                model="test-model",
+                provider="test",
+                request_type="completion",
+                prompt_tokens=100,
+                completion_tokens=10,
+                total_tokens=110,
+                cost_usd=0.001,
+                latency_ms=100,
+            )
+
+        mock_client.complete = mock_complete
+        return mock_client
 
     def test_supports_pdf(self, pdf_processor):
         """Test that processor supports PDF files."""
         # Supported: PDF with correct content type
-        pdf_input = PipelineInput(path=Path("test.pdf"), content_type=PipelineContentType.PDF)
+        pdf_input = PipelineInput(
+            path=Path("test.pdf"), content_type=PipelineContentType.PDF
+        )
         assert pdf_processor.supports(pdf_input) is True
 
         # Also works with uppercase extension (case insensitive)
-        pdf_upper = PipelineInput(path=Path("test.PDF"), content_type=PipelineContentType.PDF)
+        pdf_upper = PipelineInput(
+            path=Path("test.PDF"), content_type=PipelineContentType.PDF
+        )
         assert pdf_processor.supports(pdf_upper) is True
 
         # Unsupported: wrong file extension
-        txt_input = PipelineInput(path=Path("test.txt"), content_type=PipelineContentType.PDF)
+        txt_input = PipelineInput(
+            path=Path("test.txt"), content_type=PipelineContentType.PDF
+        )
         assert pdf_processor.supports(txt_input) is False
 
         # Unsupported: wrong content type
-        wrong_type = PipelineInput(path=Path("test.pdf"), content_type=PipelineContentType.BOOK)
+        wrong_type = PipelineInput(
+            path=Path("test.pdf"), content_type=PipelineContentType.BOOK
+        )
         assert pdf_processor.supports(wrong_type) is False
 
     @pytest.mark.asyncio
     async def test_infer_content_type_paper(self, pdf_processor):
         """Test content type inference for papers."""
-        metadata = {"title": "Machine Learning Paper"}
+
+        title = "Machine Learning Paper"
         text = """
         Abstract
         This paper presents a new approach...
@@ -229,13 +334,24 @@ class TestPDFProcessor:
         [1] Some reference
         """
 
-        content_type = await pdf_processor._infer_content_type(metadata, text)
-        assert content_type == ContentType.PAPER
+        # Mock the LLM client to return "paper"
+        mock_client = AsyncMock()
+        async def mock_complete(**kwargs):
+            return "paper", LLMUsage(
+                model="test-model", provider="test", request_type="completion",
+                prompt_tokens=100, completion_tokens=10, total_tokens=110,
+                cost_usd=0.001, latency_ms=100,
+            )
+        mock_client.complete = mock_complete
+
+        with patch("app.pipelines.pdf_processor.get_llm_client", return_value=mock_client):
+            content_type = await pdf_processor._infer_content_type(title, text)
+            assert content_type == ContentType.PAPER
 
     @pytest.mark.asyncio
     async def test_infer_content_type_book(self, pdf_processor):
         """Test content type inference for books."""
-        metadata = {"title": "Programming Guide"}
+        title = "Programming Guide"
         text = """
         Table of Contents
         Chapter 1: Introduction
@@ -243,8 +359,19 @@ class TestPDFProcessor:
         Preface
         """
 
-        content_type = await pdf_processor._infer_content_type(metadata, text)
-        assert content_type == ContentType.BOOK
+        # Mock the LLM client to return "book"
+        mock_client = AsyncMock()
+        async def mock_complete(**kwargs):
+            return "book", LLMUsage(
+                model="test-model", provider="test", request_type="completion",
+                prompt_tokens=100, completion_tokens=10, total_tokens=110,
+                cost_usd=0.001, latency_ms=100,
+            )
+        mock_client.complete = mock_complete
+
+        with patch("app.pipelines.pdf_processor.get_llm_client", return_value=mock_client):
+            content_type = await pdf_processor._infer_content_type(title, text)
+            assert content_type == ContentType.BOOK
 
 
 class TestVoiceTranscriber:
@@ -253,27 +380,35 @@ class TestVoiceTranscriber:
     @pytest.fixture
     def voice_transcriber(self):
         """Create a voice transcriber instance."""
-        from app.pipelines.voice_transcribe import VoiceTranscriber
-
         return VoiceTranscriber()
 
     def test_supports_audio_formats(self, voice_transcriber):
         """Test that transcriber supports common audio formats."""
         # Supported formats with correct content type
-        mp3_input = PipelineInput(path=Path("test.mp3"), content_type=PipelineContentType.VOICE_MEMO)
+        mp3_input = PipelineInput(
+            path=Path("test.mp3"), content_type=PipelineContentType.VOICE_MEMO
+        )
         assert voice_transcriber.supports(mp3_input) is True
 
-        wav_input = PipelineInput(path=Path("test.wav"), content_type=PipelineContentType.VOICE_MEMO)
+        wav_input = PipelineInput(
+            path=Path("test.wav"), content_type=PipelineContentType.VOICE_MEMO
+        )
         assert voice_transcriber.supports(wav_input) is True
 
-        m4a_input = PipelineInput(path=Path("test.m4a"), content_type=PipelineContentType.VOICE_MEMO)
+        m4a_input = PipelineInput(
+            path=Path("test.m4a"), content_type=PipelineContentType.VOICE_MEMO
+        )
         assert voice_transcriber.supports(m4a_input) is True
 
-        webm_input = PipelineInput(path=Path("test.webm"), content_type=PipelineContentType.VOICE_MEMO)
+        webm_input = PipelineInput(
+            path=Path("test.webm"), content_type=PipelineContentType.VOICE_MEMO
+        )
         assert voice_transcriber.supports(webm_input) is True
 
         # Unsupported format
-        pdf_input = PipelineInput(path=Path("test.pdf"), content_type=PipelineContentType.VOICE_MEMO)
+        pdf_input = PipelineInput(
+            path=Path("test.pdf"), content_type=PipelineContentType.VOICE_MEMO
+        )
         assert voice_transcriber.supports(pdf_input) is False
 
     def test_format_duration(self, voice_transcriber):
@@ -301,8 +436,6 @@ class TestBookOCRPipeline:
     @pytest.fixture
     def book_pipeline(self):
         """Create a book OCR pipeline instance."""
-        from app.pipelines.book_ocr import BookOCRPipeline
-
         return BookOCRPipeline()
 
     def test_supports_image_formats(self, book_pipeline):
@@ -315,8 +448,12 @@ class TestBookOCRPipeline:
         assert ".pdf" not in book_pipeline.SUPPORTED_FORMATS
 
         # Test content type filtering
-        book_input = PipelineInput(path=Path("page.jpg"), content_type=PipelineContentType.BOOK)
-        pdf_content_input = PipelineInput(path=Path("page.jpg"), content_type=PipelineContentType.PDF)
+        book_input = PipelineInput(
+            path=Path("page.jpg"), content_type=PipelineContentType.BOOK
+        )
+        pdf_content_input = PipelineInput(
+            path=Path("page.jpg"), content_type=PipelineContentType.PDF
+        )
 
         # Correct content type should be supported (non-existent paths treated as directories)
         assert book_pipeline.supports(book_input) is True
@@ -326,8 +463,6 @@ class TestBookOCRPipeline:
 
     def test_build_page_label(self, book_pipeline):
         """Test page label building."""
-        from app.pipelines.book_ocr import ChapterInfo
-
         # Page with number and chapter
         chapter = ChapterInfo(number="5", title="Memory")
         label = book_pipeline._build_page_label(
