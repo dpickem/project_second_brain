@@ -33,11 +33,10 @@ from dataclasses import dataclass, field
 from app.models.content import UnifiedContent
 from app.models.processing import (
     ProcessingResult,
-    ContentAnalysis,
     ExtractionResult,
     TagAssignment,
 )
-from app.enums.processing import SummaryLevel
+from app.enums.processing import ProcessingStage, SummaryLevel
 from app.pipelines.utils.cost_types import LLMUsage
 from app.services.llm.client import get_llm_client, LLMClient
 from app.services.knowledge_graph.client import get_neo4j_client, Neo4jClient
@@ -57,6 +56,47 @@ from app.config.processing import processing_settings
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# Stage Dependencies
+# =============================================================================
+# Maps each pipeline stage to its required dependencies.
+# ANALYSIS has no dependencies and always runs first.
+# When a stage is enabled, all its dependencies are automatically enabled.
+STAGE_DEPENDENCIES: dict[ProcessingStage, list[ProcessingStage]] = {
+    ProcessingStage.ANALYSIS: [],
+    ProcessingStage.SUMMARIZATION: [],
+    ProcessingStage.EXTRACTION: [],
+    ProcessingStage.TAGGING: [ProcessingStage.SUMMARIZATION],
+    ProcessingStage.CONNECTIONS: [
+        ProcessingStage.SUMMARIZATION,
+        ProcessingStage.EXTRACTION,
+    ],
+    ProcessingStage.FOLLOWUPS: [
+        ProcessingStage.SUMMARIZATION,
+        ProcessingStage.EXTRACTION,
+    ],
+    ProcessingStage.QUESTIONS: [
+        ProcessingStage.SUMMARIZATION,
+        ProcessingStage.EXTRACTION,
+    ],
+}
+
+# Maps PipelineConfig attribute names to ProcessingStage enum values
+CONFIG_FIELD_TO_STAGE: dict[str, ProcessingStage] = {
+    "generate_summaries": ProcessingStage.SUMMARIZATION,
+    "extract_concepts": ProcessingStage.EXTRACTION,
+    "assign_tags": ProcessingStage.TAGGING,
+    "discover_connections": ProcessingStage.CONNECTIONS,
+    "generate_followups": ProcessingStage.FOLLOWUPS,
+    "generate_questions": ProcessingStage.QUESTIONS,
+}
+
+# Reverse mapping: ProcessingStage -> config field name
+STAGE_TO_CONFIG_FIELD: dict[ProcessingStage, str] = {
+    v: k for k, v in CONFIG_FIELD_TO_STAGE.items()
+}
+
+
 @dataclass
 class PipelineConfig:
     """
@@ -64,6 +104,15 @@ class PipelineConfig:
 
     Allows selective enabling/disabling of stages and customization
     of processing parameters.
+
+    Stage Dependencies (defined in STAGE_DEPENDENCIES):
+        - TAGGING: requires SUMMARIZATION
+        - CONNECTIONS: requires SUMMARIZATION, EXTRACTION
+        - FOLLOWUPS: requires SUMMARIZATION, EXTRACTION
+        - QUESTIONS: requires SUMMARIZATION, EXTRACTION
+
+    When a stage is enabled, its dependencies are automatically enabled.
+    A log message is emitted when dependencies are auto-enabled.
     """
 
     # Stage toggles
@@ -85,6 +134,24 @@ class PipelineConfig:
     max_connection_candidates: int = field(
         default_factory=lambda: processing_settings.MAX_CONNECTION_CANDIDATES
     )
+
+    def __post_init__(self):
+        """Auto-enable dependencies for enabled stages."""
+        auto_enabled = []
+
+        # Check each stage and enable its dependencies
+        for config_field, stage in CONFIG_FIELD_TO_STAGE.items():
+            if not getattr(self, config_field):
+                continue
+
+            for dependency in STAGE_DEPENDENCIES[stage]:
+                dep_field = STAGE_TO_CONFIG_FIELD.get(dependency)
+                if dep_field and not getattr(self, dep_field):
+                    setattr(self, dep_field, True)
+                    auto_enabled.append(f"{dep_field} (required by {config_field})")
+
+        if auto_enabled:
+            logger.info(f"Auto-enabled pipeline stages: {', '.join(auto_enabled)}")
 
 
 async def process_content(

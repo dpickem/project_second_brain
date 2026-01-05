@@ -259,15 +259,119 @@ class TestPipelineConfig:
         assert config.max_connection_candidates == 10
 
     @pytest.mark.parametrize("field,value", [
-        ("generate_summaries", False),
-        ("extract_concepts", False),
         ("discover_connections", False),
         ("max_connection_candidates", 5),
+        ("create_obsidian_note", False),
+        ("create_neo4j_nodes", False),
+        ("validate_output", False),
     ])
     def test_custom_config_values(self, field, value):
-        """Test configuration accepts custom values."""
+        """Test configuration accepts custom values (non-dependency fields)."""
         config = PipelineConfig(**{field: value})
         assert getattr(config, field) == value
+
+    def test_all_stages_disabled_keeps_them_disabled(self):
+        """Test disabling all stages keeps them disabled (no auto-enable)."""
+        config = PipelineConfig(
+            generate_summaries=False,
+            extract_concepts=False,
+            assign_tags=False,
+            discover_connections=False,
+            generate_followups=False,
+            generate_questions=False,
+        )
+        assert not config.generate_summaries
+        assert not config.extract_concepts
+        assert not config.assign_tags
+        assert not config.discover_connections
+        assert not config.generate_followups
+        assert not config.generate_questions
+
+    # =========================================================================
+    # Dependency Auto-Enable Tests
+    # =========================================================================
+
+    def test_assign_tags_auto_enables_summaries(self):
+        """Test assign_tags=True auto-enables generate_summaries."""
+        config = PipelineConfig(
+            generate_summaries=False,
+            extract_concepts=False,
+            assign_tags=True,
+            discover_connections=False,
+            generate_followups=False,
+            generate_questions=False,
+        )
+        assert config.generate_summaries is True
+        assert config.assign_tags is True
+
+    def test_discover_connections_auto_enables_dependencies(self):
+        """Test discover_connections=True auto-enables summaries and extraction."""
+        config = PipelineConfig(
+            generate_summaries=False,
+            extract_concepts=False,
+            assign_tags=False,
+            discover_connections=True,
+            generate_followups=False,
+            generate_questions=False,
+        )
+        assert config.generate_summaries is True
+        assert config.extract_concepts is True
+        assert config.discover_connections is True
+
+    def test_generate_followups_auto_enables_dependencies(self):
+        """Test generate_followups=True auto-enables summaries and extraction."""
+        config = PipelineConfig(
+            generate_summaries=False,
+            extract_concepts=False,
+            assign_tags=False,
+            discover_connections=False,
+            generate_followups=True,
+            generate_questions=False,
+        )
+        assert config.generate_summaries is True
+        assert config.extract_concepts is True
+        assert config.generate_followups is True
+
+    def test_generate_questions_auto_enables_dependencies(self):
+        """Test generate_questions=True auto-enables summaries and extraction."""
+        config = PipelineConfig(
+            generate_summaries=False,
+            extract_concepts=False,
+            assign_tags=False,
+            discover_connections=False,
+            generate_followups=False,
+            generate_questions=True,
+        )
+        assert config.generate_summaries is True
+        assert config.extract_concepts is True
+        assert config.generate_questions is True
+
+    def test_multiple_dependent_stages_auto_enable_once(self):
+        """Test multiple dependent stages only auto-enable dependencies once."""
+        config = PipelineConfig(
+            generate_summaries=False,
+            extract_concepts=False,
+            assign_tags=True,
+            discover_connections=True,
+            generate_followups=True,
+            generate_questions=True,
+        )
+        # All dependencies should be enabled
+        assert config.generate_summaries is True
+        assert config.extract_concepts is True
+
+    def test_dependencies_already_enabled_no_change(self):
+        """Test no change when dependencies are already enabled."""
+        config = PipelineConfig(
+            generate_summaries=True,
+            extract_concepts=True,
+            assign_tags=True,
+            discover_connections=True,
+            generate_followups=True,
+            generate_questions=True,
+        )
+        assert config.generate_summaries is True
+        assert config.extract_concepts is True
 
 
 # =============================================================================
