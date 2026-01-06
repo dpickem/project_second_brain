@@ -180,4 +180,3 @@ def frontmatter_to_string(metadata: dict, content: str) -> str:
     """Convert frontmatter dict and content to full markdown string."""
     post = frontmatter.Post(content=content, **metadata)
     return frontmatter.dumps(post)
-

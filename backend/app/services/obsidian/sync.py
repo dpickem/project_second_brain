@@ -210,7 +210,9 @@ class VaultSyncService:
         return self._neo4j
 
     # Namespace UUID for generating deterministic node IDs from file paths
-    _NODE_ID_NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # UUID namespace for URLs
+    _NODE_ID_NAMESPACE = uuid.UUID(
+        "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+    )  # UUID namespace for URLs
 
     async def _generate_and_persist_node_id(self, note_path: Path) -> str:
         """
@@ -454,7 +456,9 @@ class VaultSyncService:
             all_tags = list(set(fm_tags + inline_tags))
 
             # Determine node ID (use frontmatter id, or generate and persist a deterministic UUID)
-            node_id = fm.get("id") or await self._generate_and_persist_node_id(note_path)
+            node_id = fm.get("id") or await self._generate_and_persist_node_id(
+                note_path
+            )
             title = fm.get("title", note_path.stem)
             note_type = fm.get("type", "note")
 
@@ -641,4 +645,3 @@ class VaultSyncService:
         finally:
             _sync_status.is_running = False
             _sync_status.sync_type = None
-

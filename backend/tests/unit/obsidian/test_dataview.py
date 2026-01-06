@@ -222,7 +222,9 @@ class TestQuerySyntax:
             DataviewLibrary.notes_with_follow_ups(),
         ]
         for query in queries:
-            assert query.count("```") == 2, f"Query has mismatched backticks: {query[:50]}"
+            assert (
+                query.count("```") == 2
+            ), f"Query has mismatched backticks: {query[:50]}"
 
     def test_queries_use_correct_list_or_table(self):
         """Queries use appropriate output format."""
@@ -249,5 +251,3 @@ class TestQuerySyntax:
 
         # TASK query
         assert "TASK" in DataviewLibrary.open_tasks()
-
-

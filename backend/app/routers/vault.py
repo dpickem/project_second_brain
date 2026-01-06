@@ -43,28 +43,31 @@ class InboxItemRequest(BaseModel):
 
 class NoteInfo(BaseModel):
     """Summary info for a note in the vault."""
-    path: str                       # Relative path from vault root
-    name: str                       # File name without extension
-    folder: str                     # Parent folder
-    modified: datetime              # Last modified time
-    size: int                       # File size in bytes
-    title: Optional[str] = None     # Title from frontmatter
-    tags: List[str] = []            # Tags from frontmatter
+
+    path: str  # Relative path from vault root
+    name: str  # File name without extension
+    folder: str  # Parent folder
+    modified: datetime  # Last modified time
+    size: int  # File size in bytes
+    title: Optional[str] = None  # Title from frontmatter
+    tags: List[str] = []  # Tags from frontmatter
     content_type: Optional[str] = None  # Content type if detected
 
 
 class NoteContent(BaseModel):
     """Full note content with metadata."""
+
     path: str
     name: str
-    content: str                    # Full markdown content
-    frontmatter: dict = {}          # Parsed frontmatter
+    content: str  # Full markdown content
+    frontmatter: dict = {}  # Parsed frontmatter
     modified: datetime
     size: int
 
 
 class NotesListResponse(BaseModel):
     """Paginated list of notes."""
+
     notes: List[NoteInfo]
     total: int
     page: int
@@ -274,41 +277,41 @@ async def list_notes(
     sort_desc: bool = Query(True, description="Sort descending"),
 ):
     """List notes in the vault with filtering and pagination.
-    
+
     Scans the vault for markdown files and returns metadata.
     Supports filtering by folder, search term, tag, and content type.
     """
     try:
         vault = get_vault_manager()
         vault_path = vault.vault_path
-        
+
         if not vault_path.exists():
             raise HTTPException(status_code=404, detail="Vault not found")
-        
+
         # Collect all markdown files
         notes = []
         search_path = vault_path / folder if folder else vault_path
-        
+
         if not search_path.exists():
             return NotesListResponse(
                 notes=[], total=0, page=page, page_size=page_size, has_more=False
             )
-        
+
         for md_file in search_path.rglob("*.md"):
             # Skip hidden files and folders
             if any(part.startswith(".") for part in md_file.parts):
                 continue
-            
+
             rel_path = md_file.relative_to(vault_path)
-            
+
             # Get file stats
             stat = md_file.stat()
-            
+
             # Try to parse frontmatter for metadata
             note_title = None
             note_tags = []
             note_content_type = None
-            
+
             try:
                 content = md_file.read_text(encoding="utf-8")
                 fm, _ = parse_frontmatter(content)
@@ -320,42 +323,48 @@ async def list_notes(
                     note_content_type = fm.get("type") or fm.get("content_type")
             except Exception:
                 pass  # Skip frontmatter parsing errors
-            
+
             # Apply search filter - check file name, title, and path
             # Match if ANY significant search word appears in the searchable text
             if search:
                 search_lower = search.lower()
-                searchable_text = f"{md_file.stem} {note_title or ''} {str(rel_path)}".lower()
-                
+                searchable_text = (
+                    f"{md_file.stem} {note_title or ''} {str(rel_path)}".lower()
+                )
+
                 # Check if the full search term matches anywhere
                 full_match = search_lower in searchable_text
-                
+
                 # Also check if ANY significant word matches (for fuzzy matching)
                 search_words = [w for w in search_lower.split() if len(w) > 2]
-                any_word_match = search_words and any(word in searchable_text for word in search_words)
-                
+                any_word_match = search_words and any(
+                    word in searchable_text for word in search_words
+                )
+
                 if not (full_match or any_word_match):
                     continue
-            
+
             # Apply tag filter
             if tag and tag not in note_tags:
                 continue
-            
+
             # Apply content type filter
             if content_type and note_content_type != content_type:
                 continue
-            
-            notes.append(NoteInfo(
-                path=str(rel_path),
-                name=md_file.stem,
-                folder=str(rel_path.parent) if rel_path.parent != Path(".") else "",
-                modified=datetime.fromtimestamp(stat.st_mtime),
-                size=stat.st_size,
-                title=note_title,
-                tags=note_tags,
-                content_type=note_content_type,
-            ))
-        
+
+            notes.append(
+                NoteInfo(
+                    path=str(rel_path),
+                    name=md_file.stem,
+                    folder=str(rel_path.parent) if rel_path.parent != Path(".") else "",
+                    modified=datetime.fromtimestamp(stat.st_mtime),
+                    size=stat.st_size,
+                    title=note_title,
+                    tags=note_tags,
+                    content_type=note_content_type,
+                )
+            )
+
         # Sort notes
         if sort_by == "modified":
             notes.sort(key=lambda n: n.modified, reverse=sort_desc)
@@ -363,13 +372,13 @@ async def list_notes(
             notes.sort(key=lambda n: n.name.lower(), reverse=sort_desc)
         elif sort_by == "size":
             notes.sort(key=lambda n: n.size, reverse=sort_desc)
-        
+
         # Paginate
         total = len(notes)
         start = (page - 1) * page_size
         end = start + page_size
         paginated_notes = notes[start:end]
-        
+
         return NotesListResponse(
             notes=paginated_notes,
             total=total,
@@ -377,7 +386,7 @@ async def list_notes(
             page_size=page_size,
             has_more=end < total,
         )
-        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -388,36 +397,36 @@ async def list_notes(
 @router.get("/notes/{note_path:path}", response_model=NoteContent)
 async def get_note(note_path: str):
     """Get the full content of a specific note.
-    
+
     Args:
         note_path: Relative path to the note from vault root (e.g., "papers/my-paper.md")
-    
+
     Returns:
         Full note content with parsed frontmatter.
     """
     try:
         vault = get_vault_manager()
         vault_path = vault.vault_path
-        
+
         # Ensure path ends with .md
         if not note_path.endswith(".md"):
             note_path = note_path + ".md"
-        
+
         file_path = vault_path / note_path
-        
+
         # Security: Ensure path is within vault
         try:
             file_path.resolve().relative_to(vault_path.resolve())
         except ValueError:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="Note not found")
-        
+
         # Read file
         content = file_path.read_text(encoding="utf-8")
         stat = file_path.stat()
-        
+
         # Parse frontmatter
         frontmatter = {}
         try:
@@ -426,7 +435,7 @@ async def get_note(note_path: str):
                 frontmatter = fm
         except Exception:
             pass
-        
+
         return NoteContent(
             path=note_path,
             name=file_path.stem,
@@ -435,7 +444,7 @@ async def get_note(note_path: str):
             modified=datetime.fromtimestamp(stat.st_mtime),
             size=stat.st_size,
         )
-        
+
     except HTTPException:
         raise
     except ValueError as e:
@@ -443,4 +452,3 @@ async def get_note(note_path: str):
     except Exception as e:
         logger.error(f"Error reading note {note_path}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-

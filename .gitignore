@@ -17,3 +17,6 @@ scripts/*.json
 
 # macOS
 .DS_Store
+
+# Cursor files.
+.cursor/

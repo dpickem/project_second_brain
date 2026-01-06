@@ -19,7 +19,11 @@ Usage:
     )
 """
 
-from app.services.obsidian.vault import VaultManager, get_vault_manager, create_vault_manager
+from app.services.obsidian.vault import (
+    VaultManager,
+    get_vault_manager,
+    create_vault_manager,
+)
 from app.services.obsidian.frontmatter import (
     FrontmatterBuilder,
     parse_frontmatter,
@@ -36,7 +40,10 @@ from app.services.obsidian.links import (
 )
 from app.services.obsidian.indexer import FolderIndexer
 from app.services.obsidian.daily import DailyNoteGenerator
-from app.services.obsidian.dataview_queries import DataviewLibrary, generate_dashboard_queries
+from app.services.obsidian.dataview_queries import (
+    DataviewLibrary,
+    generate_dashboard_queries,
+)
 from app.services.obsidian.watcher import VaultWatcher, VaultEventHandler
 from app.services.obsidian.sync import VaultSyncService, get_sync_status
 from app.services.obsidian.lifecycle import (
@@ -77,4 +84,3 @@ __all__ = [
     "shutdown_vault_services",
     "get_watcher_status",
 ]
-

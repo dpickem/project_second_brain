@@ -178,7 +178,9 @@ See [[Other Note]] for more.
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
         ):
             with patch.object(
-                sync_service, "_generate_and_persist_node_id", AsyncMock(return_value="test-uuid")
+                sync_service,
+                "_generate_and_persist_node_id",
+                AsyncMock(return_value="test-uuid"),
             ):
                 result = await sync_service.sync_note(note_path)
 
@@ -232,7 +234,9 @@ Content
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
         ):
             with patch.object(
-                sync_service, "_generate_and_persist_node_id", AsyncMock(return_value="generated-uuid")
+                sync_service,
+                "_generate_and_persist_node_id",
+                AsyncMock(return_value="generated-uuid"),
             ) as mock_gen:
                 result = await sync_service.sync_note(note_path)
 
@@ -260,7 +264,9 @@ Content about #inline-tag and #another-tag
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
         ):
             with patch.object(
-                sync_service, "_generate_and_persist_node_id", AsyncMock(return_value="uuid")
+                sync_service,
+                "_generate_and_persist_node_id",
+                AsyncMock(return_value="uuid"),
             ):
                 result = await sync_service.sync_note(note_path)
 
@@ -288,7 +294,9 @@ Content
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
         ):
             with patch.object(
-                sync_service, "_generate_and_persist_node_id", AsyncMock(return_value="uuid")
+                sync_service,
+                "_generate_and_persist_node_id",
+                AsyncMock(return_value="uuid"),
             ):
                 result = await sync_service.sync_note(note_path)
 
@@ -309,11 +317,11 @@ Content
 """
         )
 
-        with patch.object(
-            sync_service, "_ensure_neo4j", AsyncMock(return_value=None)
-        ):
+        with patch.object(sync_service, "_ensure_neo4j", AsyncMock(return_value=None)):
             with patch.object(
-                sync_service, "_generate_and_persist_node_id", AsyncMock(return_value="uuid")
+                sync_service,
+                "_generate_and_persist_node_id",
+                AsyncMock(return_value="uuid"),
             ):
                 result = await sync_service.sync_note(note_path)
 
@@ -358,11 +366,11 @@ class TestFullSync:
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
         ):
             with patch.object(
-                sync_service, "_generate_and_persist_node_id", AsyncMock(return_value="uuid")
+                sync_service,
+                "_generate_and_persist_node_id",
+                AsyncMock(return_value="uuid"),
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     result = await sync_service.full_sync(vault)
 
         assert result["synced"] == 2
@@ -384,11 +392,11 @@ class TestFullSync:
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
         ):
             with patch.object(
-                sync_service, "_generate_and_persist_node_id", AsyncMock(return_value="uuid")
+                sync_service,
+                "_generate_and_persist_node_id",
+                AsyncMock(return_value="uuid"),
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     result = await sync_service.full_sync(temp_vault)
 
         # Should not include .obsidian/config.md
@@ -406,11 +414,11 @@ class TestFullSync:
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
         ):
             with patch.object(
-                sync_service, "_generate_and_persist_node_id", AsyncMock(return_value="uuid")
+                sync_service,
+                "_generate_and_persist_node_id",
+                AsyncMock(return_value="uuid"),
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     await sync_service.full_sync(temp_vault)
 
         # After completion, status should be updated
@@ -456,7 +464,9 @@ class TestReconcileOnStartup:
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
                 with patch.object(
-                    sync_service, "_generate_and_persist_node_id", AsyncMock(return_value="uuid")
+                    sync_service,
+                    "_generate_and_persist_node_id",
+                    AsyncMock(return_value="uuid"),
                 ):
                     with patch.object(
                         sync_service, "_update_last_sync_time", AsyncMock()
@@ -486,9 +496,7 @@ class TestReconcileOnStartup:
             with patch.object(
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     result = await sync_service.reconcile_on_startup(temp_vault)
 
         # No notes should be modified since last_sync is in future
@@ -508,7 +516,9 @@ class TestReconcileOnStartup:
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
                 with patch.object(
-                    sync_service, "_generate_and_persist_node_id", AsyncMock(return_value="uuid")
+                    sync_service,
+                    "_generate_and_persist_node_id",
+                    AsyncMock(return_value="uuid"),
                 ):
                     with patch.object(
                         sync_service, "_update_last_sync_time", AsyncMock()
@@ -550,7 +560,9 @@ class TestGenerateNodeId:
         note_path = temp_vault / "test.md"
         note_path.write_text("---\ntitle: Test\n---\n")
 
-        with patch("app.services.obsidian.sync.update_frontmatter", AsyncMock()) as mock_update:
+        with patch(
+            "app.services.obsidian.sync.update_frontmatter", AsyncMock()
+        ) as mock_update:
             node_id = await sync_service._generate_and_persist_node_id(note_path)
 
         mock_update.assert_called_once()
@@ -594,4 +606,3 @@ class TestEnsureNeo4j:
             client = await sync_service._ensure_neo4j()
 
         assert client is None
-

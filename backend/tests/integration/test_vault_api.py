@@ -134,7 +134,11 @@ class TestVaultStructure:
             mock_manager = MagicMock()
             mock_manager.vault_path = temp_vault
             mock_manager.ensure_structure = AsyncMock(
-                return_value={"created": ["new_folder"], "existed": ["topics"], "total": 2}
+                return_value={
+                    "created": ["new_folder"],
+                    "existed": ["topics"],
+                    "total": 2,
+                }
             )
             mock_get_vault.return_value = mock_manager
 
@@ -312,6 +316,7 @@ class TestAPIErrorHandling:
             data = response.json()
             # Should indicate sync is already running
             if "error" in data:
-                assert "already" in data["error"].lower() or "progress" in data["error"].lower()
-
-
+                assert (
+                    "already" in data["error"].lower()
+                    or "progress" in data["error"].lower()
+                )

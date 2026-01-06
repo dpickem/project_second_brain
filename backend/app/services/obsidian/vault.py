@@ -469,4 +469,3 @@ def reset_vault_manager() -> None:
     """
     global _vault_manager
     _vault_manager = None
-

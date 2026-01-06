@@ -98,9 +98,7 @@ class NodeDetails(BaseModel):
 
 @router.get("/graph", response_model=GraphResponse)
 async def get_graph_visualization(
-    center_id: Optional[str] = Query(
-        None, description="Center graph on this node ID"
-    ),
+    center_id: Optional[str] = Query(None, description="Center graph on this node ID"),
     node_types: str = Query(
         "Content,Concept,Note", description="Comma-separated node types"
     ),
@@ -261,9 +259,7 @@ async def get_graph_stats() -> GraphStats:
 
     except Exception as e:
         logger.error(f"Error fetching graph stats: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch stats: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
 
 
 @router.get("/node/{node_id}", response_model=NodeDetails)
@@ -306,9 +302,7 @@ async def get_node_details(node_id: str) -> NodeDetails:
         raise
     except Exception as e:
         logger.error(f"Error fetching node details: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch node: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to fetch node: {str(e)}")
 
 
 @router.get("/health")
@@ -327,4 +321,3 @@ async def knowledge_graph_health():
             "neo4j_connected": False,
             "error": str(e),
         }
-

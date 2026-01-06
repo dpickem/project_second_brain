@@ -231,9 +231,7 @@ class VaultWatcher:
             logger.warning("Vault watcher already running")
             return
 
-        handler = VaultEventHandler(
-            self.vault_path, self.on_change, self.debounce_ms
-        )
+        handler = VaultEventHandler(self.vault_path, self.on_change, self.debounce_ms)
 
         self._observer = Observer()
         self._observer.schedule(handler, str(self.vault_path), recursive=True)
@@ -260,4 +258,3 @@ class VaultWatcher:
     def is_running(self) -> bool:
         """Whether the watcher is currently monitoring the vault."""
         return self._running
-

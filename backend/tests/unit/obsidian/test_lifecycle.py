@@ -83,7 +83,11 @@ class TestStartupVaultServices:
 
     @pytest.mark.asyncio
     async def test_startup_full_success(
-        self, mock_vault_manager, mock_sync_service, mock_vault_watcher, temp_vault: Path
+        self,
+        mock_vault_manager,
+        mock_sync_service,
+        mock_vault_watcher,
+        temp_vault: Path,
     ):
         """Startup with all services enabled succeeds."""
         with patch("app.services.obsidian.lifecycle.settings") as mock_settings:
@@ -104,9 +108,7 @@ class TestStartupVaultServices:
                         "app.services.obsidian.watcher.VaultWatcher",
                         return_value=mock_vault_watcher,
                     ):
-                        with patch(
-                            "app.services.tasks.sync_vault_note"
-                        ):
+                        with patch("app.services.tasks.sync_vault_note"):
                             result = await startup_vault_services()
 
         assert result["vault_path"] == str(mock_vault_manager.vault_path)
@@ -137,9 +139,7 @@ class TestStartupVaultServices:
                         "app.services.obsidian.watcher.VaultWatcher",
                         return_value=mock_vault_watcher,
                     ):
-                        with patch(
-                            "app.services.tasks.sync_vault_note"
-                        ):
+                        with patch("app.services.tasks.sync_vault_note"):
                             result = await startup_vault_services()
 
         assert result["reconciliation"] is None
@@ -213,9 +213,7 @@ class TestStartupVaultServices:
                         "app.services.obsidian.watcher.VaultWatcher",
                         side_effect=capture_watcher_init,
                     ):
-                        with patch(
-                            "app.services.tasks.sync_vault_note"
-                        ) as mock_task:
+                        with patch("app.services.tasks.sync_vault_note") as mock_task:
                             mock_task.delay = MagicMock()
                             await startup_vault_services()
 
@@ -367,4 +365,3 @@ class TestGetWatcherStatus:
         # Should use defaults (True)
         assert result["sync_enabled"] is True
         assert result["watch_enabled"] is True
-

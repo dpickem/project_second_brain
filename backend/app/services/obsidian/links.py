@@ -403,4 +403,3 @@ def create_backlink_section(backlinks: list[dict]) -> str:
             lines.append(f"- {link}")
 
     return "\n".join(lines)
-

@@ -142,7 +142,14 @@ class TestFrontmatterBuilder:
 
     def test_set_status_valid(self):
         """set_status() stores valid status values."""
-        valid_statuses = ["unread", "reading", "read", "reviewed", "archived", "processed"]
+        valid_statuses = [
+            "unread",
+            "reading",
+            "read",
+            "reviewed",
+            "archived",
+            "processed",
+        ]
         for status in valid_statuses:
             builder = FrontmatterBuilder()
             builder.set_status(status)
@@ -649,4 +656,3 @@ class TestFrontmatterIntegration:
         assert metadata["rating"] == 5
         assert metadata["type"] == "article"
         assert "# Article" in body
-

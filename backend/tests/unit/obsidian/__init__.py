@@ -1,2 +1,1 @@
 """Obsidian service unit tests."""
-

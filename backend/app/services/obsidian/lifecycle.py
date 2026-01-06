@@ -240,4 +240,3 @@ def get_watcher_status() -> dict:
         "sync_enabled": vault_sync_enabled,
         "watch_enabled": vault_watch_enabled,
     }
-

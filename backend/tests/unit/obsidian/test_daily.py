@@ -88,9 +88,7 @@ class TestGenerateDailyNote:
     ):
         """New daily note is created from template."""
         with patch("app.services.obsidian.daily.TEMPLATES_DIR", mock_template_env):
-            with patch(
-                "app.services.obsidian.daily.content_registry"
-            ) as mock_registry:
+            with patch("app.services.obsidian.daily.content_registry") as mock_registry:
                 mock_registry.get_jinja_template.return_value = "daily.md.j2"
 
                 generator = DailyNoteGenerator(vault_manager)
@@ -111,16 +109,16 @@ class TestGenerateDailyNote:
     ):
         """generate_daily_note defaults to today's date."""
         with patch("app.services.obsidian.daily.TEMPLATES_DIR", mock_template_env):
-            with patch(
-                "app.services.obsidian.daily.content_registry"
-            ) as mock_registry:
+            with patch("app.services.obsidian.daily.content_registry") as mock_registry:
                 mock_registry.get_jinja_template.return_value = "daily.md.j2"
 
                 generator = DailyNoteGenerator(vault_manager)
                 result = await generator.generate_daily_note()
 
                 today = date.today()
-                expected_path = temp_vault / "daily" / f"{today.strftime('%Y-%m-%d')}.md"
+                expected_path = (
+                    temp_vault / "daily" / f"{today.strftime('%Y-%m-%d')}.md"
+                )
                 assert result == str(expected_path)
 
     @pytest.mark.asyncio
@@ -135,9 +133,7 @@ class TestGenerateDailyNote:
         existing_note.write_text("Original content - should not change")
 
         with patch("app.services.obsidian.daily.TEMPLATES_DIR", mock_template_env):
-            with patch(
-                "app.services.obsidian.daily.content_registry"
-            ) as mock_registry:
+            with patch("app.services.obsidian.daily.content_registry") as mock_registry:
                 mock_registry.get_jinja_template.return_value = "daily.md.j2"
 
                 generator = DailyNoteGenerator(vault_manager)
@@ -160,9 +156,7 @@ class TestGenerateDailyNote:
             shutil.rmtree(daily_folder)
 
         with patch("app.services.obsidian.daily.TEMPLATES_DIR", mock_template_env):
-            with patch(
-                "app.services.obsidian.daily.content_registry"
-            ) as mock_registry:
+            with patch("app.services.obsidian.daily.content_registry") as mock_registry:
                 mock_registry.get_jinja_template.return_value = "daily.md.j2"
 
                 generator = DailyNoteGenerator(vault_manager)
@@ -177,9 +171,7 @@ class TestGenerateDailyNote:
     ):
         """ValueError raised when no template configured."""
         with patch("app.services.obsidian.daily.TEMPLATES_DIR", mock_template_env):
-            with patch(
-                "app.services.obsidian.daily.content_registry"
-            ) as mock_registry:
+            with patch("app.services.obsidian.daily.content_registry") as mock_registry:
                 mock_registry.get_jinja_template.return_value = None
 
                 generator = DailyNoteGenerator(vault_manager)
@@ -208,9 +200,7 @@ full: {{ date_full }}
         )
 
         with patch("app.services.obsidian.daily.TEMPLATES_DIR", templates_dir):
-            with patch(
-                "app.services.obsidian.daily.content_registry"
-            ) as mock_registry:
+            with patch("app.services.obsidian.daily.content_registry") as mock_registry:
                 mock_registry.get_jinja_template.return_value = "daily.md.j2"
 
                 generator = DailyNoteGenerator(vault_manager)
@@ -257,9 +247,7 @@ type: daily
         )
 
         with patch("app.services.obsidian.daily.TEMPLATES_DIR", mock_template_env):
-            with patch(
-                "app.services.obsidian.daily.content_registry"
-            ) as mock_registry:
+            with patch("app.services.obsidian.daily.content_registry") as mock_registry:
                 mock_registry.get_jinja_template.return_value = "daily.md.j2"
 
                 generator = DailyNoteGenerator(vault_manager)
@@ -278,9 +266,7 @@ type: daily
         daily_folder.mkdir(parents=True, exist_ok=True)
 
         with patch("app.services.obsidian.daily.TEMPLATES_DIR", mock_template_env):
-            with patch(
-                "app.services.obsidian.daily.content_registry"
-            ) as mock_registry:
+            with patch("app.services.obsidian.daily.content_registry") as mock_registry:
                 mock_registry.get_jinja_template.return_value = "daily.md.j2"
 
                 generator = DailyNoteGenerator(vault_manager)
@@ -324,9 +310,7 @@ class TestEnsureTodayNote:
     ):
         """ensure_today_note creates today's note."""
         with patch("app.services.obsidian.daily.TEMPLATES_DIR", mock_template_env):
-            with patch(
-                "app.services.obsidian.daily.content_registry"
-            ) as mock_registry:
+            with patch("app.services.obsidian.daily.content_registry") as mock_registry:
                 mock_registry.get_jinja_template.return_value = "daily.md.j2"
 
                 generator = DailyNoteGenerator(vault_manager)
@@ -336,4 +320,3 @@ class TestEnsureTodayNote:
                 expected = temp_vault / "daily" / f"{today.strftime('%Y-%m-%d')}.md"
                 assert result == str(expected)
                 assert expected.exists()
-

@@ -35,4 +35,3 @@ def downgrade() -> None:
     """Drop system_meta table."""
     op.drop_index(op.f("ix_system_meta_key"), table_name="system_meta")
     op.drop_table("system_meta")
-

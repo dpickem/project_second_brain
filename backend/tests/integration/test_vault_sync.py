@@ -153,7 +153,9 @@ class TestSingleNoteSync:
             result = await sync_service.sync_note(note_path)
 
         # Should have extracted 4 wikilinks
-        assert result["links_synced"] >= 3  # Neural Networks, Gradient Descent, Deep Learning (Backpropagation may or may not be linked)
+        assert (
+            result["links_synced"] >= 3
+        )  # Neural Networks, Gradient Descent, Deep Learning (Backpropagation may or may not be linked)
 
         # Verify sync_note_links was called
         mock_neo4j_client.sync_note_links.assert_called_once()
@@ -233,9 +235,7 @@ class TestFullSync:
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
-            with patch.object(
-                sync_service, "_update_last_sync_time", AsyncMock()
-            ):
+            with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                 result = await sync_service.full_sync(vault)
 
         # Should have synced the two notes we created
@@ -251,7 +251,7 @@ class TestFullSync:
         vault = tmp_path / "obsidian_test_vault"
         vault.mkdir()
         (vault / "Note.md").write_text("---\ntitle: Note\n---\nContent")
-        
+
         # Create a markdown file in .obsidian (should be excluded)
         obsidian_dir = vault / ".obsidian"
         obsidian_dir.mkdir(exist_ok=True)
@@ -260,9 +260,7 @@ class TestFullSync:
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
-            with patch.object(
-                sync_service, "_update_last_sync_time", AsyncMock()
-            ):
+            with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                 result = await sync_service.full_sync(vault)
 
         # The .obsidian/config.md should not be in the total count
@@ -287,9 +285,7 @@ class TestFullSync:
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
-            with patch.object(
-                sync_service, "_update_last_sync_time", AsyncMock()
-            ):
+            with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                 result = await sync_service.full_sync(vault_with_notes)
 
         # Should have one failure and continue with others
@@ -304,9 +300,7 @@ class TestFullSync:
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
-            with patch.object(
-                sync_service, "_update_last_sync_time", AsyncMock()
-            ):
+            with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                 await sync_service.full_sync(vault_with_notes)
 
         status = get_sync_status()
@@ -334,9 +328,7 @@ class TestReconciliation:
             with patch.object(
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     result = await sync_service.reconcile_on_startup(vault_with_notes)
 
         assert result["last_sync"] is None
@@ -357,9 +349,7 @@ class TestReconciliation:
             with patch.object(
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     result = await sync_service.reconcile_on_startup(vault_with_notes)
 
         # Files were created before "recent_time" set, so should be 0
@@ -439,9 +429,7 @@ class TestErrorHandling:
         """Sync completes successfully when Neo4j is unavailable."""
         note_path = vault_with_notes / "sources/papers/ml-paper.md"
 
-        with patch.object(
-            sync_service, "_ensure_neo4j", AsyncMock(return_value=None)
-        ):
+        with patch.object(sync_service, "_ensure_neo4j", AsyncMock(return_value=None)):
             result = await sync_service.sync_note(note_path)
 
         # Should succeed without Neo4j
@@ -481,5 +469,3 @@ Content
         result = await sync_service.sync_note(note_path)
 
         assert "error" in result
-
-

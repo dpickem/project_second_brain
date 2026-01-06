@@ -107,9 +107,7 @@ class TestTimestampDetection:
             with patch.object(
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     result = await sync_service.reconcile_on_startup(vault_path)
 
         # Only new_note should be modified (created within last 12 hours)
@@ -139,9 +137,7 @@ class TestTimestampDetection:
             with patch.object(
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     result = await sync_service.reconcile_on_startup(vault_path)
 
         # Only new_note should be synced (touched after last_sync)
@@ -169,9 +165,7 @@ class TestFirstRun:
             with patch.object(
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     result = await sync_service.reconcile_on_startup(vault_path)
 
         assert result["last_sync"] is None
@@ -193,9 +187,7 @@ class TestFirstRun:
             with patch.object(
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", update_mock
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", update_mock):
                     await sync_service.reconcile_on_startup(vault_path)
 
         update_mock.assert_called_once()
@@ -239,9 +231,7 @@ Created while app was offline.
             with patch.object(
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     result = await sync_service.reconcile_on_startup(temp_vault)
 
         assert result["modified_since_sync"] >= 1
@@ -284,9 +274,7 @@ Original content.
             with patch.object(
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     result = await sync_service.reconcile_on_startup(temp_vault)
 
         assert result["modified_since_sync"] >= 1
@@ -320,9 +308,7 @@ Content for note {i}.
             with patch.object(
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     result = await sync_service.reconcile_on_startup(temp_vault)
 
         assert result["total_notes"] >= 50
@@ -402,9 +388,7 @@ Content
             sync_service, "_get_last_sync_time", AsyncMock(return_value=None)
         ):
             with patch.object(sync_service, "sync_note", failing_sync):
-                with patch.object(
-                    sync_service, "_update_last_sync_time", AsyncMock()
-                ):
+                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
                     await sync_service.reconcile_on_startup(temp_vault)
 
         status = get_sync_status()
@@ -469,5 +453,3 @@ class TestSyncTimePersistence:
 
         assert result is not None
         assert result.isoformat() == stored_time
-
-

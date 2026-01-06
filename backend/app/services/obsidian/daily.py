@@ -103,4 +103,3 @@ class DailyNoteGenerator:
     async def ensure_today_note(self) -> str:
         """Ensure today's daily note exists, creating if needed."""
         return await self.generate_daily_note(date.today())
-

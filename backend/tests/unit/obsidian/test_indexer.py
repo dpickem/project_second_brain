@@ -76,9 +76,7 @@ class TestGenerateIndex:
         assert "*No notes yet*" in content
 
     @pytest.mark.asyncio
-    async def test_generate_with_notes(
-        self, indexer: FolderIndexer, temp_vault: Path
-    ):
+    async def test_generate_with_notes(self, indexer: FolderIndexer, temp_vault: Path):
         """Index includes links to notes."""
         folder = temp_vault / "test_folder"
         folder.mkdir()
@@ -233,9 +231,7 @@ title: "Note {i}"
         assert "[[Invalid]]" in content  # Uses filename as title
 
     @pytest.mark.asyncio
-    async def test_generate_recursive(
-        self, indexer: FolderIndexer, temp_vault: Path
-    ):
+    async def test_generate_recursive(self, indexer: FolderIndexer, temp_vault: Path):
         """Recursive mode includes notes from subfolders."""
         folder = temp_vault / "test_folder"
         subfolder = folder / "subfolder"
@@ -292,9 +288,7 @@ class TestRenderIndex:
         assert "[[Paper One]]" in result
         assert "[[Paper Two]]" in result
 
-    def test_render_formats_folder_name(
-        self, indexer: FolderIndexer, temp_vault: Path
-    ):
+    def test_render_formats_folder_name(self, indexer: FolderIndexer, temp_vault: Path):
         """Folder name is title-cased with hyphens replaced."""
         folder = temp_vault / "my-papers"
         folder.mkdir()
@@ -304,9 +298,7 @@ class TestRenderIndex:
 
         assert "# My Papers" in result
 
-    def test_render_has_frontmatter(
-        self, indexer: FolderIndexer, temp_vault: Path
-    ):
+    def test_render_has_frontmatter(self, indexer: FolderIndexer, temp_vault: Path):
         """Rendered index has proper frontmatter."""
         folder = temp_vault / "test"
         entries = []
@@ -328,9 +320,7 @@ class TestWriteEmptyIndex:
     """Tests for _write_empty_index method."""
 
     @pytest.mark.asyncio
-    async def test_write_empty_index(
-        self, indexer: FolderIndexer, temp_vault: Path
-    ):
+    async def test_write_empty_index(self, indexer: FolderIndexer, temp_vault: Path):
         """Empty index has placeholder content."""
         folder = temp_vault / "empty"
         folder.mkdir()
@@ -365,7 +355,9 @@ class TestRegenerateAllIndices:
         with patch("app.services.obsidian.indexer.content_registry") as mock_registry:
             mock_registry.get_all_types.return_value = {
                 "paper": {"folder": "sources/papers"},
-                "article": {"folder": "sources/nonexistent"},  # Folder that doesn't exist
+                "article": {
+                    "folder": "sources/nonexistent"
+                },  # Folder that doesn't exist
             }
 
             result = await indexer.regenerate_all_indices()
@@ -403,4 +395,3 @@ class TestRegenerateAllIndices:
             result = await indexer.regenerate_all_indices()
 
             assert result["count"] == 0
-

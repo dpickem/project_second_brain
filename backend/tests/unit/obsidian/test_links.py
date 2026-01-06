@@ -473,4 +473,3 @@ class TestCreateBacklinkSection:
         assert "[[Note B]]" in lines[1]
         assert "Some context" in lines[1]
         assert "[[Note C]]" in lines[2]
-

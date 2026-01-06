@@ -236,4 +236,3 @@ generated: {datetime.now().strftime('%Y-%m-%d')}
 
         logger.info(f"Regenerated {len(regenerated)} folder indices")
         return {"regenerated": regenerated, "count": len(regenerated)}
-

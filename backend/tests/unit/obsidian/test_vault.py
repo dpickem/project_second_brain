@@ -1,7 +1,7 @@
 """
 Unit Tests for VaultManager
 
-Tests for the VaultManager class which handles vault structure, 
+Tests for the VaultManager class which handles vault structure,
 path resolution, file operations, and statistics.
 """
 
@@ -217,9 +217,7 @@ class TestVaultManagerPathResolution:
     def test_get_template_folder(self, vault_manager: VaultManager):
         """get_template_folder returns configured path."""
         with patch("app.services.obsidian.vault.yaml_config") as mock_config:
-            mock_config.get.return_value = {
-                "templates": {"folder": "my_templates"}
-            }
+            mock_config.get.return_value = {"templates": {"folder": "my_templates"}}
             folder = vault_manager.get_template_folder()
             assert folder == vault_manager.vault_path / "my_templates"
 
@@ -290,7 +288,9 @@ class TestVaultManagerFileOperations:
     """Tests for file I/O operations."""
 
     @pytest.mark.asyncio
-    async def test_note_exists_true(self, vault_manager: VaultManager, temp_vault: Path):
+    async def test_note_exists_true(
+        self, vault_manager: VaultManager, temp_vault: Path
+    ):
         """note_exists returns True when note exists."""
         folder = temp_vault / "concepts"
         (folder / "Test Note.md").write_text("content")
@@ -299,21 +299,27 @@ class TestVaultManagerFileOperations:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_note_exists_false(self, vault_manager: VaultManager, temp_vault: Path):
+    async def test_note_exists_false(
+        self, vault_manager: VaultManager, temp_vault: Path
+    ):
         """note_exists returns False when note doesn't exist."""
         folder = temp_vault / "concepts"
         result = await vault_manager.note_exists(folder, "Nonexistent")
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_get_unique_path_simple(self, vault_manager: VaultManager, temp_vault: Path):
+    async def test_get_unique_path_simple(
+        self, vault_manager: VaultManager, temp_vault: Path
+    ):
         """get_unique_path returns simple path when no conflict."""
         folder = temp_vault / "concepts"
         path = await vault_manager.get_unique_path(folder, "New Note")
         assert path == folder / "New Note.md"
 
     @pytest.mark.asyncio
-    async def test_get_unique_path_with_conflict(self, vault_manager: VaultManager, temp_vault: Path):
+    async def test_get_unique_path_with_conflict(
+        self, vault_manager: VaultManager, temp_vault: Path
+    ):
         """get_unique_path adds counter when file exists."""
         folder = temp_vault / "concepts"
         (folder / "Existing Note.md").write_text("content")
@@ -322,7 +328,9 @@ class TestVaultManagerFileOperations:
         assert path == folder / "Existing Note_1.md"
 
     @pytest.mark.asyncio
-    async def test_get_unique_path_multiple_conflicts(self, vault_manager: VaultManager, temp_vault: Path):
+    async def test_get_unique_path_multiple_conflicts(
+        self, vault_manager: VaultManager, temp_vault: Path
+    ):
         """get_unique_path increments counter for multiple conflicts."""
         folder = temp_vault / "concepts"
         (folder / "Note.md").write_text("content")
@@ -345,7 +353,9 @@ class TestVaultManagerFileOperations:
         assert path.read_text() == content
 
     @pytest.mark.asyncio
-    async def test_write_note_creates_parent_dirs(self, vault_manager: VaultManager, temp_vault: Path):
+    async def test_write_note_creates_parent_dirs(
+        self, vault_manager: VaultManager, temp_vault: Path
+    ):
         """write_note creates parent directories if needed."""
         path = temp_vault / "new" / "nested" / "folder" / "Note.md"
         content = "content"
@@ -367,7 +377,9 @@ class TestVaultManagerFileOperations:
         assert content == expected_content
 
     @pytest.mark.asyncio
-    async def test_read_note_not_found(self, vault_manager: VaultManager, temp_vault: Path):
+    async def test_read_note_not_found(
+        self, vault_manager: VaultManager, temp_vault: Path
+    ):
         """read_note raises FileNotFoundError for missing files."""
         path = temp_vault / "concepts" / "Missing.md"
 
@@ -375,7 +387,9 @@ class TestVaultManagerFileOperations:
             await vault_manager.read_note(path)
 
     @pytest.mark.asyncio
-    async def test_list_notes_simple(self, vault_manager: VaultManager, temp_vault: Path):
+    async def test_list_notes_simple(
+        self, vault_manager: VaultManager, temp_vault: Path
+    ):
         """list_notes returns markdown files in folder."""
         folder = temp_vault / "concepts"
         (folder / "Note1.md").write_text("content")
@@ -388,7 +402,9 @@ class TestVaultManagerFileOperations:
         assert all(n.suffix == ".md" for n in notes)
 
     @pytest.mark.asyncio
-    async def test_list_notes_recursive(self, vault_manager: VaultManager, temp_vault: Path):
+    async def test_list_notes_recursive(
+        self, vault_manager: VaultManager, temp_vault: Path
+    ):
         """list_notes with recursive=True finds notes in subfolders."""
         folder = temp_vault / "sources"
         (folder / "papers").mkdir(parents=True, exist_ok=True)
@@ -400,7 +416,9 @@ class TestVaultManagerFileOperations:
         assert len(notes) == 2
 
     @pytest.mark.asyncio
-    async def test_list_notes_non_recursive(self, vault_manager: VaultManager, temp_vault: Path):
+    async def test_list_notes_non_recursive(
+        self, vault_manager: VaultManager, temp_vault: Path
+    ):
         """list_notes with recursive=False only finds notes in folder."""
         folder = temp_vault / "sources"
         (folder / "papers").mkdir(parents=True, exist_ok=True)
@@ -498,5 +516,3 @@ class TestVaultManagerSingleton:
         manager = create_vault_manager(str(nonexistent), validate=False)
 
         assert manager.vault_path == nonexistent
-
-

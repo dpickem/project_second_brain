@@ -390,13 +390,13 @@ RETURN
 
 def get_centered_visualization_query(depth: int) -> str:
     """Generate centered graph query with literal depth value.
-    
+
     Neo4j doesn't allow parameters in relationship path lengths,
     so we interpolate the depth value directly into the query.
-    
+
     Args:
         depth: Number of hops from center node to traverse (1-4)
-    
+
     Returns:
         Cypher query string with depth interpolated
     """
