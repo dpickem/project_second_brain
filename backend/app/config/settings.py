@@ -114,6 +114,34 @@ class Settings(BaseSettings):
         return Path(self.OBSIDIAN_VAULT_PATH).expanduser().resolve()
 
     # =========================================================================
+    # VAULT SYNC & WATCHER (Phase 4)
+    # =========================================================================
+    # These settings control bi-directional sync between Obsidian vault and Neo4j.
+    #
+    # VAULT_WATCH_ENABLED: Whether to monitor the vault for file changes.
+    #   - True: Start watchdog file watcher on app startup
+    #   - False: No file monitoring (changes won't be detected in real-time)
+    #   Use case: Disable if running in read-only mode or during bulk imports.
+    #
+    # VAULT_SYNC_NEO4J_ENABLED: Whether to sync detected changes to Neo4j.
+    #   - True: Update Neo4j knowledge graph when files change
+    #   - False: Detect changes but don't update Neo4j (useful for debugging,
+    #            or if Neo4j is not configured/available)
+    #   Use case: Disable if Neo4j is down for maintenance but you still want
+    #             the watcher to log changes for later reconciliation.
+    #
+    # Common configurations:
+    #   Both True (default): Full real-time sync - recommended for normal use
+    #   Watch=True, Sync=False: Monitor + log only, no Neo4j updates
+    #   Both False: No file monitoring at all
+    #
+    VAULT_WATCH_ENABLED: bool = True
+    # Debounce time in milliseconds for rapid file changes (e.g., auto-save).
+    # Prevents excessive syncs when Obsidian saves frequently.
+    VAULT_SYNC_DEBOUNCE_MS: int = 1000
+    VAULT_SYNC_NEO4J_ENABLED: bool = True
+
+    # =========================================================================
     # FILE UPLOADS
     # =========================================================================
     # Temporary staging area for raw uploads, NOT the vault's assets/.

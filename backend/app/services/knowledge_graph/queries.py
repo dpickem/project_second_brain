@@ -323,3 +323,34 @@ SETUP_INDEX_QUERIES = [
     CREATE_CONTENT_TYPE_INDEX,
     CREATE_CONTENT_CREATED_INDEX,
 ]
+
+
+# =============================================================================
+# Obsidian Vault Sync Queries (Note nodes for vault representation)
+# =============================================================================
+# Note nodes are distinct from Content nodes - they represent Obsidian vault
+# files for graph visualization and link tracking, not processed content.
+
+MERGE_NOTE_NODE = """
+MERGE (n:Note {id: $node_id})
+SET n.title = $title,
+    n.type = $note_type,
+    n.tags = $tags,
+    n.updated_at = datetime()
+RETURN n.id AS id
+"""
+
+DELETE_NOTE_OUTGOING_LINKS = """
+MATCH (source:Note {id: $source_id})-[r:LINKS_TO]->()
+DELETE r
+RETURN count(r) AS deleted_count
+"""
+
+CREATE_NOTE_LINK = """
+MATCH (source:Note {id: $source_id})
+MERGE (target:Note {id: $target_id})
+ON CREATE SET target.title = $target_id
+MERGE (source)-[r:LINKS_TO]->(target)
+SET r.synced_at = datetime()
+RETURN type(r) AS rel_type
+"""

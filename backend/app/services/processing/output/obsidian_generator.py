@@ -4,6 +4,12 @@ Obsidian Note Generator
 Generates Obsidian-compatible markdown notes from processing results.
 Uses content-type-specific Jinja2 templates from config/templates/.
 
+Integrates with VaultManager for:
+- Path resolution (get_source_folder)
+- Filename sanitization (sanitize_filename)
+- Unique path generation (get_unique_path)
+- File writing (write_note)
+
 Required templates (must exist for each content type):
 - config/templates/paper.md.j2
 - config/templates/article.md.j2
@@ -23,17 +29,16 @@ Usage:
 
 import logging
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
-import aiofiles
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
+from app.config.settings import TEMPLATES_DIR
 from app.enums.content import AnnotationType
 from app.enums.processing import SummaryLevel
 from app.models.content import UnifiedContent
 from app.models.processing import ProcessingResult
-from app.config.settings import settings, yaml_config, TEMPLATES_DIR
+from app.services.obsidian.vault import get_vault_manager
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +213,11 @@ async def generate_obsidian_note(
     Each content type (paper, article, book, etc.) must have a corresponding
     template file like paper.md.j2, article.md.j2, etc.
 
+    Integrates with VaultManager for:
+    - Folder resolution via get_source_folder()
+    - Unique path generation via get_unique_path()
+    - File writing via write_note()
+
     Creates a well-formatted note with:
     - YAML frontmatter (type, title, tags, etc.)
     - Multi-level summaries
@@ -225,6 +235,9 @@ async def generate_obsidian_note(
         Path to created note, or None if failed
     """
     try:
+        # Get vault manager for path operations
+        vault = get_vault_manager()
+
         # Get Jinja2 environment
         env = _get_template_env()
 
@@ -245,31 +258,15 @@ async def generate_obsidian_note(
         # Render the note
         note_content = template.render(**data)
 
-        # Determine output path
-        vault_path = Path(settings.OBSIDIAN_VAULT_PATH)
-
-        # Get folder from content_types config, fallback to "sources/notes"
+        # Get output folder via VaultManager (uses ContentTypeRegistry)
         content_type = result.analysis.content_type
-        content_types_config = yaml_config.get("content_types", {})
-        type_config = content_types_config.get(content_type, {})
-        folder = type_config.get("folder", f"sources/{content_type}")
+        output_dir = vault.get_source_folder(content_type)
 
-        output_dir = vault_path / folder
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Get unique path (handles duplicates automatically)
+        output_path = await vault.get_unique_path(output_dir, content.title)
 
-        # Create safe filename
-        safe_title = _sanitize_filename(content.title)
-        output_path = output_dir / f"{safe_title}.md"
-
-        # Handle duplicate filenames
-        counter = 1
-        while output_path.exists():
-            output_path = output_dir / f"{safe_title}_{counter}.md"
-            counter += 1
-
-        # Write the note
-        async with aiofiles.open(output_path, "w", encoding="utf-8") as f:
-            await f.write(note_content)
+        # Write the note via VaultManager
+        await vault.write_note(output_path, note_content)
 
         logger.info(f"Generated Obsidian note: {output_path}")
         return str(output_path)
@@ -285,13 +282,3 @@ def _escape_yaml_string(s: str) -> str:
         return ""
     # Escape quotes and ensure it's valid YAML
     return s.replace('"', '\\"').replace("\n", " ")
-
-
-def _sanitize_filename(title: str) -> str:
-    """Create a safe filename from title."""
-    # Remove invalid characters
-    safe = "".join(c for c in title if c.isalnum() or c in " -_")
-    # Limit length
-    safe = safe[:100].strip()
-    # Replace spaces with underscores or keep as is
-    return safe or "Untitled"

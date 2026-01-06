@@ -32,8 +32,8 @@ from app.services.processing.output.obsidian_generator import (
     _get_template_name,
     _prepare_template_data,
     _escape_yaml_string,
-    _sanitize_filename,
 )
+from app.services.obsidian.vault import VaultManager
 from app.services.processing.output.neo4j_generator import (
     create_knowledge_nodes,
     update_content_node,
@@ -278,6 +278,10 @@ class TestObsidianGenerator:
         """Test YAML string escaping with empty input."""
         assert _escape_yaml_string(empty_input) == ""
 
+    # Note: sanitize_filename tests moved to test_vault.py since the function
+    # is now part of VaultManager. These tests remain as integration tests
+    # for the obsidian_generator's use of VaultManager.sanitize_filename.
+
     @pytest.mark.parametrize(
         "title,expected",
         [
@@ -286,23 +290,27 @@ class TestObsidianGenerator:
             ("/:*?<>|", "Untitled"),
         ],
     )
-    def test_sanitize_filename_basic(self, title, expected):
-        """Test basic filename sanitization."""
-        assert _sanitize_filename(title) == expected
+    def test_sanitize_filename_basic(self, title, expected, tmp_path):
+        """Test basic filename sanitization via VaultManager."""
+        vault = VaultManager(str(tmp_path))
+        assert vault.sanitize_filename(title) == expected
 
     @pytest.mark.parametrize("char", ["/", "\\", "?", ":", "*", "<", ">", "|"])
-    def test_sanitize_filename_removes_special_chars(self, char):
+    def test_sanitize_filename_removes_special_chars(self, char, tmp_path):
         """Test filename sanitization removes special characters."""
-        result = _sanitize_filename(f"Title{char}Test")
+        vault = VaultManager(str(tmp_path))
+        result = vault.sanitize_filename(f"Title{char}Test")
         assert char not in result
 
-    def test_sanitize_filename_truncates_long_titles(self):
+    def test_sanitize_filename_truncates_long_titles(self, tmp_path):
         """Test filename sanitization truncates long titles."""
-        assert len(_sanitize_filename("A" * 200)) <= 100
+        vault = VaultManager(str(tmp_path))
+        assert len(vault.sanitize_filename("A" * 200)) <= 100
 
-    def test_sanitize_filename_strips_spaces(self):
+    def test_sanitize_filename_strips_spaces(self, tmp_path):
         """Test filename sanitization strips leading/trailing spaces."""
-        result = _sanitize_filename("  Title with spaces  ")
+        vault = VaultManager(str(tmp_path))
+        result = vault.sanitize_filename("  Title with spaces  ")
         assert not result.startswith(" ") and not result.endswith(" ")
 
     def test_prepare_template_data_basic(

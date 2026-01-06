@@ -3,7 +3,7 @@
 Vault Validation Script
 
 Validates the Obsidian vault structure and configuration.
-All expected folders and templates are read from config.
+Uses VaultManager for path validation and statistics.
 
 Usage:
     python scripts/setup/validate_vault.py
@@ -15,21 +15,24 @@ Exit codes:
 """
 
 import argparse
+import asyncio
 import sys
 from pathlib import Path
 from typing import Any
 
 from _common import add_common_args, resolve_paths
+from app.services.obsidian.vault import create_vault_manager
 
 
-def validate_vault(vault_path: Path, config: dict[str, Any]) -> bool:
+async def validate_vault(vault_path: Path, config: dict[str, Any]) -> bool:
     """
     Validate Obsidian vault structure and configuration.
+
+    Uses VaultManager for path validation when possible.
 
     Returns:
         True if validation passed, False if errors found
     """
-
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -44,6 +47,20 @@ def validate_vault(vault_path: Path, config: dict[str, Any]) -> bool:
     if not vault_path.is_dir():
         errors.append(f"Vault path is not a directory: {vault_path}")
         print(f"❌ Vault path is not a directory")
+        return False
+
+    # Use VaultManager for validation
+    try:
+        vault = create_vault_manager(str(vault_path), validate=True)
+        stats = await vault.get_vault_stats()
+        print(f"📊 Vault stats: {stats['total_notes']} total notes")
+        for type_key, count in stats.get("by_type", {}).items():
+            if count > 0:
+                print(f"   - {type_key}: {count}")
+        print()
+    except ValueError as e:
+        errors.append(str(e))
+        print(f"❌ VaultManager validation failed: {e}")
         return False
 
     content_types: dict[str, Any] = config.get("content_types", {})
@@ -187,7 +204,7 @@ def main() -> None:
 
     config, data_dir, vault_path = resolve_paths(args)
 
-    success = validate_vault(vault_path, config)
+    success = asyncio.run(validate_vault(vault_path, config))
 
     if not success:
         print("\n💡 To fix missing items, run:")

@@ -33,6 +33,9 @@ from app.services.knowledge_graph.queries import (
     SETUP_INDEX_QUERIES,
     MERGE_CONTENT_NODE,
     MERGE_CONCEPT_NODE,
+    MERGE_NOTE_NODE,
+    DELETE_NOTE_OUTGOING_LINKS,
+    CREATE_NOTE_LINK,
     GET_CONTENT_BY_ID,
     DELETE_CONTENT_AND_RELATIONS,
     DELETE_CONTENT_OUTGOING_RELATIONSHIPS,
@@ -456,6 +459,83 @@ class Neo4jClient:
             )
             record = await result.single()
             return record["deleted_count"] if record else 0
+
+    # =========================================================================
+    # Obsidian Vault Sync Operations (Note nodes)
+    # =========================================================================
+    # Note nodes represent Obsidian vault files for graph visualization.
+    # They are distinct from Content nodes (which have embeddings and summaries).
+
+    async def merge_note_node(
+        self,
+        node_id: str,
+        title: str,
+        note_type: str,
+        tags: list[str],
+    ) -> str:
+        """
+        Create or update a Note node from an Obsidian vault file.
+
+        Note nodes are lightweight representations of vault files used for
+        link visualization and graph navigation. Unlike Content nodes, they
+        don't have embeddings or summaries.
+
+        Args:
+            node_id: Unique identifier (from frontmatter or generated UUID)
+            title: Note title (from frontmatter or filename)
+            note_type: Content type (paper, article, daily, etc.)
+            tags: Combined frontmatter and inline tags
+
+        Returns:
+            The node's ID
+        """
+        await self._ensure_initialized()
+
+        async with self._async_driver.session(
+            database=settings.NEO4J_DATABASE
+        ) as session:
+            result = await session.run(
+                MERGE_NOTE_NODE,
+                node_id=node_id,
+                title=title,
+                note_type=note_type,
+                tags=tags,
+            )
+            record = await result.single()
+            return record["id"]
+
+    async def sync_note_links(self, source_id: str, target_ids: list[str]) -> int:
+        """
+        Synchronize outgoing wikilinks for a Note node.
+
+        Uses delete-and-recreate strategy: clears existing LINKS_TO relationships
+        then creates new ones. Target notes are created as placeholders if they
+        don't exist yet.
+
+        Args:
+            source_id: ID of the source Note node
+            target_ids: List of target Note IDs (from extracted wikilinks)
+
+        Returns:
+            Number of links created
+        """
+        await self._ensure_initialized()
+
+        async with self._async_driver.session(
+            database=settings.NEO4J_DATABASE
+        ) as session:
+            # Clear existing links
+            await session.run(DELETE_NOTE_OUTGOING_LINKS, source_id=source_id)
+
+            # Create new links
+            for target_id in target_ids:
+                await session.run(
+                    CREATE_NOTE_LINK,
+                    source_id=source_id,
+                    target_id=target_id,
+                )
+
+            return len(target_ids)
 
 
 # Singleton instance

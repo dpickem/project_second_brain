@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-# Add scripts directory to path for validate_vault import
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "scripts"))
+# Add scripts/setup directory to path for validate_vault import
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "scripts" / "setup"))
 
 from validate_vault import validate_vault
 
@@ -23,28 +23,28 @@ from validate_vault import validate_vault
 class TestVaultStructureValidation:
     """Test vault folder structure validation."""
 
-    def test_valid_vault_passes_validation(
+    async def test_valid_vault_passes_validation(
         self, temp_vault: Path, sample_yaml_config: dict[str, Any]
     ) -> None:
         """A complete vault should pass validation."""
-        result = validate_vault(temp_vault, sample_yaml_config)
+        result = await validate_vault(temp_vault, sample_yaml_config)
 
         assert result is True
 
-    def test_missing_folders_fail_validation(
+    async def test_missing_folders_fail_validation(
         self, incomplete_vault: Path, sample_yaml_config: dict[str, Any]
     ) -> None:
         """Vault with missing folders should fail validation."""
-        result = validate_vault(incomplete_vault, sample_yaml_config)
+        result = await validate_vault(incomplete_vault, sample_yaml_config)
 
         assert result is False
 
-    def test_nonexistent_vault_fails(
+    async def test_nonexistent_vault_fails(
         self, tmp_path: Path, sample_yaml_config: dict[str, Any]
     ) -> None:
         """Non-existent vault path should fail validation."""
         nonexistent = tmp_path / "does_not_exist"
-        result = validate_vault(nonexistent, sample_yaml_config)
+        result = await validate_vault(nonexistent, sample_yaml_config)
 
         assert result is False
 

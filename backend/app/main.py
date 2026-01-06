@@ -20,13 +20,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from neo4j import GraphDatabase
 
+from app.config import settings
 from app.routers import (
     health_router,
     capture_router,
     ingestion_router,
     processing_router,
+    vault_router,
 )
-from app.config import settings
+from app.services.scheduler import start_scheduler, stop_scheduler
+from app.services.obsidian.lifecycle import (
+    startup_vault_services,
+    shutdown_vault_services,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -44,21 +50,35 @@ async def lifespan(app: FastAPI):
 
     # Start scheduler for periodic syncs
     try:
-        from app.services.scheduler import start_scheduler
-
         start_scheduler()
         logger.info("Scheduler started")
     except Exception as e:
         logger.warning(f"Failed to start scheduler: {e}")
+
+    # Start vault services (reconciliation + watcher)
+    try:
+        vault_results = await startup_vault_services()
+        if vault_results.get("reconciliation"):
+            logger.info(
+                f"Vault reconciliation: {vault_results['reconciliation']['synced']} notes synced"
+            )
+        if vault_results.get("watcher_started"):
+            logger.info("Vault watcher started")
+    except Exception as e:
+        logger.warning(f"Failed to start vault services: {e}")
 
     yield
 
     # Shutdown
     logger.info("Shutting down Second Brain API...")
 
+    # Stop vault services
     try:
-        from app.services.scheduler import stop_scheduler
+        await shutdown_vault_services()
+    except Exception as e:
+        logger.warning(f"Failed to stop vault services: {e}")
 
+    try:
         stop_scheduler()
     except Exception:
         pass
@@ -89,6 +109,7 @@ app.include_router(health_router.router)
 app.include_router(capture_router.router)
 app.include_router(ingestion_router.router)
 app.include_router(processing_router.router)
+app.include_router(vault_router.router)
 
 # Neo4j driver (initialized if password is configured)
 _driver = None

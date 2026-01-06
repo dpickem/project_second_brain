@@ -3,7 +3,7 @@
 Obsidian Vault Structure Setup
 
 Creates the data directory structure and Obsidian vault folder hierarchy.
-All folder names are read from config/default.yaml.
+Uses VaultManager.ensure_structure() for consistent folder creation.
 
 Usage:
     python scripts/setup/setup_vault.py
@@ -13,11 +13,13 @@ Usage:
 """
 
 import argparse
+import asyncio
 import json
 from pathlib import Path
 from typing import Any
 
 from _common import add_common_args, load_tag_taxonomy, resolve_paths
+from app.services.obsidian.vault import create_vault_manager
 
 
 def create_data_directories(data_dir: Path, config: dict[str, Any]) -> None:
@@ -42,48 +44,35 @@ def create_data_directories(data_dir: Path, config: dict[str, Any]) -> None:
     print()
 
 
-def create_vault_structure(vault_path: Path, config: dict[str, Any]) -> None:
+async def create_vault_structure(vault_path: Path, config: dict[str, Any]) -> None:
     """
-    Create the Obsidian vault folder structure.
+    Create the Obsidian vault folder structure using VaultManager.
 
-    Reads ALL folder definitions from config - no hardcoded paths.
+    Uses VaultManager.ensure_structure() for consistent folder creation
+    across CLI scripts and API endpoints.
     """
-
+    # Ensure vault root exists first (VaultManager validates this)
     vault_path.mkdir(parents=True, exist_ok=True)
 
-    obsidian_config = config.get("obsidian", {})
-    system_folders = obsidian_config.get("system_folders", [])
+    # Use VaultManager for structure creation (consistency with API)
+    vault = create_vault_manager(str(vault_path), validate=True)
+    result = await vault.ensure_structure()
 
-    if not system_folders:
-        print("⚠️  No obsidian.system_folders defined in config")
-    else:
-        print("📁 Creating vault system folders:")
-        for folder in system_folders:
-            folder_path = vault_path / folder
-            folder_path.mkdir(parents=True, exist_ok=True)
-            print(f"  ✅ {folder}")
-
-    # Create folders from content_types
-    content_types = config.get("content_types", {})
-
-    print("\n📂 Creating content type folders:")
-    for type_key, type_config in content_types.items():
-        base_folder = type_config.get("folder", f"sources/{type_key}")
-        folder_path = vault_path / base_folder
-        folder_path.mkdir(parents=True, exist_ok=True)
-        print(f"  ✅ {base_folder}")
-
-        for subfolder in type_config.get("subfolders", []):
-            subfolder_path = vault_path / base_folder / subfolder
-            subfolder_path.mkdir(parents=True, exist_ok=True)
-            print(f"     └─ {subfolder}")
+    print("📁 Vault structure:")
+    if result["created"]:
+        print(f"  Created {len(result['created'])} folders:")
+        for folder in result["created"]:
+            print(f"    ✅ {folder}")
+    if result["existed"]:
+        print(f"  Already existed: {len(result['existed'])} folders")
 
     # Create .gitkeep files for empty folders
     for folder in vault_path.rglob("*"):
         if folder.is_dir() and not any(folder.iterdir()):
             (folder / ".gitkeep").touch()
 
-    print(f"\n✅ Vault structure created at: {vault_path}")
+    content_types = config.get("content_types", {})
+    print(f"\n✅ Vault structure ready at: {vault_path}")
     print(f"   Content types: {len(content_types)}")
 
 
@@ -292,6 +281,19 @@ def generate_tag_taxonomy_md(vault_path: Path, config: dict[str, Any]) -> None:
     print(f"✅ Generated: {meta_folder}/{taxonomy_file}")
 
 
+async def async_main(args, config: dict, data_dir: Path, vault_path: Path) -> None:
+    """Async main for vault setup operations."""
+    if args.regenerate_taxonomy:
+        generate_tag_taxonomy_md(vault_path, config)
+    else:
+        if not args.skip_data_dirs:
+            create_data_directories(data_dir, config)
+
+        await create_vault_structure(vault_path, config)
+        create_obsidian_config(vault_path, config)
+        generate_tag_taxonomy_md(vault_path, config)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Create Obsidian vault structure")
     add_common_args(parser)
@@ -314,15 +316,7 @@ def main() -> None:
     print(f"   Vault path: {vault_path}")
     print()
 
-    if args.regenerate_taxonomy:
-        generate_tag_taxonomy_md(vault_path, config)
-    else:
-        if not args.skip_data_dirs:
-            create_data_directories(data_dir, config)
-
-        create_vault_structure(vault_path, config)
-        create_obsidian_config(vault_path, config)
-        generate_tag_taxonomy_md(vault_path, config)
+    asyncio.run(async_main(args, config, data_dir, vault_path))
 
     print("\n🎉 Vault structure setup complete!")
 

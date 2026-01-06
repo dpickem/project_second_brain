@@ -573,3 +573,39 @@ class LLMCostSummary(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+
+class SystemMeta(Base):
+    """
+    System metadata key-value store.
+
+    Stores system-level configuration and state that needs to persist
+    across restarts, such as:
+    - Last vault sync timestamp
+    - Schema version
+    - Feature flags
+
+    Attributes:
+        id: Primary key, auto-incrementing integer identifier.
+        key: Unique key name (e.g., "vault_last_sync_time", "schema_version").
+            Max 100 characters. Unique and indexed.
+        value: String value for the key. Can store JSON strings for complex data.
+        description: Human-readable description of what this key stores. Optional.
+        created_at: Timestamp when the key was first created.
+        updated_at: Timestamp of last update to this key.
+    """
+
+    __tablename__ = "system_meta"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # Key-value
+    key: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    value: Mapped[Optional[str]] = mapped_column(Text)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )

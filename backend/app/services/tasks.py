@@ -101,6 +101,7 @@ from app.pipelines import (
 )
 from app.db.models import ContentStatus
 from app.enums import ProcessingRunStatus
+from app.services.obsidian.sync import VaultSyncService
 from app.services.queue import celery_app
 from app.services.storage import load_content, update_content, update_status
 
@@ -574,6 +575,52 @@ def sync_github(limit: int = 50) -> dict[str, Any]:
         "repos_synced": len(items),
         "synced_at": datetime.utcnow().isoformat(),
     }
+
+
+# =============================================================================
+# Vault sync tasks
+# =============================================================================
+
+
+@celery_app.task(name="app.services.tasks.sync_vault_note")
+def sync_vault_note(note_path: str) -> dict[str, Any]:
+    """
+    Sync a single vault note to Neo4j knowledge graph.
+
+    Called by VaultWatcher when a note is created or modified in Obsidian.
+    Uses VaultSyncService to:
+    1. Parse frontmatter and extract metadata
+    2. Extract wikilinks and tags from content
+    3. Create/update Note node in Neo4j
+    4. Sync LINKS_TO relationships
+
+    Retry behavior: 3 attempts with exponential backoff (handled by Celery).
+    This is appropriate because Neo4j might be temporarily unavailable.
+
+    Args:
+        note_path: Absolute path to the markdown note file
+
+    Returns:
+        Dictionary with sync results (node_id, links_synced, tags)
+    """
+    logger.info(f"Syncing vault note: {note_path}")
+
+    async def run_sync():
+        sync_service = VaultSyncService()
+        result = await sync_service.sync_note(Path(note_path))
+        return result
+
+    try:
+        result = asyncio.run(run_sync())
+        logger.info(f"Vault note synced: {note_path}")
+        return result
+    except Exception as e:
+        logger.error(f"Failed to sync vault note {note_path}: {e}")
+        return {
+            "path": note_path,
+            "error": str(e),
+            "status": ProcessingRunStatus.FAILED.value,
+        }
 
 
 # =============================================================================
