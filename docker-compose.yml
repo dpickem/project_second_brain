@@ -118,6 +118,7 @@ x-common-env: &common-env
 x-shared-volumes: &shared-volumes
   - ${DATA_DIR:?DATA_DIR is required}/obsidian:/vault:rw
   - ${DATA_DIR:?DATA_DIR is required}/uploads:/uploads:rw
+  - ./config:/config:ro  # App configuration (content types, templates, taxonomy)
 
 services:
   # =============================================================================

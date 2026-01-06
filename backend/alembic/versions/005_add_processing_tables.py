@@ -1,7 +1,7 @@
 """Add processing tables for LLM pipeline
 
 Revision ID: 005_add_processing_tables
-Revises: 004_rename_content_id_in_llm_logs
+Revises: 004_rename_content_id
 Create Date: 2025-01-03
 
 This migration adds tables for storing LLM processing results:
@@ -20,7 +20,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "005_add_processing_tables"
-down_revision: Union[str, None] = "004_rename_content_id_in_llm_logs"
+down_revision: Union[str, None] = "004_rename_content_id"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

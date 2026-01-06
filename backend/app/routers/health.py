@@ -19,6 +19,7 @@ from app.config import settings
 from app.db.base import get_db
 from app.db.redis import get_redis
 from app.services.queue import celery_app
+from app.services.obsidian.lifecycle import get_watcher_status
 
 router = APIRouter(prefix="/api/health", tags=["health"])
 
@@ -45,7 +46,8 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
     - PostgreSQL database
     - Redis cache
     - Neo4j graph database
-    - Obsidian vault accessibility
+    - Obsidian vault accessibility (with note count)
+    - Vault watcher and sync services
     - Celery workers
     """
     health = {"status": "healthy", "service": settings.APP_NAME, "dependencies": {}}
@@ -84,10 +86,23 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
     try:
         vault_path = Path(settings.OBSIDIAN_VAULT_PATH)
         if vault_path.exists() and vault_path.is_dir():
-            health["dependencies"]["obsidian_vault"] = {
-                "status": "healthy",
-                "path": str(vault_path),
-            }
+            # Get vault stats if available
+            try:
+                from app.services.obsidian.vault import get_vault_manager
+
+                vault = get_vault_manager()
+                stats = await vault.get_vault_stats()
+                health["dependencies"]["obsidian_vault"] = {
+                    "status": "healthy",
+                    "path": str(vault_path),
+                    "total_notes": stats.get("total_notes", 0),
+                }
+            except Exception:
+                # Fallback to basic check if VaultManager fails
+                health["dependencies"]["obsidian_vault"] = {
+                    "status": "healthy",
+                    "path": str(vault_path),
+                }
         else:
             health["dependencies"]["obsidian_vault"] = {
                 "status": "unhealthy",
@@ -100,6 +115,22 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
             "error": str(e),
         }
         health["status"] = "degraded"
+
+    # Check Vault Watcher and Sync Services
+    try:
+        watcher_status = get_watcher_status()
+        health["dependencies"]["vault_watcher"] = {
+            "status": "healthy" if watcher_status["watcher_running"] else "stopped",
+            "watcher_running": watcher_status["watcher_running"],
+            "sync_enabled": watcher_status["sync_enabled"],
+            "watch_enabled": watcher_status["watch_enabled"],
+        }
+        # Watcher being stopped is not a degraded state - it's configurable
+    except Exception as e:
+        health["dependencies"]["vault_watcher"] = {
+            "status": "unknown",
+            "error": str(e),
+        }
 
     # Check Celery workers
     try:
