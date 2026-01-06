@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --host 0.0.0.0 --port 3000",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,css}\""
   },
@@ -34,6 +34,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "vite": "^5.1.0",
     "tailwindcss": "^3.4.1",
+    "@tailwindcss/typography": "^0.5.10",
     "postcss": "^8.4.35",
     "autoprefixer": "^10.4.17",
     "eslint": "^8.56.0",

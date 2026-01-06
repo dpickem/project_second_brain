@@ -9,20 +9,23 @@ Provides endpoints for:
 - Daily note creation
 - Quick inbox capture
 - Full vault sync to Neo4j
+- Note browsing and content retrieval
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel
-from typing import Optional
-from datetime import date
+from typing import Optional, List
+from datetime import date, datetime
 from pathlib import Path
 import logging
+import os
 
 from app.services.obsidian.vault import get_vault_manager, VaultManager
 from app.services.obsidian.indexer import FolderIndexer
 from app.services.obsidian.daily import DailyNoteGenerator
 from app.services.obsidian.sync import VaultSyncService, get_sync_status
 from app.services.obsidian.lifecycle import get_watcher_status
+from app.services.obsidian.frontmatter import parse_frontmatter
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +39,37 @@ class DailyNoteRequest(BaseModel):
 class InboxItemRequest(BaseModel):
     item: str
     date: Optional[str] = None
+
+
+class NoteInfo(BaseModel):
+    """Summary info for a note in the vault."""
+    path: str                       # Relative path from vault root
+    name: str                       # File name without extension
+    folder: str                     # Parent folder
+    modified: datetime              # Last modified time
+    size: int                       # File size in bytes
+    title: Optional[str] = None     # Title from frontmatter
+    tags: List[str] = []            # Tags from frontmatter
+    content_type: Optional[str] = None  # Content type if detected
+
+
+class NoteContent(BaseModel):
+    """Full note content with metadata."""
+    path: str
+    name: str
+    content: str                    # Full markdown content
+    frontmatter: dict = {}          # Parsed frontmatter
+    modified: datetime
+    size: int
+
+
+class NotesListResponse(BaseModel):
+    """Paginated list of notes."""
+    notes: List[NoteInfo]
+    total: int
+    page: int
+    page_size: int
+    has_more: bool
 
 
 @router.get("/status")
@@ -221,4 +255,192 @@ async def get_vault_sync_status():
         **sync_status,
         "last_sync_time": last_sync_time.isoformat() if last_sync_time else None,
     }
+
+
+# =============================================================================
+# Note Browsing Endpoints
+# =============================================================================
+
+
+@router.get("/notes", response_model=NotesListResponse)
+async def list_notes(
+    folder: Optional[str] = Query(None, description="Filter by folder path"),
+    search: Optional[str] = Query(None, description="Search in file names"),
+    tag: Optional[str] = Query(None, description="Filter by tag"),
+    content_type: Optional[str] = Query(None, description="Filter by content type"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=200, description="Notes per page"),
+    sort_by: str = Query("modified", description="Sort by: modified, name, size"),
+    sort_desc: bool = Query(True, description="Sort descending"),
+):
+    """List notes in the vault with filtering and pagination.
+    
+    Scans the vault for markdown files and returns metadata.
+    Supports filtering by folder, search term, tag, and content type.
+    """
+    try:
+        vault = get_vault_manager()
+        vault_path = vault.vault_path
+        
+        if not vault_path.exists():
+            raise HTTPException(status_code=404, detail="Vault not found")
+        
+        # Collect all markdown files
+        notes = []
+        search_path = vault_path / folder if folder else vault_path
+        
+        if not search_path.exists():
+            return NotesListResponse(
+                notes=[], total=0, page=page, page_size=page_size, has_more=False
+            )
+        
+        for md_file in search_path.rglob("*.md"):
+            # Skip hidden files and folders
+            if any(part.startswith(".") for part in md_file.parts):
+                continue
+            
+            rel_path = md_file.relative_to(vault_path)
+            
+            # Get file stats
+            stat = md_file.stat()
+            
+            # Try to parse frontmatter for metadata
+            note_title = None
+            note_tags = []
+            note_content_type = None
+            
+            try:
+                content = md_file.read_text(encoding="utf-8")
+                fm, _ = parse_frontmatter(content)
+                if fm:
+                    note_title = fm.get("title")
+                    note_tags = fm.get("tags", [])
+                    if isinstance(note_tags, str):
+                        note_tags = [note_tags]
+                    note_content_type = fm.get("type") or fm.get("content_type")
+            except Exception:
+                pass  # Skip frontmatter parsing errors
+            
+            # Apply search filter - check file name, title, and path
+            # Match if ANY significant search word appears in the searchable text
+            if search:
+                search_lower = search.lower()
+                searchable_text = f"{md_file.stem} {note_title or ''} {str(rel_path)}".lower()
+                
+                # Check if the full search term matches anywhere
+                full_match = search_lower in searchable_text
+                
+                # Also check if ANY significant word matches (for fuzzy matching)
+                search_words = [w for w in search_lower.split() if len(w) > 2]
+                any_word_match = search_words and any(word in searchable_text for word in search_words)
+                
+                if not (full_match or any_word_match):
+                    continue
+            
+            # Apply tag filter
+            if tag and tag not in note_tags:
+                continue
+            
+            # Apply content type filter
+            if content_type and note_content_type != content_type:
+                continue
+            
+            notes.append(NoteInfo(
+                path=str(rel_path),
+                name=md_file.stem,
+                folder=str(rel_path.parent) if rel_path.parent != Path(".") else "",
+                modified=datetime.fromtimestamp(stat.st_mtime),
+                size=stat.st_size,
+                title=note_title,
+                tags=note_tags,
+                content_type=note_content_type,
+            ))
+        
+        # Sort notes
+        if sort_by == "modified":
+            notes.sort(key=lambda n: n.modified, reverse=sort_desc)
+        elif sort_by == "name":
+            notes.sort(key=lambda n: n.name.lower(), reverse=sort_desc)
+        elif sort_by == "size":
+            notes.sort(key=lambda n: n.size, reverse=sort_desc)
+        
+        # Paginate
+        total = len(notes)
+        start = (page - 1) * page_size
+        end = start + page_size
+        paginated_notes = notes[start:end]
+        
+        return NotesListResponse(
+            notes=paginated_notes,
+            total=total,
+            page=page,
+            page_size=page_size,
+            has_more=end < total,
+        )
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error listing notes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/notes/{note_path:path}", response_model=NoteContent)
+async def get_note(note_path: str):
+    """Get the full content of a specific note.
+    
+    Args:
+        note_path: Relative path to the note from vault root (e.g., "papers/my-paper.md")
+    
+    Returns:
+        Full note content with parsed frontmatter.
+    """
+    try:
+        vault = get_vault_manager()
+        vault_path = vault.vault_path
+        
+        # Ensure path ends with .md
+        if not note_path.endswith(".md"):
+            note_path = note_path + ".md"
+        
+        file_path = vault_path / note_path
+        
+        # Security: Ensure path is within vault
+        try:
+            file_path.resolve().relative_to(vault_path.resolve())
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Note not found")
+        
+        # Read file
+        content = file_path.read_text(encoding="utf-8")
+        stat = file_path.stat()
+        
+        # Parse frontmatter
+        frontmatter = {}
+        try:
+            fm, _ = parse_frontmatter(content)
+            if fm:
+                frontmatter = fm
+        except Exception:
+            pass
+        
+        return NoteContent(
+            path=note_path,
+            name=file_path.stem,
+            content=content,
+            frontmatter=frontmatter,
+            modified=datetime.fromtimestamp(stat.st_mtime),
+            size=stat.st_size,
+        )
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error reading note {note_path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 

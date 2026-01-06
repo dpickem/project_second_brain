@@ -5,6 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    host: true
-  }
+    host: '0.0.0.0',  // Allow external connections (required for Docker)
+    watch: {
+      usePolling: true,  // Required for Docker volume mounts
+    },
+  },
 })

@@ -218,6 +218,9 @@ services:
       - backend
     ports:
       - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src:ro  # Hot reload for development
+    stdin_open: true  # Required for Vite HMR
 
 # =============================================================================
 # VARIABLE SYNTAX REFERENCE

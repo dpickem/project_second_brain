@@ -890,22 +890,86 @@ Key sources: Ericsson (2008) on Deliberate Practice, Bjork & Bjork (2011) on Des
 
 ## 🚀 Getting Started
 
+### Quick Start with Docker (Recommended)
+
+The easiest way to run the entire system is with Docker Compose:
+
 ```bash
 # Clone the repository
 git clone https://github.com/dpickem/dpickem_project_second_brain.git
 cd dpickem_project_second_brain
 
+# Create environment file from template
+cp .env.example .env
+
+# Edit .env with your configuration:
+# - DATA_DIR: Path for persistent data (required)
+# - POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB: Database credentials
+# - NEO4J_PASSWORD: Neo4j password
+# - OPENAI_API_KEY, MISTRAL_API_KEY, etc.: LLM API keys
+
+# Start all services
+docker-compose up -d
+
+# Check service status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+```
+
+### Access Points
+
+Once running, access the system at:
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Frontend** | http://localhost:3000 | Main web application |
+| **Knowledge Graph** | http://localhost:3000/graph | Interactive graph visualization |
+| **Backend API** | http://localhost:8000 | REST API endpoints |
+| **API Documentation** | http://localhost:8000/docs | Swagger/OpenAPI docs |
+| **Neo4j Browser** | http://localhost:7474 | Graph database UI |
+
+### Development Setup
+
+For local development without Docker:
+
+```bash
 # Set up Python environment
 python -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 
-# Configure API keys
-cp config/config.example.yaml config/config.yaml
-# Edit config.yaml with your API keys
+# Start backend
+cd backend
+uvicorn app.main:app --reload
 
-# Run initial sync
-python scripts/daily_sync.py
+# In a new terminal, start frontend
+cd frontend
+npm install
+npm run dev
+```
+
+### Useful Docker Commands
+
+```bash
+# Rebuild after code changes
+docker-compose up -d --build
+
+# Run database migrations
+docker-compose exec backend alembic upgrade head
+
+# View frontend logs
+docker-compose logs -f frontend
+
+# View backend logs
+docker-compose logs -f backend
+
+# Stop all services
+docker-compose down
+
+# Stop and remove all data (fresh start)
+docker-compose down -v
 ```
 
 ---

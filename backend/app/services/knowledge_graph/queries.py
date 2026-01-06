@@ -354,3 +354,131 @@ MERGE (source)-[r:LINKS_TO]->(target)
 SET r.synced_at = datetime()
 RETURN type(r) AS rel_type
 """
+
+
+# =============================================================================
+# Graph Visualization Queries
+# =============================================================================
+# Queries for the Graph Viewer UI - returning nodes and edges for D3/force-graph
+
+GET_VISUALIZATION_GRAPH = """
+MATCH (n)
+WHERE labels(n)[0] IN $node_types
+WITH n
+LIMIT $limit
+WITH collect(n) AS nodes_list
+UNWIND nodes_list AS n
+OPTIONAL MATCH (n)-[r]-(m)
+WHERE m IN nodes_list
+WITH n, r, m
+RETURN 
+    collect(DISTINCT {
+        id: COALESCE(n.id, toString(id(n))),
+        label: COALESCE(n.title, n.name, n.id, 'Unnamed'),
+        type: labels(n)[0],
+        content_type: n.type,
+        tags: COALESCE(n.tags, [])
+    }) AS nodes,
+    collect(DISTINCT CASE WHEN r IS NOT NULL THEN {
+        source: COALESCE(startNode(r).id, toString(id(startNode(r)))),
+        target: COALESCE(endNode(r).id, toString(id(endNode(r)))),
+        type: type(r),
+        strength: COALESCE(r.strength, 1.0)
+    } END) AS edges
+"""
+
+
+def get_centered_visualization_query(depth: int) -> str:
+    """Generate centered graph query with literal depth value.
+    
+    Neo4j doesn't allow parameters in relationship path lengths,
+    so we interpolate the depth value directly into the query.
+    
+    Args:
+        depth: Number of hops from center node to traverse (1-4)
+    
+    Returns:
+        Cypher query string with depth interpolated
+    """
+    return f"""
+MATCH (center {{id: $center_id}})
+CALL {{
+    WITH center
+    MATCH (center)-[r*1..{depth}]-(connected)
+    WHERE labels(connected)[0] IN $node_types
+    RETURN connected AS n, 2 AS priority
+    UNION
+    WITH center
+    RETURN center AS n, 1 AS priority
+}}
+WITH DISTINCT n, min(priority) AS p
+ORDER BY p
+LIMIT $limit
+WITH collect(n) AS nodes_list
+UNWIND nodes_list AS n
+OPTIONAL MATCH (n)-[r]-(m)
+WHERE m IN nodes_list
+WITH n, r, m
+RETURN 
+    collect(DISTINCT {{
+        id: COALESCE(n.id, toString(id(n))),
+        label: COALESCE(n.title, n.name, n.id, 'Unnamed'),
+        type: labels(n)[0],
+        content_type: n.type,
+        tags: COALESCE(n.tags, [])
+    }}) AS nodes,
+    collect(DISTINCT CASE WHEN r IS NOT NULL THEN {{
+        source: COALESCE(startNode(r).id, toString(id(startNode(r)))),
+        target: COALESCE(endNode(r).id, toString(id(endNode(r)))),
+        type: type(r),
+        strength: COALESCE(r.strength, 1.0)
+    }} END) AS edges
+"""
+
+
+GET_VISUALIZATION_STATS = """
+OPTIONAL MATCH (content:Content)
+WITH count(content) AS content_count
+OPTIONAL MATCH (concept:Concept)
+WITH content_count, count(concept) AS concept_count
+OPTIONAL MATCH (note:Note)
+WITH content_count, concept_count, count(note) AS note_count
+OPTIONAL MATCH ()-[r]->()
+WITH content_count, concept_count, note_count, count(r) AS rel_count
+OPTIONAL MATCH (c:Content)
+WITH content_count, concept_count, note_count, rel_count,
+     collect(COALESCE(c.type, 'unknown')) AS types
+RETURN 
+    content_count,
+    concept_count,
+    note_count,
+    rel_count,
+    types
+"""
+
+
+GET_NODE_DETAILS_BY_ID = """
+MATCH (n {id: $node_id})
+OPTIONAL MATCH (n)-[r]-()
+WITH n, count(r) AS connections
+RETURN {
+    id: n.id,
+    label: COALESCE(n.title, n.name, n.id),
+    type: labels(n)[0],
+    content_type: n.type,
+    summary: n.summary,
+    tags: COALESCE(n.tags, []),
+    source_url: n.source_url,
+    created_at: toString(n.created_at),
+    connections: connections,
+    file_path: n.file_path,
+    name: n.name
+} AS node
+"""
+
+
+GET_NODE_COUNT_BY_TYPES = """
+MATCH (n)
+WHERE labels(n)[0] IN $node_types
+RETURN count(n) AS total
+"""

@@ -27,6 +27,7 @@ from app.routers import (
     ingestion_router,
     processing_router,
     vault_router,
+    knowledge_router,
 )
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.services.obsidian.lifecycle import (
@@ -110,6 +111,7 @@ app.include_router(capture_router.router)
 app.include_router(ingestion_router.router)
 app.include_router(processing_router.router)
 app.include_router(vault_router.router)
+app.include_router(knowledge_router.router)
 
 # Neo4j driver (initialized if password is configured)
 _driver = None

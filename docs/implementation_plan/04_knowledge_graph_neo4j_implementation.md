@@ -31,8 +31,8 @@ Core Neo4j infrastructure has been implemented as part of Phase 3 (LLM Processin
 | Schema Definitions | ✅ Complete | `backend/app/services/knowledge_graph/schemas.py` |
 | Vault-to-Neo4j Sync | ✅ Complete | `backend/app/services/obsidian/sync.py` |
 | Pydantic Models | ⚪ Uses existing | `backend/app/models/processing.py` |
-| **Preliminary Graph UI** | 🔲 Next Up | `frontend/src/components/GraphViewer/` |
-| Graph API Endpoint | 🔲 Next Up | `backend/app/routers/knowledge.py` |
+| **Preliminary Graph UI** | ✅ Complete | `frontend/src/components/GraphViewer/` |
+| Graph API Endpoint | ✅ Complete | `backend/app/routers/knowledge.py` |
 | Knowledge API Router | 🔲 Not Started | Future: `backend/app/routers/knowledge.py` |
 | Advanced Query Service | 🔲 Not Started | Learning paths, prerequisites |
 | Graph Visualization Queries | 🔲 Not Started | Subgraph extraction |
@@ -442,7 +442,7 @@ The processing pipeline calls Neo4jClient methods to:
 
 ---
 
-### Phase 4B: Preliminary Graph Visualization UI (Week 13-14) — 🔲 Next Up
+### Phase 4B: Preliminary Graph Visualization UI (Week 13-14) — ✅ Complete
 
 **Why this matters:** A visual representation of the knowledge graph provides immediate value—users can see their knowledge growing, discover connections, and navigate between related content. This preliminary UI provides essential feedback while the full Knowledge Explorer is developed later.
 
@@ -541,11 +541,11 @@ RETURN
 ```
 
 **Deliverables:**
-- [ ] Create `backend/app/routers/knowledge.py` with `/graph` endpoint
-- [ ] Add graph response schemas
-- [ ] Add visualization query to `queries.py`
-- [ ] Register router in `main.py`
-- [ ] Add `/stats` endpoint for dashboard
+- [x] Create `backend/app/routers/knowledge.py` with `/graph` endpoint
+- [x] Add graph response schemas
+- [x] Add visualization query to `queries.py`
+- [x] Register router in `main.py`
+- [x] Add `/stats` endpoint for dashboard
 
 ---
 
@@ -704,12 +704,12 @@ export async function fetchGraphStats() {
 ```
 
 **Deliverables:**
-- [ ] Create `GraphViewer` component with force-directed layout
-- [ ] Implement node coloring by type
-- [ ] Add zoom/pan controls
-- [ ] Add node hover tooltips
-- [ ] Add legend for node types
-- [ ] Create data fetching hook with React Query
+- [x] Create `GraphViewer` component with force-directed layout
+- [x] Implement node coloring by type
+- [x] Add zoom/pan controls
+- [x] Add node hover tooltips
+- [x] Add legend for node types
+- [x] Create data fetching hook with React Query
 
 ---
 
@@ -810,11 +810,11 @@ export default function KnowledgeGraphPage() {
 ```
 
 **Deliverables:**
-- [ ] Create Knowledge Graph page with layout
-- [ ] Integrate GraphViewer component
-- [ ] Add stats sidebar with React Query
-- [ ] Add selected node details panel
-- [ ] Add route in React Router (`/graph`)
+- [x] Create Knowledge Graph page with layout
+- [x] Integrate GraphViewer component
+- [x] Add stats sidebar with React Query
+- [x] Add selected node details panel
+- [x] Add route in React Router (`/graph`)
 
 ---
 
@@ -846,9 +846,9 @@ app.include_router(knowledge.router)
 ```
 
 **Deliverables:**
-- [ ] Add `/graph` route to React Router
-- [ ] Add navigation link to Knowledge Graph
-- [ ] Register knowledge router in FastAPI
+- [x] Add `/graph` route to React Router
+- [x] Add navigation link to Knowledge Graph
+- [x] Register knowledge router in FastAPI
 - [ ] Test end-to-end graph loading
 
 ---
@@ -894,11 +894,11 @@ ctx.fillRect(node.x - 15, node.y - 15, 30, 30)
 ```
 
 **Deliverables:**
-- [ ] Apply dark theme to graph container
-- [ ] Add node glow effects
-- [ ] Style stats sidebar to match
-- [ ] Add subtle grid background
-- [ ] Ensure accessibility (color contrast)
+- [x] Apply dark theme to graph container
+- [x] Add node glow effects
+- [x] Style stats sidebar to match
+- [x] Add subtle grid background
+- [x] Ensure accessibility (color contrast)
 
 ---
 
@@ -1086,12 +1086,12 @@ tests/
 | Vector Search | Respects threshold | High | ✅ |
 | Sync | Note node created from vault file | High | ✅ |
 | Sync | LINKS_TO relationships synced | High | ✅ |
-| **Graph API** | `/graph` returns nodes and edges | High | 🔲 |
-| **Graph API** | `/stats` returns correct counts | High | 🔲 |
-| **Graph API** | Center node filtering works | Medium | 🔲 |
-| **Graph UI** | Graph renders without errors | High | 🔲 |
-| **Graph UI** | Nodes colored by type | Medium | 🔲 |
-| **Graph UI** | Click node shows details | Medium | 🔲 |
+| **Graph API** | `/graph` returns nodes and edges | High | ✅ |
+| **Graph API** | `/stats` returns correct counts | High | ✅ |
+| **Graph API** | Center node filtering works | Medium | ✅ |
+| **Graph UI** | Graph renders without errors | High | ✅ |
+| **Graph UI** | Nodes colored by type | Medium | ✅ |
+| **Graph UI** | Click node shows details | Medium | ✅ |
 | Queries | Path finding returns valid path | High | 🔲 |
 | Queries | Prerequisites ordered by depth | Medium | 🔲 |
 | API | Search returns valid SearchResult | High | 🔲 |
@@ -1126,8 +1126,8 @@ NEO4J_GRAPH_TRAVERSAL_DEPTH: int = 2
 - [x] Vector search returns relevant results
 - [x] Processing results import creates correct graph structure
 - [x] Vault sync updates tags and links bidirectionally
-- [ ] Graph API endpoint returns nodes and edges (next up)
-- [ ] Preliminary Graph UI renders knowledge graph (next up)
+- [x] Graph API endpoint returns nodes and edges
+- [x] Preliminary Graph UI renders knowledge graph
 - [ ] Knowledge API endpoints return valid responses (future)
 - [ ] Path queries find connections between concepts (future)
 
@@ -1135,13 +1135,13 @@ NEO4J_GRAPH_TRAVERSAL_DEPTH: int = 2
 - [x] Vector search < 100ms for 10 results
 - [x] Connection pool handles concurrent requests
 - [x] Import handles documents without failure
-- [ ] Graph renders smoothly with 100+ nodes (next up)
-- [ ] Graph API responds in < 500ms (next up)
+- [x] Graph renders smoothly with 100+ nodes
+- [x] Graph API responds in < 500ms
 
 ### Integration
 - [x] Integrates with LLM Processing Layer (Phase 3)
 - [x] Integrates with Obsidian Knowledge Hub (Phase 4)
-- [ ] Preliminary Graph UI loads from Neo4j (next up)
+- [x] Preliminary Graph UI loads from Neo4j
 - [ ] Provides data for full Knowledge Explorer UI (Phase 5)
 - [ ] Supports spaced repetition queries (future)
 
