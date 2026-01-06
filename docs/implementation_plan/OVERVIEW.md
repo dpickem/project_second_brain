@@ -18,9 +18,7 @@ This document provides the high-level implementation roadmap for the Second Brai
 | 3-4 | Knowledge Graph (Neo4j) | 7-14 | `04_knowledge_graph_neo4j_implementation.md` | ⬜ |
 | 4 | Knowledge Hub (Obsidian) | 11-14 | `03_knowledge_hub_obsidian_implementation.md` | ⬜ |
 | 5 | Knowledge Explorer UI | 15-17 | `05_knowledge_explorer_implementation.md` (planned) | ⬜ |
-| 6 | Practice Session UI | 18-21 | `06_practice_session_implementation.md` (planned) | ⬜ |
-| 7 | Spaced Repetition | 22-24 | `07_spaced_repetition_implementation.md` (planned) | ⬜ |
-| 8 | Analytics Dashboard | 25-27 | `08_analytics_implementation.md` (planned) | ⬜ |
+| 6-8 | **Learning System** | 18-29 | `05_learning_system_implementation.md` | ⬜ |
 | 9 | Learning Assistant | 28-30 | `09_learning_assistant_implementation.md` (planned) | ⬜ |
 | 10 | Polish & Production | Ongoing | `10_production_readiness.md` (planned) | ⬜ |
 
@@ -155,66 +153,31 @@ This document provides the high-level implementation roadmap for the Second Brai
 
 ---
 
-## Phase 6: Frontend — Practice Session (Weeks 18-21)
+## Phases 6-8: Learning System (Weeks 18-29)
 
-### Components (Research-Backed)
-- [ ] `<PracticeSession />` — Main practice container
-- [ ] `<FreeRecallPrompt />` — Generation effect (Bjork)
-- [ ] `<SelfExplainBox />` — Self-explanation prompts (Chi)
-- [ ] `<WorkedExampleViewer />` — For novice topics (Van Gog)
-- [ ] `<InterleavedQuestionSet />` — Mixed topic practice (Dunlosky)
-- [ ] `<ConfidenceSlider />` — Metacognition rating
-- [ ] `<FeedbackPanel />` — LLM-generated feedback
+> 📋 **Detailed Plan**: See [`05_learning_system_implementation.md`](./05_learning_system_implementation.md)
 
-### Backend API
-- [ ] `/api/practice/generate` — Exercise generation with difficulty adaptation
-- [ ] `/api/practice/submit` — Response evaluation
-- [ ] `/api/practice/feedback` — LLM feedback generation
-- [ ] `/api/practice/self-explain` — Store and analyze explanations
+The Learning System is the culmination of the Second Brain project, implementing research-backed techniques for knowledge retention and skill acquisition. This phase includes both **backend services** and **frontend UI**.
 
-### Backend Services
-- [ ] `exercise_generator.py` — LLM-based exercise creation
-- [ ] `mastery_tracker.py` — Track expertise per topic
+### Phase 6: Backend Foundation (Weeks 18-21)
+- [ ] FSRS spaced repetition algorithm implementation
+- [ ] Exercise generation system (6+ exercise types)
 - [ ] Adaptive difficulty based on mastery level
+- [ ] Code evaluation with Docker sandbox
+- [ ] LLM-powered response evaluation and feedback
 
----
+### Phase 7: Practice & Review (Weeks 22-25)
+- [ ] Practice session API and orchestration
+- [ ] Card management and FSRS scheduling
+- [ ] **Practice Session UI** (exercises, feedback, confidence)
+- [ ] **Review Queue UI** (flashcards, ratings, keyboard shortcuts)
 
-## Phase 7: Frontend — Spaced Repetition (Weeks 22-24)
-
-### Components
-- [ ] `<ReviewQueue />` — Due items list
-- [ ] `<ReviewCard />` — Flashcard interface
-- [ ] `<RatingButtons />` — Again/Hard/Good/Easy
-- [ ] `<SessionProgress />` — Cards completed, streak display
-
-### Backend API & Services
-- [ ] `/api/review/due` — Get due items (FSRS algorithm)
-- [ ] `/api/review/update` — Update card after review
-- [ ] `spaced_rep.py` — FSRS scheduling algorithm
-- [ ] Card generation from ingested content
-
----
-
-## Phase 8: Frontend — Analytics Dashboard (Weeks 25-27)
-
-### Components
-- [ ] `<AnalyticsDashboard />` — Main analytics view
-- [ ] `<MasteryHeatmap />` — Topic mastery treemap
-- [ ] `<LearningCurve />` — Time-series accuracy chart
-- [ ] `<WeakSpotsList />` — Low mastery topics with action buttons
-- [ ] `<StreakCalendar />` — GitHub-style contribution calendar
-- [ ] `<TimeInvestmentChart />` — Where time is spent
-
-### Backend API
-- [ ] `/api/analytics/mastery` — Mastery scores per topic
-- [ ] `/api/analytics/weak-spots` — Identify struggling areas
-- [ ] `/api/analytics/learning-curve` — Historical performance
-- [ ] `/api/analytics/time-spent` — Time tracking by activity
-
-### Database
-- [ ] `practice_attempts` table — Full attempt history
-- [ ] `mastery_snapshots` table — Daily mastery snapshots
-- [ ] Analytics queries and aggregations
+### Phase 8: Analytics & Polish (Weeks 26-29)
+- [ ] Mastery tracking service and daily snapshots
+- [ ] Weak spot detection
+- [ ] **Analytics Dashboard UI** (charts, progress visualization)
+- [ ] Learning curve visualization (Recharts)
+- [ ] Testing and integration
 
 ---
 
@@ -266,9 +229,7 @@ Use this section to track overall progress:
 | 3-4 - Knowledge Graph (Neo4j) | ⬜ Not Started | — | — | Plan ready |
 | 4 - Knowledge Hub (Obsidian) | ⬜ Not Started | — | — | Plan ready |
 | 5 - Knowledge Explorer | ⬜ Not Started | — | — | — |
-| 6 - Practice Session | ⬜ Not Started | — | — | — |
-| 7 - Spaced Repetition | ⬜ Not Started | — | — | — |
-| 8 - Analytics | ⬜ Not Started | — | — | — |
+| 6-8 - Learning System | ⬜ Not Started | — | — | Plan ready (backend + frontend) |
 | 9 - Learning Assistant | ⬜ Not Started | — | — | — |
 | 10 - Production | ⬜ Not Started | — | — | — |
 
