@@ -20,7 +20,7 @@
 | `/api/practice/*` | ✅ Implemented | Practice sessions, exercises, attempts |
 | `/api/review/*` | ✅ Implemented | Spaced rep cards, FSRS scheduling |
 | `/api/analytics/*` | ✅ Implemented | Mastery tracking, weak spots, learning curves |
-| `/api/assistant/*` | ⬜ Not Started | Chat interface, suggestions (Phase 9) |
+| `/api/assistant/*` | ⬜ Not Started | Chat interface with knowledge graph context (Phase 11) |
 
 ---
 
@@ -319,13 +319,15 @@ app = FastAPI(
 | `/time-investment` | GET | ⬜ | Time by topic (planned) |
 | `/streak` | GET | ⬜ | Practice streak (planned) |
 
-### 5.9 Assistant Router ⬜ (Planned - Phase 9)
+### 5.9 Assistant Router ⬜ (Planned - Phase 11)
 
 **Prefix**: `/api/assistant`
 
+Uses the existing Neo4j knowledge graph with vector embeddings for context retrieval.
+
 | Endpoint | Method | Status | Description |
 |----------|--------|--------|-------------|
-| `/chat` | POST | ⬜ | Chat with assistant |
+| `/chat` | POST | ⬜ | Chat with assistant (knowledge graph context) |
 | `/chat/stream` | POST | ⬜ | Streaming chat |
 | `/suggestions` | GET | ⬜ | Learning suggestions |
 | `/explain-connection` | POST | ⬜ | Explain graph connections |
@@ -415,9 +417,9 @@ scheduler = BackgroundScheduler()
 2. **Connection queries** - Related content lookup
 3. **Topic hierarchy** - Hierarchical topic browsing
 
-### Phase 9 (Learning Assistant)
-1. **Assistant Router** - Full chat interface
-2. **RAG Pipeline** - Query knowledge graph for context
+### Phase 11 (Learning Assistant)
+1. **Assistant Router** - Chat interface with knowledge graph context
+2. **Vector Search** - Leverage existing Neo4j embeddings for semantic retrieval
 3. **Suggestions** - Proactive learning recommendations
 
 ### Nice to Have

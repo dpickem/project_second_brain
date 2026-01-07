@@ -17,10 +17,13 @@ This document provides the high-level implementation roadmap for the Second Brai
 | 3 | LLM Processing | 7-10 | `02_llm_processing_implementation.md` | ✅ Complete |
 | 3-4 | Knowledge Graph (Neo4j) | 7-14 | `04_knowledge_graph_neo4j_implementation.md` | ✅ Complete |
 | 4 | Knowledge Hub (Obsidian) | 11-14 | `03_knowledge_hub_obsidian_implementation.md` | ✅ Complete |
-| 5 | Knowledge Explorer UI | 15-17 | (frontend needed) | 🟡 Partial |
+| 5 | Knowledge Explorer UI | 15-17 | `07_frontend_application_implementation.md` | 🟡 Partial |
 | 6-8 | **Learning System** | 18-29 | `05_learning_system_implementation.md` | ✅ Backend Complete |
-| 9 | Learning Assistant | 28-30 | `09_learning_assistant_implementation.md` (planned) | ⬜ Not Started |
-| 10 | Polish & Production | Ongoing | `10_production_readiness.md` (planned) | 🟡 Ongoing |
+| — | Backend API Completion | — | `06_backend_api_implementation.md` | 🟡 ~90% Complete |
+| 9 | **Frontend Application** | 30-38 | `07_frontend_application_implementation.md` | ⬜ Not Started |
+| 10 | **Mobile Capture (PWA)** | 39-42 | `08_mobile_capture_implementation.md` | ⬜ Not Started |
+| 11 | Learning Assistant | 43-46 | `11_learning_assistant_implementation.md` (planned) | ⬜ Not Started |
+| 12 | Polish & Production | Ongoing | `12_production_readiness.md` (planned) | 🟡 Ongoing |
 
 ---
 
@@ -144,12 +147,14 @@ This document provides the high-level implementation roadmap for the Second Brai
 
 ## Phase 5: Frontend — Knowledge Explorer (Weeks 15-17) 🟡 PARTIAL
 
+> 📋 **Detailed Plan**: See [`07_frontend_application_implementation.md`](./07_frontend_application_implementation.md) (Phase 9C)
+
 ### Components
 - [x] Basic `<GraphVisualization />` — D3-force graph rendering
 - [ ] `<KnowledgeExplorer />` — Main navigation view
-- [ ] `<TopicTree />` — Hierarchical topic browser
-- [ ] `<SearchBar />` — Semantic search interface
-- [ ] `<NoteViewer />` — Markdown note display
+- [ ] `<TopicTree />` — Hierarchical topic browser (Phase 9C.1)
+- [ ] `<CommandPalette />` — Global search with ⌘K (Phase 9C.2)
+- [ ] `<NoteViewer />` — Markdown note display (Phase 9C.3)
 
 ### Backend API
 - [x] `/api/knowledge/graph` — Graph data for visualization
@@ -179,19 +184,15 @@ The Learning System backend is fully implemented with all core services.
 - [x] Card management and FSRS scheduling (`services/learning/spaced_rep_service.py`)
 - [x] Review API (`routers/review.py`)
 
-### Phase 7: Practice & Review Frontend ⬜ NOT STARTED
-- [ ] **Practice Session UI** (exercises, feedback, confidence)
-- [ ] **Review Queue UI** (flashcards, ratings, keyboard shortcuts)
+### Phase 7-8: Learning System Frontend → See Phase 9
+> **Note**: All Learning System frontend tasks have been consolidated into Phase 9 (Frontend Application).
+> See [`07_frontend_application_implementation.md`](./07_frontend_application_implementation.md) Tasks 9H, 9I, 9J.
 
 ### Phase 8: Analytics Backend ✅ COMPLETE
 - [x] Mastery tracking service (`services/learning/mastery_service.py`)
 - [x] Weak spot detection
 - [x] Analytics API (`routers/analytics.py`)
 - [x] Learning curve data endpoint
-
-### Phase 8: Analytics Frontend ⬜ NOT STARTED
-- [ ] **Analytics Dashboard UI** (charts, progress visualization)
-- [ ] Learning curve visualization (Recharts)
 
 ### Testing ✅ COMPLETE
 - [x] Unit tests for FSRS algorithm
@@ -201,22 +202,75 @@ The Learning System backend is fully implemented with all core services.
 
 ---
 
-## Phase 9: Learning Assistant Chat (Weeks 28-30) ⬜ NOT STARTED
+## Phase 9: Frontend Application (Weeks 30-38) ⬜ NOT STARTED
 
-### Components
-- [ ] `<AssistantChat />` — Chat interface
-- [ ] `<ConnectionSuggestions />` — "Have you considered X relates to Y?"
-- [ ] `<StudyPlanGenerator />` — Personalized study recommendations
+> 📋 **Detailed Plan**: See [`07_frontend_application_implementation.md`](./07_frontend_application_implementation.md)
+
+The comprehensive frontend application phase covering **all remaining frontend work** (~129 hours):
+
+| Sub-Phase | Days | Focus |
+|-----------|------|-------|
+| 9A | 1-5 | Foundation & Design System (tokens, components) |
+| 9B | 6-10 | Dashboard Upgrade (stats, actions, streak calendar) |
+| 9C | 11-15 | Knowledge Explorer (TopicTree, CommandPalette, NoteViewer) |
+| 9D | 16-20 | Assistant Chat Interface |
+| 9E-9G | 21-27 | Custom Hooks, Navigation, Settings |
+| **9H** | 28-35 | **Practice Session UI** (exercises, feedback, confidence) |
+| **9I** | 36-40 | **Review Queue UI** (flashcards, FSRS ratings) |
+| **9J** | 41-45 | **Analytics Dashboard** (charts, mastery, weak spots) |
+
+---
+
+## Phase 10: Mobile Capture — PWA (Weeks 39-42) ⬜ NOT STARTED
+
+> 📋 **Detailed Plan**: See [`08_mobile_capture_implementation.md`](./08_mobile_capture_implementation.md)  
+> 📋 **Design Spec**: See [`../design_docs/08_mobile_capture.md`](../design_docs/08_mobile_capture.md)
+
+Progressive Web App for low-friction knowledge capture on mobile devices.
+
+### PWA Foundation
+- [ ] PWA manifest configuration (`public/manifest.json`)
+- [ ] Service Worker with offline queue (`public/sw.js`)
+- [ ] IndexedDB for offline capture storage
+- [ ] Background sync for queued uploads
+
+### Capture UI Components
+- [ ] `<MobileCapture />` — Main capture screen with 4 capture types
+- [ ] `<PhotoCapture />` — Camera capture for book pages, whiteboards
+- [ ] `<VoiceCapture />` — Voice memo recording with MediaRecorder API
+- [ ] `<TextCapture />` — Quick text notes
+- [ ] `<UrlCapture />` — URL/link saving
+
+### Share Target Integration
+- [ ] Share Target API registration in manifest
+- [ ] `<ShareTarget />` — Handle shared content from other apps
+- [ ] Support for shared URLs, text, and images
+
+### Offline Support
+- [ ] `useOnlineStatus()` hook — Network connectivity tracking
+- [ ] `usePendingCaptures()` hook — Offline queue status
+- [ ] `<OfflineBanner />` — Visual offline indicator
+- [ ] Automatic sync when connectivity restored
+
+### Mobile-Optimized Styles
+- [ ] Safe area insets for notched devices
+- [ ] Large touch targets (120px minimum)
+- [ ] Touch feedback animations
+- [ ] Dark theme for OLED battery savings
+
+---
+
+## Phase 11: Learning Assistant Backend (Weeks 43-46) ⬜ NOT STARTED
 
 ### Backend API & Services
-- [ ] `/api/assistant/chat` — Conversational interface
+- [ ] `/api/assistant/chat` — Conversational interface with RAG
 - [ ] `/api/assistant/suggest-connections` — Graph-based suggestions
 - [ ] `/api/assistant/study-plan` — Generate personalized plans
 - [ ] RAG pipeline over knowledge graph
 
 ---
 
-## Phase 10: Polish & Production (Ongoing) 🟡 IN PROGRESS
+## Phase 12: Polish & Production (Ongoing) 🟡 IN PROGRESS
 
 ### Automation
 - [x] Scheduled pipeline runs (APScheduler)
@@ -232,8 +286,7 @@ The Learning System backend is fully implemented with all core services.
 
 ### Mobile & UX
 - [ ] Responsive design for all components
-- [ ] Mobile capture workflow (see `design_docs/08_mobile_capture.md`)
-- [ ] PWA (Progressive Web App) support for offline access
+- [ ] Mobile capture workflow (see Phase 10 and `design_docs/08_mobile_capture.md`)
 - [ ] Keyboard shortcuts for power users
 
 ---
@@ -249,8 +302,10 @@ The Learning System backend is fully implemented with all core services.
 | 4 - Knowledge Hub | ✅ Complete | Dec 2024 | Jan 2025 | Full Obsidian integration |
 | 5 - Knowledge Explorer | 🟡 Partial | Jan 2025 | — | Basic graph viz only |
 | 6-8 - Learning System | ✅ Backend | Jan 2026 | Jan 2026 | Backend complete, frontend needed |
-| 9 - Learning Assistant | ⬜ Not Started | — | — | — |
-| 10 - Production | 🟡 In Progress | Ongoing | — | Logging, cost tracking done |
+| 9 - Frontend Application | ⬜ Not Started | — | — | See `07_frontend_application_implementation.md` |
+| 10 - Mobile Capture (PWA) | ⬜ Not Started | — | — | See `08_mobile_capture_implementation.md` |
+| 11 - Learning Assistant | ⬜ Not Started | — | — | — |
+| 12 - Production | 🟡 In Progress | Ongoing | — | Logging, cost tracking done |
 
 **Legend**: ⬜ Not Started | 🟡 In Progress | ✅ Complete
 
@@ -258,20 +313,43 @@ The Learning System backend is fully implemented with all core services.
 
 ## Next Steps (Recommended Priority)
 
-### 1. Learning System Frontend (High Priority)
-The backend is fully implemented. The next milestone should be:
-- Practice Session UI
-- Review Queue UI  
-- Analytics Dashboard
+### 1. Frontend Application Implementation (High Priority)
 
-### 2. Knowledge Explorer Enhancement (Medium Priority)
-- Semantic search endpoint
-- Topic hierarchy browser
-- Note viewer component
+> 📋 **Detailed Plan**: See [`07_frontend_application_implementation.md`](./07_frontend_application_implementation.md)
 
-### 3. Learning Assistant (Future)
-- Chat interface with RAG
+The backend is fully implemented. The comprehensive frontend plan covers:
+
+**Phase 9A-9G: Core Application** (Days 1-27, 76h)
+- Foundation & Design System (tokens, components, animations)
+- Dashboard upgrade (stats, actions, streak calendar)
+- Knowledge Explorer (TopicTree, CommandPalette, NoteViewer)
+- Assistant Chat Interface
+- Custom hooks, navigation, settings
+
+**Phase 9H-9J: Learning System Frontend** (Days 28-45, 53h)
+- **Practice Session UI** — ExerciseCard, ResponseInput, FeedbackDisplay, Monaco editor
+- **Review Queue UI** — FlashCard, RatingButtons, FSRS interval preview
+- **Analytics Dashboard** — MasteryOverview, LearningCurve, WeakSpotsPanel
+
+**Total Estimated:** 129 hours (45 days)
+
+### 2. Mobile Capture PWA (Phase 10)
+
+> 📋 **Detailed Plan**: See [`08_mobile_capture_implementation.md`](./08_mobile_capture_implementation.md)
+
+- Progressive Web App for on-the-go capture
+- Offline-first with background sync
+- Share Target integration for seamless capture from other apps
+- **Estimated**: 56 hours across 14 days
+
+### 3. Learning Assistant Backend (Phase 11)
+- Chat endpoint with RAG over knowledge graph
 - Connection suggestions
+- Study plan generation
+
+### 4. Production Readiness (Ongoing)
+- Error monitoring (Sentry)
+- CI/CD pipeline
 
 ---
 
@@ -279,5 +357,9 @@ The backend is fully implemented. The next milestone should be:
 
 - `../design_docs/00_system_overview.md` — High-level system architecture
 - `../design_docs/06_backend_api.md` — Backend API design (updated with implementation status)
+- `../design_docs/07_frontend_application.md` — Frontend application design specification
+- `../design_docs/08_mobile_capture.md` — Mobile capture PWA design specification
+- `07_frontend_application_implementation.md` — Comprehensive frontend implementation plan
+- `08_mobile_capture_implementation.md` — Mobile capture PWA implementation plan
 - `../README.md` — Project overview and vision
 - `../LEARNING_THEORY.md` — Research foundations for learning system
