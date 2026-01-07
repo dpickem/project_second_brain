@@ -72,7 +72,7 @@ from app.models.content import (
     ContentType,
     UnifiedContent,
 )
-from app.pipelines.utils.cost_types import LLMUsage
+from app.models.llm_usage import LLMUsage
 from app.pipelines.base import (
     BasePipeline,
     PipelineRegistry,

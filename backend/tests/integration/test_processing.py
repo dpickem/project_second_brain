@@ -33,7 +33,7 @@ from app.models.processing import (
     FollowupTask,
     MasteryQuestion,
 )
-from app.pipelines.utils.cost_types import LLMUsage
+from app.models.llm_usage import LLMUsage
 from app.services.processing import process_content, PipelineConfig
 from app.services.processing.stages import (
     analyze_content,

@@ -19,11 +19,13 @@ from app.db.models import (
     Annotation,
     Content,
     ContentStatus,
+    Tag,
+)
+from app.db.models_learning import (
     MasterySnapshot,
     PracticeAttempt,
     PracticeSession,
     SpacedRepCard,
-    Tag,
 )
 
 
@@ -310,12 +312,12 @@ class TestSpacedRepCardModel:
         await clean_db.refresh(card)
 
         assert card.id is not None
-        assert card.ease_factor == 2.5  # Default
-        assert card.interval_days == 1  # Default
+        assert card.stability == 0.0  # FSRS default
+        assert card.difficulty == 0.3  # FSRS default
 
     @pytest.mark.asyncio
     async def test_card_defaults(self, clean_db: AsyncSession) -> None:
-        """Cards should have sensible SM-2 defaults."""
+        """Cards should have sensible FSRS defaults."""
         card = SpacedRepCard(
             card_type="question",
             front="Q",
@@ -325,8 +327,9 @@ class TestSpacedRepCardModel:
         await clean_db.commit()
         await clean_db.refresh(card)
 
-        assert card.ease_factor == 2.5
-        assert card.interval_days == 1
+        assert card.stability == 0.0  # FSRS: memory stability in days
+        assert card.difficulty == 0.3  # FSRS: difficulty 0-1
+        assert card.scheduled_days == 0  # FSRS: days until next review
         assert card.repetitions == 0
         assert card.total_reviews == 0
         assert card.correct_reviews == 0

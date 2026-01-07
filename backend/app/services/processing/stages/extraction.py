@@ -22,7 +22,7 @@ from app.models.content import UnifiedContent
 from app.models.processing import Concept, ExtractionResult, ContentAnalysis
 from app.enums.pipeline import PipelineOperation
 from app.enums.processing import ConceptImportance
-from app.pipelines.utils.cost_types import LLMUsage
+from app.models.llm_usage import LLMUsage
 from app.services.llm.client import LLMClient
 from app.config.processing import processing_settings
 

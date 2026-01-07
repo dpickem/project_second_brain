@@ -1,32 +1,16 @@
 """
 LLM Usage and Cost Tracking Types
 
-Defines the LLMUsage dataclass and helper functions for extracting
-cost/token information from LiteLLM responses.
-
-This module is separate from vlm_client.py and mistral_ocr_client.py to maintain
-clear separation between the completion wrapper functions and the cost tracking
-data structures.
+Defines the LLMUsage dataclass for tracking LLM API costs and token usage.
+This module is intentionally kept dependency-light to avoid circular imports.
 
 Usage:
-    from app.enums import PipelineName, PipelineOperation
-    from app.pipelines.utils.cost_types import LLMUsage, extract_usage_from_response
-
-    usage = extract_usage_from_response(
-        response=litellm_response,
-        model="mistral/mistral-ocr-latest",
-        request_type="vision",
-        latency_ms=1234,
-        pipeline=PipelineName.BOOK_OCR,
-        operation=PipelineOperation.PAGE_EXTRACTION
-    )
+    from app.models.llm_usage import LLMUsage, extract_usage_from_response
 """
 
 import uuid
 from dataclasses import dataclass, field, asdict
 from typing import Optional
-
-import litellm
 
 
 @dataclass
@@ -84,10 +68,7 @@ class LLMUsage:
     error_message: Optional[str] = None
 
     def to_dict(self) -> dict:
-        """Convert to dictionary for database storage or serialization.
-
-        This is a convenience wrapper around dataclasses.asdict().
-        """
+        """Convert to dictionary for database storage or serialization."""
         return asdict(self)
 
     @property
@@ -177,17 +158,6 @@ def extract_usage_from_response(
             usage.input_cost_usd = additional.get("input_cost")
             usage.output_cost_usd = additional.get("output_cost")
 
-    # Fallback: calculate cost using litellm.completion_cost if not in response
-    if usage.cost_usd is None and usage.total_tokens:
-        try:
-            usage.cost_usd = litellm.completion_cost(
-                model=model,
-                prompt="",  # We don't have the original prompt here
-                completion=response.choices[0].message.content or "",
-            )
-        except Exception:
-            pass  # Cost calculation not available for this model
-
     return usage
 
 
@@ -226,3 +196,4 @@ def create_error_usage(
         content_id=content_id,
         operation=operation,
     )
+

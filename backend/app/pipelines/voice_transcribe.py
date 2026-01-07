@@ -44,7 +44,7 @@ from app.models.content import (
 )
 from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
 from app.enums.pipeline import PipelineName, PipelineOperation
-from app.pipelines.utils.cost_types import (
+from app.models.llm_usage import (
     LLMUsage,
     extract_provider,
     create_error_usage,

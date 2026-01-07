@@ -34,7 +34,7 @@ from app.models.content import (
 )
 from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
 from app.enums.pipeline import PipelineName
-from app.pipelines.utils.cost_types import LLMUsage
+from app.models.llm_usage import LLMUsage
 from app.pipelines.utils.mistral_ocr_client import (
     get_default_ocr_model,
     ocr_pdf_document_annotated,

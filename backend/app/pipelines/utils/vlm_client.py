@@ -47,7 +47,7 @@ from litellm import acompletion, completion
 
 from app.config.settings import settings
 from app.pipelines.utils.api_utils import adjust_temperature_for_model
-from app.pipelines.utils.cost_types import (
+from app.models.llm_usage import (
     LLMUsage,
     create_error_usage,
     extract_usage_from_response,

@@ -95,7 +95,7 @@ def mock_task_session_maker():
 @pytest.fixture
 def mock_llm_client():
     """Create a mock LLM client for pipeline testing."""
-    from app.pipelines.utils.cost_types import LLMUsage
+    from app.models.llm_usage import LLMUsage
 
     mock_client = AsyncMock()
 
@@ -152,7 +152,7 @@ def mock_llm_client():
 @pytest.fixture
 def mock_vision_completion():
     """Mock for vision model completions (OCR)."""
-    from app.pipelines.utils.cost_types import LLMUsage
+    from app.models.llm_usage import LLMUsage
 
     async def mock_completion(**kwargs):
         response = json.dumps(
@@ -210,7 +210,7 @@ def mock_ocr_result():
         ImageInfo,
         DocumentAnnotation,
     )
-    from app.pipelines.utils.cost_types import LLMUsage
+    from app.models.llm_usage import LLMUsage
 
     page1_markdown = "# Test Document\n\nThis is the content of page 1.\n\n## Section 1\n\nSome important text here."
     page2_markdown = "## Section 2\n\nMore content on page 2. This contains references and citations."

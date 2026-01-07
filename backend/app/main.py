@@ -28,8 +28,10 @@ from app.routers import (
     processing_router,
     vault_router,
     knowledge_router,
+    practice_router,
+    review_router,
+    analytics_router,
 )
-from app.services.scheduler import start_scheduler, stop_scheduler
 from app.services.obsidian.lifecycle import (
     startup_vault_services,
     shutdown_vault_services,
@@ -49,8 +51,9 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Second Brain API...")
 
-    # Start scheduler for periodic syncs
+    # Start scheduler for periodic syncs (lazy import to avoid test failures)
     try:
+        from app.services.scheduler import start_scheduler
         start_scheduler()
         logger.info("Scheduler started")
     except Exception as e:
@@ -80,6 +83,7 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Failed to stop vault services: {e}")
 
     try:
+        from app.services.scheduler import stop_scheduler
         stop_scheduler()
     except Exception:
         pass
@@ -112,6 +116,9 @@ app.include_router(ingestion_router.router)
 app.include_router(processing_router.router)
 app.include_router(vault_router.router)
 app.include_router(knowledge_router.router)
+app.include_router(practice_router.router)
+app.include_router(review_router.router)
+app.include_router(analytics_router.router)
 
 # Neo4j driver (initialized if password is configured)
 _driver = None
@@ -178,5 +185,9 @@ async def root():
             "ingestion": "/api/ingestion",
             "processing": "/api/processing",
             "health": "/api/health",
+            "knowledge": "/api/knowledge",
+            "practice": "/api/practice",
+            "review": "/api/review",
+            "analytics": "/api/analytics",
         },
     }

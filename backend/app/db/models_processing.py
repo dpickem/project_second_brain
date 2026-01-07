@@ -31,7 +31,7 @@ Tables:
 - followup_tasks: Generated follow-up tasks
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 import uuid
 
@@ -49,6 +49,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.enums import ConceptImportance
+
+
+def _utc_now() -> datetime:
+    """Return current UTC time as timezone-aware datetime."""
+    return datetime.now(timezone.utc)
 
 
 class ProcessingRun(Base):
@@ -94,8 +99,8 @@ class ProcessingRun(Base):
     status: Mapped[str] = mapped_column(
         String(20), default="pending", index=True
     )  # pending, processing, completed, failed
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     # Analysis results (stored as JSON for flexibility)
     analysis: Mapped[Optional[dict]] = mapped_column(JSONB)
@@ -272,13 +277,13 @@ class QuestionRecord(Base):
     hints: Mapped[Optional[list]] = mapped_column(ARRAY(String))
     key_points: Mapped[Optional[list]] = mapped_column(ARRAY(String))
 
-    # Spaced repetition state
-    next_review_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    # Spaced repetition state (timezone-aware UTC)
+    next_review_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     review_count: Mapped[int] = mapped_column(Integer, default=0)
     ease_factor: Mapped[float] = mapped_column(Float, default=2.5)
 
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Timestamps (timezone-aware UTC)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
 
     # Relationship
     processing_run: Mapped["ProcessingRun"] = relationship(back_populates="questions")
@@ -325,12 +330,12 @@ class FollowupRecord(Base):
         String(20), default="30min"
     )  # 15min, 30min, 1hr, 2hr+
 
-    # Completion tracking
+    # Completion tracking (timezone-aware UTC)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Timestamps (timezone-aware UTC)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
 
     # Relationship
     processing_run: Mapped["ProcessingRun"] = relationship(back_populates="followups")

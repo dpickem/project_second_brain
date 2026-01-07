@@ -2,21 +2,22 @@
 SQLAlchemy Database Models
 
 These models define the PostgreSQL schema for the Second Brain system.
-They track content metadata, learning progress, and user interactions.
+They track content metadata and system configuration.
 
 Tables:
 - content: Ingested content (papers, articles, etc.)
 - annotations: User annotations on content
 - tags: Tag definitions
-- content_tags: Many-to-many relationship
-- practice_sessions: Learning sessions
-- practice_attempts: Individual practice attempts
-- spaced_rep_cards: Spaced repetition cards
-- mastery_snapshots: Progress tracking
+- llm_usage_logs: LLM API usage tracking
+- llm_cost_summaries: Aggregated cost reports
+- system_meta: System configuration key-value store
+
+Learning system models (practice_sessions, practice_attempts, spaced_rep_cards,
+mastery_snapshots, exercises, exercise_attempts) are defined in models_learning.py.
 """
 
-from datetime import datetime
-from typing import Optional, List
+from datetime import datetime, timezone
+from typing import Optional, List, TYPE_CHECKING
 from sqlalchemy import (
     String,
     Text,
@@ -31,6 +32,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 import enum
+
+
+def _utc_now() -> datetime:
+    """Return current UTC time as timezone-aware datetime."""
+    return datetime.now(timezone.utc)
+
+if TYPE_CHECKING:
+    from app.db.models_learning import SpacedRepCard
 
 
 class ContentStatus(enum.Enum):
@@ -117,11 +126,11 @@ class Content(Base):
     # Metadata
     metadata_json: Mapped[Optional[dict]] = mapped_column(JSON)
 
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    # Timestamps (timezone-aware UTC)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime(timezone=True), default=_utc_now, onupdate=_utc_now
     )
 
     # Relationships
@@ -171,8 +180,8 @@ class Annotation(Base):
     is_handwritten: Mapped[bool] = mapped_column(Boolean, default=False)
     ocr_confidence: Mapped[Optional[float]] = mapped_column(Float)
 
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Timestamps (timezone-aware UTC)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
 
     # Relationships
     content: Mapped["Content"] = relationship(back_populates="annotations")
@@ -201,207 +210,8 @@ class Tag(Base):
     name: Mapped[str] = mapped_column(String(100), unique=True)
     description: Mapped[Optional[str]] = mapped_column(Text)
 
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-
-class PracticeSession(Base):
-    """
-    Learning practice sessions.
-
-    Groups practice attempts into sessions for tracking
-    learning progress over time.
-
-    Attributes:
-        id: Primary key, auto-incrementing integer identifier.
-        session_type: Type of practice session (e.g., "review" for scheduled spaced
-            repetition reviews, "quiz" for self-assessment, "exercise" for hands-on
-            practice). Max 50 characters.
-        started_at: Timestamp when the session began. Defaults to current time.
-        ended_at: Timestamp when the session was completed. Null if session is
-            still in progress or was abandoned.
-        total_cards: Total number of cards presented during this session.
-            Updated as cards are shown. Defaults to 0.
-        correct_count: Number of cards answered correctly in this session.
-            Used for calculating session accuracy. Defaults to 0.
-        attempts: List of individual PracticeAttempt records for each card
-            reviewed in this session.
-    """
-
-    __tablename__ = "practice_sessions"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    # Session details
-    session_type: Mapped[str] = mapped_column(String(50))
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-
-    # Stats
-    total_cards: Mapped[int] = mapped_column(Integer, default=0)
-    correct_count: Mapped[int] = mapped_column(Integer, default=0)
-
-    # Relationships
-    attempts: Mapped[List["PracticeAttempt"]] = relationship(back_populates="session")
-
-
-class PracticeAttempt(Base):
-    """
-    Individual practice attempts within a session.
-
-    Records each attempt at answering a question or completing
-    an exercise during a practice session.
-
-    Attributes:
-        id: Primary key, auto-incrementing integer identifier.
-        session_id: Foreign key reference to the parent PracticeSession.
-        card_id: Foreign key reference to the SpacedRepCard being practiced.
-        response: User's response/answer to the card prompt. Optional, may be
-            null for cards graded by self-assessment only.
-        is_correct: Whether the attempt was marked as correct. Optional, may be
-            null if not yet graded or for open-ended responses.
-        confidence: User's self-reported confidence level (1-5 scale, where 1 is
-            "complete guess" and 5 is "absolutely certain"). Used to calibrate
-            spaced repetition intervals. Optional.
-        time_taken_seconds: Time in seconds from card presentation to response
-            submission. Useful for identifying struggling concepts. Optional.
-        attempted_at: Timestamp when the attempt was recorded. Defaults to current time.
-        session: Reference to the parent PracticeSession this attempt belongs to.
-        card: Reference to the SpacedRepCard that was practiced.
-    """
-
-    __tablename__ = "practice_attempts"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("practice_sessions.id"))
-    card_id: Mapped[int] = mapped_column(ForeignKey("spaced_rep_cards.id"))
-
-    # Attempt details
-    response: Mapped[Optional[str]] = mapped_column(Text)
-    is_correct: Mapped[Optional[bool]] = mapped_column(Boolean)
-    confidence: Mapped[Optional[int]] = mapped_column(Integer)
-    time_taken_seconds: Mapped[Optional[int]] = mapped_column(Integer)
-
-    # Timestamps
-    attempted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    session: Mapped["PracticeSession"] = relationship(back_populates="attempts")
-    card: Mapped["SpacedRepCard"] = relationship(back_populates="attempts")
-
-
-class SpacedRepCard(Base):
-    """
-    Spaced repetition cards.
-
-    Cards are generated from content and used for spaced
-    repetition learning. Uses a simplified SM-2 algorithm.
-
-    Attributes:
-        id: Primary key, auto-incrementing integer identifier.
-        content_id: Foreign key reference to source Content. Optional, as cards may
-            be created independently (e.g., manually authored cards).
-        card_type: Type of card determining presentation format (e.g., "concept" for
-            term/definition, "question" for Q&A, "cloze" for fill-in-the-blank).
-            Max 50 characters.
-        front: Front side of the card - the question, prompt, or incomplete statement.
-            Displayed first during review.
-        back: Back side of the card - the answer, definition, or completed statement.
-            Revealed after user responds.
-        hints: JSON array of progressive hints (e.g., ["Think about X", "Related to Y"]).
-            User can request hints during review. Optional.
-        ease_factor: SM-2 algorithm ease factor, indicates card difficulty. Range 1.3-2.5+.
-            Higher values mean longer intervals. Defaults to 2.5 (easy). Adjusted based
-            on review performance.
-        interval_days: Current interval in days until next review. After successful
-            review, multiplied by ease_factor. Defaults to 1 day.
-        repetitions: Count of consecutive successful reviews. Resets to 0 on incorrect
-            answer. Used by SM-2 to determine interval progression. Defaults to 0.
-        due_date: Date/time when card is next due for review. Cards with due_date <= now
-            appear in review queue. Defaults to creation time (immediately due).
-        last_reviewed: Timestamp of most recent review. Null if never reviewed.
-        total_reviews: Cumulative count of all review attempts for this card.
-            Defaults to 0.
-        correct_reviews: Cumulative count of correct review attempts. Used to calculate
-            historical accuracy. Defaults to 0.
-        created_at: Timestamp when the card was created.
-        content: Reference to source Content this card was generated from. Optional.
-        attempts: List of all PracticeAttempt records for this card's review history.
-    """
-
-    __tablename__ = "spaced_rep_cards"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    content_id: Mapped[Optional[int]] = mapped_column(ForeignKey("content.id"))
-
-    # Card content
-    card_type: Mapped[str] = mapped_column(String(50))
-    front: Mapped[str] = mapped_column(Text)
-    back: Mapped[str] = mapped_column(Text)
-    hints: Mapped[Optional[list]] = mapped_column(JSON)
-
-    # Spaced repetition state (SM-2 algorithm)
-    ease_factor: Mapped[float] = mapped_column(Float, default=2.5)
-    interval_days: Mapped[int] = mapped_column(Integer, default=1)
-    repetitions: Mapped[int] = mapped_column(Integer, default=0)
-
-    # Scheduling
-    due_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    last_reviewed: Mapped[Optional[datetime]] = mapped_column(DateTime)
-
-    # Stats
-    total_reviews: Mapped[int] = mapped_column(Integer, default=0)
-    correct_reviews: Mapped[int] = mapped_column(Integer, default=0)
-
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    content: Mapped[Optional["Content"]] = relationship(back_populates="cards")
-    attempts: Mapped[List["PracticeAttempt"]] = relationship(back_populates="card")
-
-
-class MasterySnapshot(Base):
-    """
-    Progress tracking snapshots.
-
-    Periodic snapshots of learning progress for analytics
-    and visualization.
-
-    Attributes:
-        id: Primary key, auto-incrementing integer identifier.
-        snapshot_date: Timestamp when this snapshot was captured. Defaults to
-            current time. Used for time-series analysis of learning progress.
-        tag_id: Foreign key reference to Tag for topic-specific snapshots. Optional;
-            if null, represents overall/global mastery metrics.
-        total_cards: Total number of cards in scope (global or for specific tag)
-            at snapshot time. Defaults to 0.
-        mastered_cards: Number of cards considered "mastered" (e.g., interval > 21 days
-            and high accuracy). Defaults to 0.
-        learning_cards: Number of cards actively being learned (reviewed at least once
-            but not yet mastered). Defaults to 0.
-        new_cards: Number of cards never reviewed (created but unseen). Defaults to 0.
-            Note: total_cards = mastered_cards + learning_cards + new_cards.
-        mastery_score: Calculated mastery percentage (0-100). Typically computed as
-            weighted combination of card states and accuracy. Defaults to 0.0.
-    """
-
-    __tablename__ = "mastery_snapshots"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    # Snapshot details
-    snapshot_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    tag_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tags.id"))
-
-    # Metrics
-    total_cards: Mapped[int] = mapped_column(Integer, default=0)
-    mastered_cards: Mapped[int] = mapped_column(Integer, default=0)
-    learning_cards: Mapped[int] = mapped_column(Integer, default=0)
-    new_cards: Mapped[int] = mapped_column(Integer, default=0)
-
-    # Calculated mastery score (0-100)
-    mastery_score: Mapped[float] = mapped_column(Float, default=0.0)
+    # Timestamps (timezone-aware UTC)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
 
 
 class LLMUsageLog(Base):
@@ -511,9 +321,9 @@ class LLMUsageLog(Base):
     success: Mapped[bool] = mapped_column(Boolean, default=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text)
 
-    # Timestamps
+    # Timestamps (timezone-aware UTC)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, index=True
+        DateTime(timezone=True), default=_utc_now, index=True
     )
 
     # Relationships (uses db_content_id FK)
@@ -554,10 +364,10 @@ class LLMCostSummary(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    # Time period
+    # Time period (timezone-aware UTC)
     period_type: Mapped[str] = mapped_column(String(10), index=True)
-    period_start: Mapped[datetime] = mapped_column(DateTime, index=True)
-    period_end: Mapped[datetime] = mapped_column(DateTime)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     # Aggregations
     total_cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
@@ -568,10 +378,10 @@ class LLMCostSummary(Base):
     cost_by_model: Mapped[Optional[dict]] = mapped_column(JSON)
     cost_by_pipeline: Mapped[Optional[dict]] = mapped_column(JSON)
 
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Timestamps (timezone-aware UTC)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime(timezone=True), default=_utc_now, onupdate=_utc_now
     )
 
 
@@ -604,8 +414,8 @@ class SystemMeta(Base):
     value: Mapped[Optional[str]] = mapped_column(Text)
     description: Mapped[Optional[str]] = mapped_column(Text)
 
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Timestamps (timezone-aware UTC)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime(timezone=True), default=_utc_now, onupdate=_utc_now
     )

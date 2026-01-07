@@ -22,7 +22,7 @@ from typing import Optional
 from app.models.content import UnifiedContent
 from app.models.processing import Connection, ExtractionResult, ContentAnalysis
 from app.enums import PipelineOperation, RelationshipType, NodeType
-from app.pipelines.utils.cost_types import LLMUsage
+from app.models.llm_usage import LLMUsage
 from app.services.llm.client import LLMClient
 from app.services.knowledge_graph.client import Neo4jClient
 from app.config.processing import processing_settings

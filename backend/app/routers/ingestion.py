@@ -6,6 +6,7 @@ Administrative endpoints for managing content ingestion:
 - Check processing status
 - View queue statistics
 - Manage scheduled jobs
+- Sync tag taxonomy
 
 Endpoints:
 - POST /api/ingestion/raindrop/sync - Trigger Raindrop sync
@@ -13,6 +14,7 @@ Endpoints:
 - GET /api/ingestion/status/{content_id} - Get processing status
 - GET /api/ingestion/queue/stats - Get queue statistics
 - GET /api/ingestion/scheduled - List scheduled jobs
+- POST /api/ingestion/taxonomy/sync - Sync tag taxonomy from YAML to DB
 
 Usage:
     # Trigger Raindrop sync for last 7 days
@@ -23,13 +25,16 @@ Usage:
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.base import get_db
 from app.services.tasks import sync_raindrop, sync_github
 from app.services.storage import get_pending_content, load_content
 from app.services.queue import get_queue_stats
 from app.services.scheduler import get_scheduled_jobs, trigger_job_now
+from app.services.tag_service import TagService
 
 router = APIRouter(prefix="/api/ingestion", tags=["ingestion"])
 
@@ -233,4 +238,25 @@ async def list_pending_content(limit: int = 20) -> dict[str, Any]:
             }
             for item in items
         ],
+    }
+
+
+@router.post("/taxonomy/sync")
+async def sync_taxonomy(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """
+    Sync tag taxonomy from YAML to database.
+
+    Creates any tags from the YAML taxonomy that don't exist in the database.
+    This is also run automatically daily at 4 AM UTC.
+
+    Returns:
+        Dict with sync status and count of tags created
+    """
+    service = TagService(db)
+    count = await service.sync_taxonomy_to_db()
+
+    return {
+        "status": "ok",
+        "tags_created": count,
+        "message": f"Taxonomy sync complete: {count} tags created",
     }

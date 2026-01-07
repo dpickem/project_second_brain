@@ -37,7 +37,7 @@ from app.models.processing import (
     TagAssignment,
 )
 from app.enums.processing import ProcessingStage, SummaryLevel
-from app.pipelines.utils.cost_types import LLMUsage
+from app.models.llm_usage import LLMUsage
 from app.services.llm.client import get_llm_client, LLMClient
 from app.services.knowledge_graph.client import get_neo4j_client, Neo4jClient
 from app.services.processing.stages.content_analysis import analyze_content

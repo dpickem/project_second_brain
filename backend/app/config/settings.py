@@ -216,6 +216,57 @@ class Settings(BaseSettings):
     LANGFUSE_SECRET_KEY: str = ""
     LANGFUSE_HOST: str = "https://cloud.langfuse.com"
 
+    # =========================================================================
+    # LEARNING SYSTEM
+    # =========================================================================
+    # Mastery calculation weights (must sum to 1.0)
+    MASTERY_SUCCESS_RATE_WEIGHT: float = 0.6  # Weight for success rate in mastery score
+    MASTERY_STABILITY_WEIGHT: float = 0.4  # Weight for stability in mastery score
+
+    # Mastery thresholds
+    MASTERY_WEAK_SPOT_THRESHOLD: float = 0.6  # Below this is considered a weak spot
+    MASTERY_NOVICE_THRESHOLD: float = 0.3  # Below this suggests scaffolded exercises
+    MASTERY_INTERMEDIATE_THRESHOLD: float = 0.6  # Below this suggests retrieval practice
+    MASTERY_LOW_SUCCESS_RATE: float = 0.5  # Below this triggers success rate warning
+
+    # Stability thresholds
+    MASTERY_STABILITY_NORMALIZATION_DAYS: float = 30.0  # Days to normalize stability
+    MASTERY_MASTERED_STABILITY_DAYS: int = 21  # Cards with stability >= this are "mastered"
+
+    # Time windows (days)
+    MASTERY_SNAPSHOT_LOOKBACK_DAYS: int = 7  # Days to look back for trend comparison
+    MASTERY_STREAK_WINDOW_DAYS: int = 30  # Days to consider for streak calculation
+    MASTERY_LEARNING_CURVE_DAYS: int = 30  # Default days for learning curve
+    MASTERY_STALE_REVIEW_DAYS: int = 14  # Days without review to trigger recommendation
+
+    # Projection settings
+    MASTERY_PROJECTION_WINDOW_DAYS: int = 7  # Days used for projection calculation
+    MASTERY_PROJECTION_HORIZON_DAYS: int = 30  # Days to project mastery forward
+
+    # Minimums
+    MASTERY_MIN_ATTEMPTS: int = 3  # Minimum reviews before calculating mastery
+
+    # Query limits
+    MASTERY_MAX_TOPICS_IN_OVERVIEW: int = 20  # Limit topics in overview for performance
+
+    # Trend detection
+    MASTERY_TREND_THRESHOLD: float = 0.05  # Score delta to consider improving/declining
+
+    # =========================================================================
+    # SESSION / PRACTICE SETTINGS
+    # =========================================================================
+    # Time allocation ratios for practice sessions (must sum to 1.0)
+    SESSION_TIME_RATIO_SPACED_REP: float = 0.4  # Due spaced rep cards (consolidation)
+    SESSION_TIME_RATIO_WEAK_SPOTS: float = 0.3  # Weak spot exercises (deliberate practice)
+    SESSION_TIME_RATIO_NEW_CONTENT: float = 0.3  # New/interleaved content (transfer)
+
+    # Estimated time per item in minutes
+    SESSION_TIME_PER_CARD: float = 2.0  # Minutes per spaced rep card
+    SESSION_TIME_PER_EXERCISE: float = 7.0  # Minutes per exercise
+
+    # Session content limits
+    SESSION_MAX_WEAK_SPOTS: int = 3  # Max weak spot topics to consider per session
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

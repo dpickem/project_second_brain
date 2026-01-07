@@ -5,6 +5,7 @@ Configures periodic sync jobs using APScheduler:
 - Raindrop.io sync every 6 hours
 - GitHub starred repos sync daily at 7 AM
 - Task cleanup daily at 3 AM
+- Tag taxonomy sync daily at 4 AM
 
 Execution Context:
     The scheduler runs IN-PROCESS with FastAPI inside the backend Docker container.
@@ -76,6 +77,17 @@ async def trigger_cleanup():
     logger.info("Triggered cleanup task")
 
 
+async def trigger_taxonomy_sync():
+    """Sync tag taxonomy from YAML to database."""
+    from app.db.base import async_session_maker
+    from app.services.tag_service import TagService
+
+    async with async_session_maker() as db:
+        service = TagService(db)
+        count = await service.sync_taxonomy_to_db()
+        logger.info(f"Taxonomy sync complete: {count} tags created")
+
+
 def setup_scheduled_jobs():
     """Configure all scheduled sync jobs."""
 
@@ -109,10 +121,21 @@ def setup_scheduled_jobs():
         misfire_grace_time=3600,
     )
 
+    # Taxonomy sync - daily at 4 AM UTC
+    scheduler.add_job(
+        trigger_taxonomy_sync,
+        CronTrigger(hour=4, minute=0),
+        id="taxonomy_sync",
+        name="Tag Taxonomy Sync",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
     logger.info("Scheduled jobs configured:")
     logger.info("  - Raindrop sync: every 6 hours")
     logger.info("  - GitHub sync: daily at 07:00 UTC")
     logger.info("  - Cleanup: daily at 03:00 UTC")
+    logger.info("  - Taxonomy sync: daily at 04:00 UTC")
 
 
 def start_scheduler():

@@ -34,7 +34,7 @@ from app.pipelines.utils.mistral_ocr_client import (
     ImageAnnotationSchema,
     DocumentAnnotationSchema,
 )
-from app.pipelines.utils.cost_types import (
+from app.models.llm_usage import (
     LLMUsage,
     extract_provider,
     extract_usage_from_response,

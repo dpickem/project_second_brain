@@ -26,7 +26,7 @@ from app.models.processing import (
     FollowupTask,
     MasteryQuestion,
 )
-from app.pipelines.utils.cost_types import LLMUsage
+from app.models.llm_usage import LLMUsage
 from app.services.processing.output.obsidian_generator import (
     generate_obsidian_note,
     _get_template_name,

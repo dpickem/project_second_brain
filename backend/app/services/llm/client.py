@@ -47,7 +47,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.config.settings import settings
 from app.enums.pipeline import PipelineName, PipelineOperation
-from app.pipelines.utils.cost_types import (
+from app.models.llm_usage import (
     LLMUsage,
     extract_usage_from_response,
     create_error_usage,

@@ -64,7 +64,7 @@ from app.pipelines.utils.vlm_client import (
     get_default_ocr_model,
 )
 from app.enums.pipeline import PipelineName
-from app.pipelines.utils.cost_types import LLMUsage
+from app.models.llm_usage import LLMUsage
 from app.pipelines.utils.text_utils import extract_json_from_response
 from app.enums.pipeline import PipelineOperation
 from app.services.llm import (

@@ -28,7 +28,7 @@ from app.enums.content import ContentType
 from app.models.content import UnifiedContent
 from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
 from app.enums.pipeline import PipelineName
-from app.pipelines.utils.cost_types import LLMUsage
+from app.models.llm_usage import LLMUsage
 from app.enums.pipeline import PipelineOperation
 from app.services.llm import (
     get_llm_client,

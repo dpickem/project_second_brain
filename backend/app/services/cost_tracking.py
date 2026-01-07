@@ -35,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import task_session_maker
 from app.db.models import LLMUsageLog, LLMCostSummary
-from app.pipelines.utils.cost_types import LLMUsage
+from app.models.llm_usage import LLMUsage
 from app.services.storage import get_db_id_by_uuid
 
 logger = logging.getLogger(__name__)

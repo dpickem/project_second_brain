@@ -5,7 +5,7 @@ For enums, import from app.enums:
     from app.enums import ContentType, PipelineName, ProcessingStage
 
 For models, import from app.models:
-    from app.models import UnifiedContent, ProcessingResult
+    from app.models import UnifiedContent, ProcessingResult, LLMUsage
 """
 
 from app.models.content import (
@@ -22,6 +22,12 @@ from app.models.processing import (
     MasteryQuestion,
     ProcessingResult,
 )
+from app.models.llm_usage import (
+    LLMUsage,
+    extract_provider,
+    extract_usage_from_response,
+    create_error_usage,
+)
 
 __all__ = [
     # Content models
@@ -36,4 +42,9 @@ __all__ = [
     "FollowupTask",
     "MasteryQuestion",
     "ProcessingResult",
+    # LLM usage tracking
+    "LLMUsage",
+    "extract_provider",
+    "extract_usage_from_response",
+    "create_error_usage",
 ]

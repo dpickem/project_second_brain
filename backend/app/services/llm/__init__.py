@@ -23,7 +23,7 @@ Usage:
     print(f"Cost: ${usage.cost_usd:.4f}, Tokens: {usage.total_tokens}")
 """
 
-from app.pipelines.utils.cost_types import LLMUsage
+from app.models.llm_usage import LLMUsage
 from app.services.llm.client import (
     LLMClient,
     get_llm_client,

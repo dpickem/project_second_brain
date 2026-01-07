@@ -52,7 +52,7 @@ from mistralai import Mistral
 from pydantic import BaseModel, Field
 
 from app.config.settings import settings
-from app.pipelines.utils.cost_types import LLMUsage, create_error_usage
+from app.models.llm_usage import LLMUsage, create_error_usage
 
 logger = logging.getLogger(__name__)
 

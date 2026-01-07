@@ -40,6 +40,15 @@ from app.enums.content import (
     AnnotationType,
     ProcessingStatus,
 )
+from app.enums.learning import (
+    CardState,
+    Rating,
+    ExerciseType,
+    ExerciseDifficulty,
+    MasteryTrend,
+    SessionType,
+    CodeLanguage,
+)
 
 __all__ = [
     # Pipeline enums
@@ -66,4 +75,12 @@ __all__ = [
     "ContentType",
     "AnnotationType",
     "ProcessingStatus",
+    # Learning enums
+    "CardState",
+    "Rating",
+    "ExerciseType",
+    "ExerciseDifficulty",
+    "MasteryTrend",
+    "SessionType",
+    "CodeLanguage",
 ]
