@@ -1,7 +1,7 @@
 # Implementation Roadmap
 
 > **Document Status**: Master Implementation Plan  
-> **Last Updated**: January 2026  
+> **Last Updated**: January 7, 2026  
 > **Related Docs**: `design_docs/00_system_overview.md`, Individual implementation plans in this folder
 
 ---
@@ -19,7 +19,7 @@ This document provides the high-level implementation roadmap for the Second Brai
 | 4 | Knowledge Hub (Obsidian) | 11-14 | `03_knowledge_hub_obsidian_implementation.md` | ✅ Complete |
 | 5 | Knowledge Explorer UI | 15-17 | `07_frontend_application_implementation.md` | 🟡 Partial |
 | 6-8 | **Learning System** | 18-29 | `05_learning_system_implementation.md` | ✅ Backend Complete |
-| — | Backend API Completion | — | `06_backend_api_implementation.md` | 🟡 ~90% Complete |
+| — | Backend API Completion | — | `06_backend_api_implementation.md` | ✅ ~98% Complete |
 | 9 | **Frontend Application** | 30-38 | `07_frontend_application_implementation.md` | ⬜ Not Started |
 | 10 | **Mobile Capture (PWA)** | 39-42 | `08_mobile_capture_implementation.md` | ⬜ Not Started |
 | 11 | Learning Assistant | 43-46 | `11_learning_assistant_implementation.md` (planned) | ⬜ Not Started |
@@ -156,12 +156,13 @@ This document provides the high-level implementation roadmap for the Second Brai
 - [ ] `<CommandPalette />` — Global search with ⌘K (Phase 9C.2)
 - [ ] `<NoteViewer />` — Markdown note display (Phase 9C.3)
 
-### Backend API
+### Backend API ✅ COMPLETE
 - [x] `/api/knowledge/graph` — Graph data for visualization
 - [x] `/api/knowledge/stats` — Graph statistics
 - [x] `/api/knowledge/node/{id}` — Node details
-- [ ] `/api/knowledge/search` — Semantic search
-- [ ] `/api/knowledge/topics` — Topic hierarchy
+- [x] `/api/knowledge/search` — Semantic search (keyword, full-text, vector, hybrid)
+- [x] `/api/knowledge/connections/{id}` — Node connections with direction filtering
+- [x] `/api/knowledge/topics` — Topic hierarchy tree
 
 ---
 
@@ -193,6 +194,8 @@ The Learning System backend is fully implemented with all core services.
 - [x] Weak spot detection
 - [x] Analytics API (`routers/analytics.py`)
 - [x] Learning curve data endpoint
+- [x] Time investment tracking (`LearningTimeLog` model, migration 009)
+- [x] Practice streak tracking with milestones
 
 ### Testing ✅ COMPLETE
 - [x] Unit tests for FSRS algorithm
@@ -281,7 +284,9 @@ Progressive Web App for low-friction knowledge capture on mobile devices.
 - [x] Structured logging
 - [x] LLM cost tracking
 - [x] Test coverage (pytest)
-- [ ] Error handling and monitoring (Sentry)
+- [x] Rate limiting middleware (SlowAPI with configurable limits per endpoint type)
+- [x] Error handling middleware (correlation IDs, custom exceptions, sanitized responses)
+- [ ] Error monitoring (Sentry integration)
 - [ ] CI/CD pipeline
 
 ### Mobile & UX
@@ -300,12 +305,13 @@ Progressive Web App for low-friction knowledge capture on mobile devices.
 | 3 - LLM Processing | ✅ Complete | Dec 2024 | Jan 2025 | Full pipeline with 7 stages |
 | 3-4 - Knowledge Graph | ✅ Complete | Dec 2024 | Jan 2025 | Neo4j client, queries, sync |
 | 4 - Knowledge Hub | ✅ Complete | Dec 2024 | Jan 2025 | Full Obsidian integration |
-| 5 - Knowledge Explorer | 🟡 Partial | Jan 2025 | — | Basic graph viz only |
+| 5 - Knowledge Explorer | 🟡 Partial | Jan 2025 | — | Backend API complete, frontend components pending |
 | 6-8 - Learning System | ✅ Backend | Jan 2026 | Jan 2026 | Backend complete, frontend needed |
+| Backend API | ✅ ~98% | Jan 2026 | Jan 2026 | Only Assistant Router (Phase 11) remaining |
 | 9 - Frontend Application | ⬜ Not Started | — | — | See `07_frontend_application_implementation.md` |
 | 10 - Mobile Capture (PWA) | ⬜ Not Started | — | — | See `08_mobile_capture_implementation.md` |
 | 11 - Learning Assistant | ⬜ Not Started | — | — | — |
-| 12 - Production | 🟡 In Progress | Ongoing | — | Logging, cost tracking done |
+| 12 - Production | 🟡 In Progress | Ongoing | — | Rate limiting, error handling, logging done |
 
 **Legend**: ⬜ Not Started | 🟡 In Progress | ✅ Complete
 
@@ -317,7 +323,13 @@ Progressive Web App for low-friction knowledge capture on mobile devices.
 
 > 📋 **Detailed Plan**: See [`07_frontend_application_implementation.md`](./07_frontend_application_implementation.md)
 
-The backend is fully implemented. The comprehensive frontend plan covers:
+**The backend is ~98% complete** with all core APIs implemented:
+- ✅ Knowledge graph (search, connections, topics, visualization)
+- ✅ Learning system (practice, review, analytics, streaks)
+- ✅ Production hardening (rate limiting, error handling)
+- ⬜ Only Assistant Router remains (Phase 11)
+
+The comprehensive frontend plan covers:
 
 **Phase 9A-9G: Core Application** (Days 1-27, 76h)
 - Foundation & Design System (tokens, components, animations)
