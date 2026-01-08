@@ -6,6 +6,7 @@ For enums, import from app.enums:
 
 For models, import from app.models:
     from app.models import UnifiedContent, ProcessingResult, LLMUsage
+    from app.models import GraphNode, GraphResponse, SearchRequest  # Knowledge graph
 """
 
 from app.models.content import (
@@ -28,6 +29,20 @@ from app.models.llm_usage import (
     extract_usage_from_response,
     create_error_usage,
 )
+from app.models.knowledge import (
+    GraphNode,
+    GraphEdge,
+    GraphResponse,
+    GraphStats,
+    NodeDetails,
+    SearchResult,
+    SearchRequest,
+    SearchResponse,
+    NodeConnection,
+    ConnectionsResponse,
+    TopicNode,
+    TopicHierarchyResponse,
+)
 
 __all__ = [
     # Content models
@@ -47,4 +62,17 @@ __all__ = [
     "extract_provider",
     "extract_usage_from_response",
     "create_error_usage",
+    # Knowledge graph models
+    "GraphNode",
+    "GraphEdge",
+    "GraphResponse",
+    "GraphStats",
+    "NodeDetails",
+    "SearchResult",
+    "SearchRequest",
+    "SearchResponse",
+    "NodeConnection",
+    "ConnectionsResponse",
+    "TopicNode",
+    "TopicHierarchyResponse",
 ]

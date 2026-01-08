@@ -23,12 +23,16 @@ Usage:
     data_dir = settings.DATA_DIR
 """
 
+from __future__ import annotations
+
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from pydantic_settings import BaseSettings
+
+from app.enums import RateLimitType
 
 # Project root is the parent of backend/
 # backend/app/config/settings.py -> backend/app/config -> backend/app -> backend -> project_root
@@ -266,6 +270,45 @@ class Settings(BaseSettings):
 
     # Session content limits
     SESSION_MAX_WEAK_SPOTS: int = 3  # Max weak spot topics to consider per session
+
+    # =========================================================================
+    # RATE LIMITING
+    # =========================================================================
+    # Rate limiting is disabled by default for development.
+    # Enable in production for protection against abuse.
+    RATE_LIMITING_ENABLED: bool = False
+
+    # Rate limits per endpoint type (requests/minute format)
+    RATE_LIMIT_DEFAULT: str = "100/minute"  # General API endpoints
+    RATE_LIMIT_LLM_HEAVY: str = "10/minute"  # Endpoints that call LLMs
+    RATE_LIMIT_SEARCH: str = "30/minute"  # Search endpoints
+    RATE_LIMIT_CAPTURE: str = "20/minute"  # File upload endpoints
+    RATE_LIMIT_AUTH: str = "5/minute"  # Login/auth attempts
+    RATE_LIMIT_GRAPH: str = "60/minute"  # Graph queries
+    RATE_LIMIT_ANALYTICS: str = "30/minute"  # Analytics endpoints
+    RATE_LIMIT_BATCH: str = "5/minute"  # Batch operations
+
+    def get_rate_limit(self, rate_limit_type: RateLimitType) -> str:
+        """
+        Get rate limit string for a given rate limit type.
+
+        Args:
+            rate_limit_type: RateLimitType enum value
+
+        Returns:
+            Rate limit string (e.g., "100/minute")
+        """
+        rate_limit_map = {
+            RateLimitType.DEFAULT: self.RATE_LIMIT_DEFAULT,
+            RateLimitType.LLM_HEAVY: self.RATE_LIMIT_LLM_HEAVY,
+            RateLimitType.SEARCH: self.RATE_LIMIT_SEARCH,
+            RateLimitType.CAPTURE: self.RATE_LIMIT_CAPTURE,
+            RateLimitType.AUTH: self.RATE_LIMIT_AUTH,
+            RateLimitType.GRAPH: self.RATE_LIMIT_GRAPH,
+            RateLimitType.ANALYTICS: self.RATE_LIMIT_ANALYTICS,
+            RateLimitType.BATCH: self.RATE_LIMIT_BATCH,
+        }
+        return rate_limit_map.get(rate_limit_type, self.RATE_LIMIT_DEFAULT)
 
     class Config:
         env_file = ".env"

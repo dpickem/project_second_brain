@@ -2,26 +2,45 @@
 Knowledge Graph API Router
 
 Exposes knowledge graph visualization and query operations via REST API.
-Provides endpoints for:
-- Graph data for visualization (nodes and edges)
-- Graph statistics
-- Node details
+
+Endpoints:
+    GET  /api/knowledge/graph           - Get graph data for visualization
+    GET  /api/knowledge/stats           - Get graph statistics
+    GET  /api/knowledge/node/{node_id}  - Get node details
+    GET  /api/knowledge/health          - Check Neo4j connection health
+    POST /api/knowledge/search          - Semantic search across knowledge base
+    GET  /api/knowledge/connections/{node_id} - Get node connections
+    GET  /api/knowledge/topics          - Get topic hierarchy
+
+Models are defined in app.models.knowledge.
+Enums are defined in app.enums.knowledge.
 """
 
-from fastapi import APIRouter, Query, HTTPException
-from pydantic import BaseModel
-from typing import Optional
 import logging
+from typing import Optional
 
-from app.services.knowledge_graph import get_neo4j_client
-from app.services.knowledge_graph.queries import (
-    GET_VISUALIZATION_GRAPH,
-    GET_VISUALIZATION_STATS,
-    GET_NODE_DETAILS_BY_ID,
-    GET_NODE_COUNT_BY_TYPES,
-    get_centered_visualization_query,
+from fastapi import APIRouter, HTTPException, Query
+
+from app.enums.knowledge import ConnectionDirection
+from app.models.knowledge import (
+    ConnectionsResponse,
+    GraphNode,
+    GraphEdge,
+    GraphResponse,
+    GraphStats,
+    NodeConnection,
+    NodeDetails,
+    SearchRequest,
+    SearchResponse,
+    SearchResult,
+    TopicHierarchyResponse,
 )
-from app.config.settings import settings
+from app.services.knowledge_graph import (
+    get_neo4j_client,
+    get_visualization_service,
+    KnowledgeSearchService,
+)
+from app.services.llm import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -29,70 +48,7 @@ router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
 
 # =============================================================================
-# Response Schemas
-# =============================================================================
-
-
-class GraphNode(BaseModel):
-    """Node in the graph visualization."""
-
-    id: str
-    label: str  # Display title
-    type: str  # "Content", "Concept", "Note"
-    content_type: Optional[str] = None  # "paper", "article", etc. (for Content nodes)
-    size: int = 1  # Node size weight (based on connections)
-    color: Optional[str] = None  # Optional color hint
-    metadata: dict = {}  # Additional properties
-
-
-class GraphEdge(BaseModel):
-    """Edge in the graph visualization."""
-
-    source: str  # Source node ID
-    target: str  # Target node ID
-    type: str  # Relationship type
-    strength: float = 1.0  # Edge weight
-    label: Optional[str] = None  # Display label
-
-
-class GraphResponse(BaseModel):
-    """Response containing graph data for visualization."""
-
-    nodes: list[GraphNode]
-    edges: list[GraphEdge]
-    center_id: Optional[str] = None
-    total_nodes: int  # Total in graph (before limit)
-    total_edges: int
-
-
-class GraphStats(BaseModel):
-    """Summary statistics for the knowledge graph."""
-
-    total_content: int
-    total_concepts: int
-    total_notes: int
-    total_relationships: int
-    content_by_type: dict[str, int]
-
-
-class NodeDetails(BaseModel):
-    """Detailed information about a single node."""
-
-    id: str
-    label: str
-    type: str
-    content_type: Optional[str] = None
-    summary: Optional[str] = None
-    tags: list[str] = []
-    source_url: Optional[str] = None
-    created_at: Optional[str] = None
-    connections: int = 0
-    file_path: Optional[str] = None
-    name: Optional[str] = None
-
-
-# =============================================================================
-# Endpoints
+# Graph Visualization Endpoints
 # =============================================================================
 
 
@@ -108,103 +64,57 @@ async def get_graph_visualization(
     """
     Get graph data for visualization.
 
-    Returns nodes and edges in D3-compatible format:
-    - nodes: [{id, label, type, size, color, ...}]
-    - edges: [{source, target, type, strength, ...}]
+    Returns nodes and edges in D3-compatible format for force-directed graphs.
 
     Args:
         center_id: Optional node ID to center the graph on
         node_types: Comma-separated list of node types to include
         depth: How many hops from center to traverse (only used with center_id)
         limit: Maximum number of nodes to return
+
+    Returns:
+        GraphResponse with nodes, edges, and metadata
     """
     try:
-        client = await get_neo4j_client()
-        await client._ensure_initialized()
-
+        service = await get_visualization_service()
         node_type_list = [t.strip() for t in node_types.split(",")]
 
-        async with client._async_driver.session(
-            database=settings.NEO4J_DATABASE
-        ) as session:
-            # Get total count for stats
-            count_result = await session.run(
-                GET_NODE_COUNT_BY_TYPES, node_types=node_type_list
+        result = await service.get_graph(
+            center_id=center_id,
+            node_types=node_type_list,
+            depth=depth,
+            limit=limit,
+        )
+
+        # Convert to response models
+        nodes = [
+            GraphNode(
+                id=n["id"],
+                label=n["label"],
+                type=n["type"],
+                content_type=n.get("content_type"),
+                metadata=n.get("metadata", {}),
             )
-            count_record = await count_result.single()
-            total_nodes = count_record["total"] if count_record else 0
+            for n in result["nodes"]
+        ]
 
-            # Get graph data
-            if center_id:
-                result = await session.run(
-                    get_centered_visualization_query(depth),
-                    center_id=center_id,
-                    node_types=node_type_list,
-                    limit=limit,
-                )
-            else:
-                result = await session.run(
-                    GET_VISUALIZATION_GRAPH,
-                    node_types=node_type_list,
-                    limit=limit,
-                )
-
-            record = await result.single()
-
-            if not record:
-                return GraphResponse(
-                    nodes=[],
-                    edges=[],
-                    center_id=center_id,
-                    total_nodes=0,
-                    total_edges=0,
-                )
-
-            raw_nodes = record["nodes"] or []
-            raw_edges = record["edges"] or []
-
-            # Convert to response models
-            nodes = []
-            node_ids = set()
-            for n in raw_nodes:
-                if n and n.get("id"):
-                    node_ids.add(n["id"])
-                    nodes.append(
-                        GraphNode(
-                            id=n["id"],
-                            label=n.get("label", n["id"]),
-                            type=n.get("type", "Unknown"),
-                            content_type=n.get("content_type"),
-                            metadata={"tags": n.get("tags", [])},
-                        )
-                    )
-
-            # Filter edges to only include nodes we have
-            edges = []
-            for e in raw_edges:
-                if (
-                    e
-                    and e.get("source")
-                    and e.get("target")
-                    and e["source"] in node_ids
-                    and e["target"] in node_ids
-                ):
-                    edges.append(
-                        GraphEdge(
-                            source=e["source"],
-                            target=e["target"],
-                            type=e.get("type", "RELATED"),
-                            strength=e.get("strength", 1.0),
-                        )
-                    )
-
-            return GraphResponse(
-                nodes=nodes,
-                edges=edges,
-                center_id=center_id,
-                total_nodes=total_nodes,
-                total_edges=len(edges),
+        edges = [
+            GraphEdge(
+                source=e["source"],
+                target=e["target"],
+                type=e["type"],
+                strength=e["strength"],
             )
+            for e in result["edges"]
+        ]
+
+        return GraphResponse(
+            nodes=nodes,
+            edges=edges,
+            center_id=result["center_id"],
+            total_nodes=result["total_nodes"],
+            total_edges=result["total_edges"],
+        )
 
     except Exception as e:
         logger.error(f"Error fetching graph data: {e}")
@@ -217,45 +127,19 @@ async def get_graph_stats() -> GraphStats:
     Get summary statistics for the knowledge graph.
 
     Returns:
-        - total_content: Number of Content nodes
-        - total_concepts: Number of Concept nodes
-        - total_notes: Number of Note nodes
-        - total_relationships: Number of relationships
-        - content_by_type: Breakdown of content by type
+        GraphStats with node and relationship counts
     """
     try:
-        client = await get_neo4j_client()
-        await client._ensure_initialized()
+        service = await get_visualization_service()
+        result = await service.get_stats()
 
-        async with client._async_driver.session(
-            database=settings.NEO4J_DATABASE
-        ) as session:
-            result = await session.run(GET_VISUALIZATION_STATS)
-            record = await result.single()
-
-            if not record:
-                return GraphStats(
-                    total_content=0,
-                    total_concepts=0,
-                    total_notes=0,
-                    total_relationships=0,
-                    content_by_type={},
-                )
-
-            # Count content by type
-            types = record["types"] or []
-            type_counts = {}
-            for t in types:
-                if t:
-                    type_counts[t] = type_counts.get(t, 0) + 1
-
-            return GraphStats(
-                total_content=record["content_count"] or 0,
-                total_concepts=record["concept_count"] or 0,
-                total_notes=record["note_count"] or 0,
-                total_relationships=record["rel_count"] or 0,
-                content_by_type=type_counts,
-            )
+        return GraphStats(
+            total_content=result["total_content"],
+            total_concepts=result["total_concepts"],
+            total_notes=result["total_notes"],
+            total_relationships=result["total_relationships"],
+            content_by_type=result["content_by_type"],
+        )
 
     except Exception as e:
         logger.error(f"Error fetching graph stats: {e}")
@@ -269,34 +153,33 @@ async def get_node_details(node_id: str) -> NodeDetails:
 
     Args:
         node_id: The node's unique identifier
+
+    Returns:
+        NodeDetails with full node information
+
+    Raises:
+        HTTPException 404: If node not found
     """
     try:
-        client = await get_neo4j_client()
-        await client._ensure_initialized()
+        service = await get_visualization_service()
+        result = await service.get_node_details(node_id)
 
-        async with client._async_driver.session(
-            database=settings.NEO4J_DATABASE
-        ) as session:
-            result = await session.run(GET_NODE_DETAILS_BY_ID, node_id=node_id)
-            record = await result.single()
+        if not result:
+            raise HTTPException(status_code=404, detail="Node not found")
 
-            if not record or not record["node"]:
-                raise HTTPException(status_code=404, detail="Node not found")
-
-            node = record["node"]
-            return NodeDetails(
-                id=node["id"],
-                label=node.get("label", node["id"]),
-                type=node.get("type", "Unknown"),
-                content_type=node.get("content_type"),
-                summary=node.get("summary"),
-                tags=node.get("tags", []),
-                source_url=node.get("source_url"),
-                created_at=node.get("created_at"),
-                connections=node.get("connections", 0),
-                file_path=node.get("file_path"),
-                name=node.get("name"),
-            )
+        return NodeDetails(
+            id=result["id"],
+            label=result["label"],
+            type=result["type"],
+            content_type=result.get("content_type"),
+            summary=result.get("summary"),
+            tags=result.get("tags", []),
+            source_url=result.get("source_url"),
+            created_at=result.get("created_at"),
+            connections=result.get("connections", 0),
+            file_path=result.get("file_path"),
+            name=result.get("name"),
+        )
 
     except HTTPException:
         raise
@@ -306,18 +189,194 @@ async def get_node_details(node_id: str) -> NodeDetails:
 
 
 @router.get("/health")
-async def knowledge_graph_health():
-    """Check Neo4j connection health."""
+async def knowledge_graph_health() -> dict:
+    """
+    Check Neo4j connection health.
+
+    Returns:
+        Health status dict with neo4j_connected boolean
+    """
+    service = await get_visualization_service()
+    return await service.check_health()
+
+
+# =============================================================================
+# Search Endpoint
+# =============================================================================
+
+
+@router.post("/search", response_model=SearchResponse)
+async def search_knowledge(request: SearchRequest) -> SearchResponse:
+    """
+    Semantic search across knowledge base.
+
+    Uses embeddings to find semantically similar content when available,
+    otherwise falls back to keyword/fulltext matching. Searches across
+    Content, Concepts, and Notes.
+
+    Args:
+        request: Search query and filters
+
+    Returns:
+        SearchResponse with ranked results
+    """
     try:
-        client = await get_neo4j_client()
-        is_connected = await client.verify_connectivity()
-        return {
-            "status": "healthy" if is_connected else "unhealthy",
-            "neo4j_connected": is_connected,
-        }
+        neo4j_client = await get_neo4j_client()
+        await neo4j_client._ensure_initialized()
+
+        # Get LLM client for vector search (optional)
+        llm_client = None
+        if request.use_vector:
+            try:
+                llm_client = get_llm_client()
+            except Exception:
+                logger.debug("LLM client not available, using text search only")
+
+        search_service = KnowledgeSearchService(neo4j_client, llm_client)
+
+        results, search_time_ms = await search_service.semantic_search(
+            query=request.query,
+            node_types=request.node_types,
+            limit=request.limit,
+            min_score=request.min_score,
+            use_vector=request.use_vector and llm_client is not None,
+        )
+
+        # Convert to response format
+        search_results = [
+            SearchResult(
+                id=r.get("id", ""),
+                node_type=r.get("node_type", "Unknown"),
+                title=r.get("title", "Untitled"),
+                summary=r.get("summary"),
+                score=min(r.get("score", 0), 1.0),  # Cap at 1.0
+                highlights=[],  # Could extract snippets in future
+            )
+            for r in results
+            if r.get("id")
+        ]
+
+        return SearchResponse(
+            query=request.query,
+            results=search_results,
+            total=len(search_results),
+            search_time_ms=search_time_ms,
+        )
+
     except Exception as e:
-        return {
-            "status": "unhealthy",
-            "neo4j_connected": False,
-            "error": str(e),
-        }
+        logger.error(f"Search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
+# =============================================================================
+# Connection Endpoints
+# =============================================================================
+
+
+@router.get("/connections/{node_id}", response_model=ConnectionsResponse)
+async def get_connections(
+    node_id: str,
+    direction: ConnectionDirection = Query(
+        ConnectionDirection.BOTH, description="Filter by direction"
+    ),
+    limit: int = Query(20, ge=1, le=100, description="Max connections per direction"),
+) -> ConnectionsResponse:
+    """
+    Get connections for a specific node.
+
+    Returns incoming and outgoing relationships, optionally filtered by direction.
+
+    Args:
+        node_id: The node to get connections for
+        direction: incoming, outgoing, or both
+        limit: Maximum connections per direction
+
+    Returns:
+        ConnectionsResponse with incoming and outgoing lists
+    """
+    try:
+        service = await get_visualization_service()
+        result = await service.get_connections(
+            node_id=node_id,
+            direction=direction,
+            limit=limit,
+        )
+
+        incoming = [
+            NodeConnection(
+                source_id=c["source_id"],
+                target_id=c["target_id"],
+                target_title=c["target_title"],
+                target_type=c["target_type"],
+                relationship=c["relationship"],
+                strength=c.get("strength", 1.0),
+                context=c.get("context"),
+            )
+            for c in result["incoming"]
+        ]
+
+        outgoing = [
+            NodeConnection(
+                source_id=c["source_id"],
+                target_id=c["target_id"],
+                target_title=c["target_title"],
+                target_type=c["target_type"],
+                relationship=c["relationship"],
+                strength=c.get("strength", 1.0),
+                context=c.get("context"),
+            )
+            for c in result["outgoing"]
+        ]
+
+        return ConnectionsResponse(
+            node_id=result["node_id"],
+            incoming=incoming,
+            outgoing=outgoing,
+            total=result["total"],
+        )
+
+    except Exception as e:
+        logger.error(f"Error fetching connections: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch connections: {str(e)}"
+        )
+
+
+# =============================================================================
+# Topic Hierarchy Endpoints
+# =============================================================================
+
+
+@router.get("/topics", response_model=TopicHierarchyResponse)
+async def get_topic_hierarchy(
+    min_content: int = Query(0, ge=0, description="Min content count to include"),
+) -> TopicHierarchyResponse:
+    """
+    Get hierarchical topic structure.
+
+    Topics are organized in a tree based on their tag paths:
+    - ml/
+      - ml/deep-learning/
+        - ml/deep-learning/transformers/
+
+    Args:
+        min_content: Filter out topics with fewer items
+
+    Returns:
+        TopicHierarchyResponse with tree structure
+    """
+    try:
+        service = await get_visualization_service()
+        result = await service.get_topic_hierarchy(min_content=min_content)
+
+        return TopicHierarchyResponse(
+            roots=result["roots"],
+            total_topics=result["total_topics"],
+            max_depth=result["max_depth"],
+        )
+
+    except Exception as e:
+        logger.error(f"Error fetching topic hierarchy: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch topics: {str(e)}"
+        )

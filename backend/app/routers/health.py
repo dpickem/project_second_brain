@@ -20,6 +20,7 @@ from app.db.base import get_db
 from app.db.redis import get_redis
 from app.services.queue import celery_app
 from app.services.obsidian.lifecycle import get_watcher_status
+from app.services.knowledge_graph.queries import VERIFY_CONNECTIVITY
 
 router = APIRouter(prefix="/api/health", tags=["health"])
 
@@ -75,7 +76,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
             settings.NEO4J_URI, auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
         )
         with driver.session() as session:
-            session.run("RETURN 1")
+            session.run(VERIFY_CONNECTIVITY)
         driver.close()
         health["dependencies"]["neo4j"] = {"status": "healthy"}
     except Exception as e:

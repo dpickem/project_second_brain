@@ -5,12 +5,14 @@ All enums are organized by domain:
 - pipeline.py: Pipeline names, operations, content types
 - processing.py: Processing stages, statuses, summary levels
 - content.py: Content types, annotation types, processing status
+- knowledge.py: Knowledge graph connection types, query directions
 
 Usage:
     from app.enums import PipelineName, PipelineOperation, ContentType
 
     # Or import from specific module
     from app.enums.pipeline import PipelineName
+    from app.enums.knowledge import GraphConnectionType
 """
 
 from app.enums.pipeline import (
@@ -49,6 +51,13 @@ from app.enums.learning import (
     SessionType,
     CodeLanguage,
 )
+from app.enums.knowledge import (
+    GraphConnectionType,
+    ConnectionDirection,
+)
+from app.enums.api import (
+    RateLimitType,
+)
 
 __all__ = [
     # Pipeline enums
@@ -83,4 +92,9 @@ __all__ = [
     "MasteryTrend",
     "SessionType",
     "CodeLanguage",
+    # Knowledge graph enums
+    "GraphConnectionType",
+    "ConnectionDirection",
+    # API enums
+    "RateLimitType",
 ]

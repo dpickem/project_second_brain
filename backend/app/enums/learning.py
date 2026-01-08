@@ -126,3 +126,31 @@ class CodeLanguage(str, Enum):
     TYPESCRIPT = "typescript"
     # PyTorch/ML exercises use Python image with torch
     PYTORCH = "pytorch"
+
+
+class TimePeriod(str, Enum):
+    """
+    Time periods for analytics queries.
+
+    Used by time investment and other analytics endpoints to specify
+    the date range for data aggregation.
+    """
+
+    WEEK = "7d"
+    MONTH = "30d"
+    QUARTER = "90d"
+    YEAR = "1y"
+    ALL = "all"
+
+
+class GroupBy(str, Enum):
+    """
+    Grouping strategy for time-series analytics data.
+
+    Determines how time investment and other metrics are bucketed
+    for visualization and trend analysis.
+    """
+
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"

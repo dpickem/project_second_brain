@@ -134,6 +134,68 @@ ORDER BY c.created_at DESC
 """
 
 # =============================================================================
+# Search Service Queries
+# =============================================================================
+
+FULLTEXT_SEARCH_QUERY = """
+CALL db.index.fulltext.queryNodes('searchIndex', $query)
+YIELD node, score
+WHERE score >= $min_score
+AND any(label IN labels(node) WHERE label IN $node_types)
+RETURN 
+    node.id AS id,
+    labels(node)[0] AS node_type,
+    COALESCE(node.title, node.name, node.id) AS title,
+    node.summary AS summary,
+    score
+ORDER BY score DESC
+LIMIT $limit
+"""
+
+KEYWORD_SEARCH_QUERY = """
+MATCH (n)
+WHERE any(label IN labels(n) WHERE label IN $node_types)
+AND (
+    toLower(n.title) CONTAINS toLower($query)
+    OR toLower(n.name) CONTAINS toLower($query)
+    OR toLower(n.summary) CONTAINS toLower($query)
+)
+WITH n, 
+    CASE 
+        WHEN toLower(n.title) CONTAINS toLower($query) THEN 1.0
+        WHEN toLower(n.name) CONTAINS toLower($query) THEN 0.9
+        ELSE 0.7
+    END AS score
+RETURN 
+    n.id AS id,
+    labels(n)[0] AS node_type,
+    COALESCE(n.title, n.name, n.id) AS title,
+    n.summary AS summary,
+    score
+ORDER BY score DESC
+LIMIT $limit
+"""
+
+SEARCH_VECTOR_QUERY = """
+CALL db.index.vector.queryNodes($index_name, $limit, $embedding)
+YIELD node, score
+WHERE score >= $min_score
+AND any(label IN labels(node) WHERE label IN $node_types)
+RETURN 
+    node.id AS id,
+    labels(node)[0] AS node_type,
+    COALESCE(node.title, node.name, node.id) AS title,
+    node.summary AS summary,
+    score
+ORDER BY score DESC
+"""
+
+CHECK_FULLTEXT_INDEX = """
+SHOW INDEXES YIELD name WHERE name = 'searchIndex' RETURN count(*) > 0 AS exists
+"""
+
+
+# =============================================================================
 # Vector Search Queries
 # =============================================================================
 
@@ -481,4 +543,68 @@ GET_NODE_COUNT_BY_TYPES = """
 MATCH (n)
 WHERE labels(n)[0] IN $node_types
 RETURN count(n) AS total
+"""
+
+
+# =============================================================================
+# Connection Queries (for /connections/{node_id} endpoint)
+# =============================================================================
+
+GET_INCOMING_CONNECTIONS = """
+MATCH (source)-[r]->(target {id: $node_id})
+RETURN 
+    source.id AS source_id,
+    COALESCE(source.title, source.name, source.id) AS source_title,
+    labels(source)[0] AS source_type,
+    type(r) AS rel_type,
+    COALESCE(r.strength, 1.0) AS strength,
+    r.context AS context
+ORDER BY r.strength DESC NULLS LAST
+LIMIT $limit
+"""
+
+GET_OUTGOING_CONNECTIONS = """
+MATCH (source {id: $node_id})-[r]->(target)
+RETURN 
+    target.id AS target_id,
+    COALESCE(target.title, target.name, target.id) AS target_title,
+    labels(target)[0] AS target_type,
+    type(r) AS rel_type,
+    COALESCE(r.strength, 1.0) AS strength,
+    r.context AS context
+ORDER BY r.strength DESC NULLS LAST
+LIMIT $limit
+"""
+
+
+# =============================================================================
+# Topic Hierarchy Queries
+# =============================================================================
+
+GET_TOPICS_WITH_COUNTS = """
+MATCH (c:Content)
+WHERE c.tags IS NOT NULL
+UNWIND c.tags AS tag
+WITH tag, count(DISTINCT c) AS content_count
+WHERE content_count >= $min_content
+RETURN tag AS path, content_count
+ORDER BY tag
+"""
+
+
+# =============================================================================
+# Utility Queries (connectivity, index checks)
+# =============================================================================
+
+VERIFY_CONNECTIVITY = """
+RETURN 1 AS test
+"""
+
+LIST_INDEX_NAMES = """
+SHOW INDEXES YIELD name
+"""
+
+# Debug query - returns entire graph structure
+GET_ALL_GRAPH_DATA = """
+MATCH (n)-[r]->(m) RETURN n,r,m
 """

@@ -18,7 +18,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from neo4j import GraphDatabase
 
 from app.config import settings
 from app.routers import (
@@ -36,6 +35,9 @@ from app.services.obsidian.lifecycle import (
     startup_vault_services,
     shutdown_vault_services,
 )
+from app.middleware.rate_limit import setup_rate_limiting
+from app.middleware.error_handling import setup_error_handling
+from app.services.knowledge_graph import get_neo4j_client
 
 # Configure logging
 logging.basicConfig(
@@ -88,9 +90,13 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
-    # Close Neo4j driver
-    if _driver:
-        _driver.close()
+    # Close Neo4j client
+    try:
+        from app.services.knowledge_graph import get_neo4j_client
+        client = await get_neo4j_client()
+        await client.close()
+    except Exception:
+        pass
 
 
 app = FastAPI(
@@ -109,6 +115,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Error handling middleware (catches unhandled exceptions, provides correlation IDs)
+setup_error_handling(app, debug=settings.DEBUG)
+
+# Rate limiting middleware (prevents abuse)
+# Note: Disabled by default, enable in production by setting RATE_LIMITING_ENABLED=true
+setup_rate_limiting(app, enabled=getattr(settings, "RATE_LIMITING_ENABLED", False))
+
 # Include routers
 app.include_router(health_router.router)
 app.include_router(capture_router.router)
@@ -120,18 +133,6 @@ app.include_router(practice_router.router)
 app.include_router(review_router.router)
 app.include_router(analytics_router.router)
 
-# Neo4j driver (initialized if password is configured)
-_driver = None
-if settings.NEO4J_PASSWORD:
-    try:
-        _driver = GraphDatabase.driver(
-            settings.NEO4J_URI,
-            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
-        )
-        logger.info("Neo4j driver initialized")
-    except Exception as e:
-        logger.warning(f"Failed to initialize Neo4j driver: {e}")
-
 
 @app.get("/graph")
 async def graph():
@@ -140,37 +141,15 @@ async def graph():
 
     Returns a graph structure with nodes and relationships.
     """
-    if not _driver:
+    if not settings.NEO4J_PASSWORD:
         return {"nodes": [], "relationships": [], "message": "Neo4j not configured"}
 
-    with _driver.session() as session:
-        result = session.run("MATCH (n)-[r]->(m) RETURN n,r,m")
-        nodes = []
-        rels = []
-        seen = set()
-
-        for record in result:
-            n = record["n"]
-            m = record["m"]
-            r = record["r"]
-
-            if n.id not in seen:
-                nodes.append({"id": n.id, "labels": list(n.labels), **dict(n)})
-                seen.add(n.id)
-
-            if m.id not in seen:
-                nodes.append({"id": m.id, "labels": list(m.labels), **dict(m)})
-                seen.add(m.id)
-
-            rels.append(
-                {
-                    "start": r.start_node.id,
-                    "end": r.end_node.id,
-                    "type": r.type,
-                }
-            )
-
-    return {"nodes": nodes, "relationships": rels}
+    try:
+        client = await get_neo4j_client()
+        return await client.get_all_graph_data()
+    except Exception as e:
+        logger.warning(f"Failed to get graph data: {e}")
+        return {"nodes": [], "relationships": [], "message": str(e)}
 
 
 @app.get("/")

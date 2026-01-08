@@ -14,10 +14,10 @@ ARCHITECTURE NOTE:
     Data flows: API Request → Pydantic → Service → SQLAlchemy → Database
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field
 
 from app.enums.learning import (
     CardState,
@@ -572,3 +572,102 @@ class CardStats(BaseModel):
     avg_difficulty: float = 0.0
     due_today: int = 0
     overdue: int = 0
+
+
+# ===========================================
+# Time Investment Models
+# ===========================================
+
+
+class TimeInvestmentPeriod(BaseModel):
+    """
+    Time investment for a specific period.
+    
+    Represents aggregated learning time within a time window, broken down by topic
+    and activity type. Used for building time-series visualizations of study habits.
+    """
+
+    period_start: AwareDatetime
+    period_end: AwareDatetime
+    total_minutes: float
+    by_topic: dict[str, float] = Field(default_factory=dict)  # topic -> minutes
+    by_activity: dict[str, float] = Field(default_factory=dict)  # activity_type -> minutes
+
+
+class TimeInvestmentResponse(BaseModel):
+    """
+    Time investment summary response.
+    
+    Provides comprehensive time tracking data including period breakdowns, top topics
+    by time spent, daily average, and trend analysis. Powers the time investment
+    dashboard for understanding study patterns and consistency.
+    """
+
+    total_minutes: float
+    periods: list[TimeInvestmentPeriod]
+    top_topics: list[tuple[str, float]] = Field(default_factory=list)  # (topic, minutes)
+    daily_average: float
+    trend: str  # "increasing", "decreasing", "stable"
+
+
+# ===========================================
+# Streak Models
+# ===========================================
+
+
+class StreakData(BaseModel):
+    """
+    Practice streak information.
+    
+    Tracks consecutive days of practice to motivate consistent learning habits.
+    Includes current and longest streaks, milestone tracking, and weekly/monthly
+    activity counts. Gamification element that encourages daily engagement.
+    """
+
+    current_streak: int  # Days
+    longest_streak: int
+    streak_start: Optional[date] = None
+    last_practice: Optional[date] = None
+    is_active_today: bool
+    days_this_week: int
+    days_this_month: int
+    # Milestones
+    milestones_reached: list[int] = Field(default_factory=list)  # e.g., [7, 30, 100]
+    next_milestone: Optional[int] = None
+
+
+# ===========================================
+# Time Logging Models
+# ===========================================
+
+
+class LogTimeRequest(BaseModel):
+    """
+    Request to log learning time.
+    
+    Captures time spent on learning activities for analytics. Supports various
+    activity types (review, practice, reading, exercise) and can be linked to
+    specific content, topics, or practice sessions for detailed tracking.
+    """
+
+    activity_type: str = Field(..., description="Type: review, practice, reading, exercise")
+    started_at: AwareDatetime
+    ended_at: AwareDatetime
+    topic: Optional[str] = None
+    content_id: Optional[int] = None
+    session_id: Optional[int] = None
+    items_completed: int = Field(default=0, ge=0)
+
+
+class LogTimeResponse(BaseModel):
+    """
+    Response after logging time.
+    
+    Confirms the time log was recorded and returns the calculated duration.
+    The human-readable message provides quick feedback to the user about
+    how much time was logged.
+    """
+
+    id: int
+    duration_seconds: int
+    message: str

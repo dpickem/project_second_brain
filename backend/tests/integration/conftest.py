@@ -277,6 +277,9 @@ async def async_test_client(clean_db: AsyncSession):
 
     IMPORTANT: This overrides the app's get_db dependency to ensure
     tests NEVER touch the production database.
+
+    Note: As of httpx 0.28+, ASGITransport must be used instead of passing
+    `app` directly to AsyncClient.
     """
     # Import here to defer until after environment is configured
     from app.db.base import get_db
@@ -289,7 +292,9 @@ async def async_test_client(clean_db: AsyncSession):
 
     app.dependency_overrides[get_db] = get_test_db
 
-    async with httpx.AsyncClient(app=app, base_url="http://test") as client:
+    # Use ASGITransport for httpx 0.28+ compatibility
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
     # Clean up dependency override after test

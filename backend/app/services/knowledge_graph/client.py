@@ -42,6 +42,9 @@ from app.services.knowledge_graph.queries import (
     CREATE_RELATIONSHIP,
     GET_CONNECTED_NODES,
     VECTOR_SEARCH,
+    VERIFY_CONNECTIVITY,
+    LIST_INDEX_NAMES,
+    GET_ALL_GRAPH_DATA,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,7 +107,7 @@ class Neo4jClient:
             async with self._async_driver.session(
                 database=settings.NEO4J_DATABASE
             ) as session:
-                result = await session.run("SHOW INDEXES YIELD name")
+                result = await session.run(LIST_INDEX_NAMES)
                 existing_indexes = {record["name"] async for record in result}
 
                 missing = required_indexes - existing_indexes
@@ -136,7 +139,7 @@ class Neo4jClient:
             async with self._async_driver.session(
                 database=settings.NEO4J_DATABASE
             ) as session:
-                result = await session.run("RETURN 1 AS test")
+                result = await session.run(VERIFY_CONNECTIVITY)
                 await result.single()
                 return True
         except Exception as e:
@@ -536,6 +539,53 @@ class Neo4jClient:
                 )
 
             return len(target_ids)
+
+    # =========================================================================
+    # Graph Visualization Operations
+    # =========================================================================
+
+    async def get_all_graph_data(self) -> dict:
+        """
+        Get all nodes and relationships from the knowledge graph.
+
+        Returns the full graph structure with nodes and relationships
+        for visualization purposes.
+
+        Returns:
+            Dict with "nodes" and "relationships" lists, or message if not connected
+        """
+        await self._ensure_initialized()
+
+        async with self._async_driver.session(
+            database=settings.NEO4J_DATABASE
+        ) as session:
+            result = await session.run(GET_ALL_GRAPH_DATA)
+            nodes = []
+            rels = []
+            seen = set()
+
+            async for record in result:
+                n = record["n"]
+                m = record["m"]
+                r = record["r"]
+
+                if n.id not in seen:
+                    nodes.append({"id": n.id, "labels": list(n.labels), **dict(n)})
+                    seen.add(n.id)
+
+                if m.id not in seen:
+                    nodes.append({"id": m.id, "labels": list(m.labels), **dict(m)})
+                    seen.add(m.id)
+
+                rels.append(
+                    {
+                        "start": r.start_node.id,
+                        "end": r.end_node.id,
+                        "type": r.type,
+                    }
+                )
+
+            return {"nodes": nodes, "relationships": rels}
 
 
 # Singleton instance

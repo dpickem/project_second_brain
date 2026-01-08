@@ -8,6 +8,8 @@ Endpoints:
 - GET /api/analytics/mastery/{topic} - Get mastery for a specific topic
 - GET /api/analytics/weak-spots - Get topics needing attention
 - GET /api/analytics/learning-curve - Get learning curve data
+- GET /api/analytics/time-investment - Get time investment breakdown
+- GET /api/analytics/streak - Get practice streak information
 """
 
 from typing import Optional
@@ -18,11 +20,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.base import get_db
+from app.enums.learning import TimePeriod, GroupBy
 from app.models.learning import (
     MasteryState,
     MasteryOverview,
     WeakSpotsResponse,
     LearningCurveResponse,
+    TimeInvestmentResponse,
+    StreakData,
+    LogTimeRequest,
+    LogTimeResponse,
 )
 from app.services.learning import MasteryService
 
@@ -99,15 +106,11 @@ async def get_weak_spots(
     """
     try:
         weak_spots = await service.get_weak_spots(limit=limit)
-
-        # Get total topic count for context
-        # Note: This is a simplified count
         overview = await service.get_overview()
-        total_topics = len(overview.topics)
 
         return WeakSpotsResponse(
             weak_spots=weak_spots,
-            total_topics=total_topics,
+            total_topics=len(overview.topics),
             weak_spot_threshold=settings.MASTERY_WEAK_SPOT_THRESHOLD,
         )
     except Exception as e:
@@ -155,4 +158,91 @@ async def take_mastery_snapshot(
         return {"status": "success", "snapshots_created": count}
     except Exception as e:
         logger.error(f"Failed to take snapshot: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===========================================
+# Time Investment Endpoints
+# ===========================================
+
+
+@router.get("/time-investment", response_model=TimeInvestmentResponse)
+async def get_time_investment(
+    period: TimePeriod = Query(TimePeriod.MONTH, description="Time period to analyze"),
+    group_by: GroupBy = Query(GroupBy.DAY, description="How to group the data"),
+    service: MasteryService = Depends(get_mastery_service),
+) -> TimeInvestmentResponse:
+    """
+    Get time investment breakdown.
+
+    Shows how much time has been spent learning,
+    broken down by topic and activity type.
+
+    Args:
+        period: Time period to analyze (7d, 30d, 90d, 1y, all)
+        group_by: How to group the data (day, week, month)
+
+    Returns:
+        Time investment summary with trends
+    """
+    try:
+        return await service.get_time_investment(period=period, group_by=group_by)
+    except Exception as e:
+        logger.error(f"Failed to get time investment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===========================================
+# Streak Endpoints
+# ===========================================
+
+
+@router.get("/streak", response_model=StreakData)
+async def get_streak_data(
+    service: MasteryService = Depends(get_mastery_service),
+) -> StreakData:
+    """
+    Get practice streak information.
+
+    A streak is maintained by practicing at least once per day.
+    Streaks reset if a day is missed.
+
+    Returns:
+        Current streak, history, and milestones
+    """
+    try:
+        return await service.get_streak_data()
+    except Exception as e:
+        logger.error(f"Failed to get streak data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===========================================
+# Time Logging Endpoint
+# ===========================================
+
+
+@router.post("/time-log", response_model=LogTimeResponse)
+async def log_learning_time(
+    request: LogTimeRequest,
+    service: MasteryService = Depends(get_mastery_service),
+) -> LogTimeResponse:
+    """
+    Log time spent on a learning activity.
+
+    Called by frontend to track time investment.
+    Duration is calculated from started_at and ended_at.
+
+    Args:
+        request: Time log details
+
+    Returns:
+        Created time log record
+    """
+    try:
+        return await service.log_learning_time(request)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to log time: {e}")
         raise HTTPException(status_code=500, detail=str(e))

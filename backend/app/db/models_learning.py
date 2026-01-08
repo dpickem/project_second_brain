@@ -486,6 +486,57 @@ class ExerciseAttempt(Base):
 
 
 # ===========================================
+# Learning Time Tracking
+# ===========================================
+
+
+class LearningTimeLog(Base):
+    """
+    Tracks time spent on learning activities.
+
+    Logged automatically when:
+    - Practice sessions end (session duration)
+    - Review sessions end (time on cards)
+    - Content is read (if frontend tracks)
+    - Exercises are completed
+
+    Attributes:
+        id: Primary key, auto-incrementing integer identifier.
+        topic: Topic being learned (e.g., "ml/transformers").
+        content_id: Optional FK to content being studied.
+        activity_type: Type of activity (review, practice, reading, exercise).
+        started_at: When the activity started.
+        ended_at: When the activity ended.
+        duration_seconds: Duration in seconds.
+        items_completed: Number of items completed (cards, exercises, etc.).
+        session_id: Optional FK to practice session.
+    """
+
+    __tablename__ = "learning_time_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    # What was being learned
+    topic: Mapped[Optional[str]] = mapped_column(String(200), index=True)
+    content_id: Mapped[Optional[int]] = mapped_column(ForeignKey("content.id"))
+
+    # Activity type
+    activity_type: Mapped[str] = mapped_column(String(50), index=True)
+
+    # Time tracking
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    duration_seconds: Mapped[int] = mapped_column(Integer)
+
+    # Metadata
+    items_completed: Mapped[int] = mapped_column(Integer, default=0)
+    session_id: Mapped[Optional[int]] = mapped_column(ForeignKey("practice_sessions.id"))
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+
+
+# ===========================================
 # Forward Reference for Content relationship
 # ===========================================
 
