@@ -97,6 +97,9 @@ class Base(DeclarativeBase):
 # Import models AFTER Base is defined to avoid circular imports.
 # This ensures all models are registered with Base.metadata.
 from app.db import models  # noqa: F401, E402
+from app.db import models_assistant  # noqa: F401, E402
+from app.db import models_learning  # noqa: F401, E402
+from app.db import models_processing  # noqa: F401, E402
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

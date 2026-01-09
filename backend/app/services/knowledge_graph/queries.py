@@ -259,6 +259,7 @@ ON CREATE SET
     c.embedding = $embedding,
     c.tags = $tags,
     c.source_url = $source_url,
+    c.file_path = $file_path,
     c.metadata = $metadata,
     c.created_at = datetime()
 ON MATCH SET
@@ -268,6 +269,7 @@ ON MATCH SET
     c.embedding = $embedding,
     c.tags = $tags,
     c.source_url = $source_url,
+    c.file_path = $file_path,
     c.metadata = $metadata,
     c.updated_at = datetime()
 RETURN c.id AS id
@@ -287,6 +289,12 @@ ON MATCH SET
     c.embedding = CASE WHEN $importance = 'core'
                       THEN $embedding ELSE c.embedding END,
     c.updated_at = datetime()
+RETURN c.id AS id
+"""
+
+UPDATE_CONTENT_FILE_PATH = """
+MATCH (c:Content {id: $id})
+SET c.file_path = $file_path
 RETURN c.id AS id
 """
 
@@ -398,6 +406,7 @@ MERGE (n:Note {id: $node_id})
 SET n.title = $title,
     n.type = $note_type,
     n.tags = $tags,
+    n.file_path = $file_path,
     n.updated_at = datetime()
 RETURN n.id AS id
 """

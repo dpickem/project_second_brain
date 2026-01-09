@@ -268,8 +268,11 @@ async def generate_obsidian_note(
         # Write the note via VaultManager
         await vault.write_note(output_path, note_content)
 
+        # Return relative path from vault root (what the API expects)
+        relative_path = output_path.relative_to(vault.vault_path)
+        
         logger.info(f"Generated Obsidian note: {output_path}")
-        return str(output_path)
+        return str(relative_path)
 
     except Exception as e:
         logger.error(f"Failed to generate Obsidian note: {e}")

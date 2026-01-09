@@ -44,6 +44,7 @@ class RaindropSyncRequest(BaseModel):
 
     since_days: int = 1
     collection_id: Optional[int] = 0  # 0 = all collections
+    limit: Optional[int] = None  # Max items to sync (default: no limit)
 
 
 class GitHubSyncRequest(BaseModel):
@@ -64,19 +65,20 @@ async def trigger_raindrop_sync(
 
     Args:
         background_tasks: FastAPI background task manager
-        request: Sync configuration with since_days and collection_id
+        request: Sync configuration with since_days, collection_id, and limit
 
     Returns:
         Dict with sync status and parameters
     """
     since = datetime.utcnow() - timedelta(days=request.since_days)
 
-    background_tasks.add_task(sync_raindrop.delay, since.isoformat())
+    background_tasks.add_task(sync_raindrop.delay, since.isoformat(), request.limit)
 
     return {
         "status": "sync_started",
         "since": since.isoformat(),
         "collection_id": request.collection_id,
+        "limit": request.limit,
         "message": "Raindrop sync queued",
     }
 

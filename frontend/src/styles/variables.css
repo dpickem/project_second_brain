@@ -1,0 +1,153 @@
+/**
+ * Design Token System
+ * 
+ * CSS custom properties for consistent theming across the application.
+ * These tokens go beyond Tailwind defaults for a more distinctive look.
+ */
+
+:root {
+  /* Typography */
+  --font-heading: 'Outfit', 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Font Sizes */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+
+  /* Color Palette - Refined dark theme with warmer accents */
+  --color-bg-primary: #0a0f1a;      /* Deeper than slate-950 */
+  --color-bg-secondary: #111827;    /* Slate-900 equivalent */
+  --color-bg-tertiary: #1e293b;     /* Slate-800 equivalent */
+  --color-bg-elevated: #1a2234;     /* For cards and elevated surfaces */
+  --color-bg-hover: #243044;        /* Hover state for interactive elements */
+
+  /* Text Colors */
+  --color-text-primary: #f1f5f9;    /* Slate-100 */
+  --color-text-secondary: #94a3b8;  /* Slate-400 */
+  --color-text-muted: #64748b;      /* Slate-500 */
+  --color-text-disabled: #475569;   /* Slate-600 */
+
+  /* Accent colors - warmer, more distinctive than pure indigo */
+  --color-accent-primary: #6366f1;    /* Indigo-500 */
+  --color-accent-secondary: #818cf8;  /* Indigo-400 */
+  --color-accent-tertiary: #a5b4fc;   /* Indigo-300 */
+  --color-accent-warm: #f472b6;       /* Pink-400 - for highlights */
+  --color-accent-success: #34d399;    /* Emerald-400 */
+  --color-accent-warning: #fbbf24;    /* Amber-400 */
+  --color-accent-danger: #f87171;     /* Red-400 */
+  --color-accent-info: #38bdf8;       /* Sky-400 */
+
+  /* Border Colors */
+  --color-border-primary: #334155;    /* Slate-700 */
+  --color-border-secondary: #475569;  /* Slate-600 */
+  --color-border-focus: #6366f1;      /* Indigo-500 */
+
+  /* Gradients */
+  --gradient-accent: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+  --gradient-accent-subtle: linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(168,85,247,0.1) 50%, rgba(236,72,153,0.05) 100%);
+  --gradient-surface: linear-gradient(145deg, rgba(30,41,59,0.5) 0%, rgba(15,23,42,0.8) 100%);
+  --gradient-glow: radial-gradient(ellipse at center, rgba(99,102,241,0.15) 0%, transparent 70%);
+
+  /* Spacing Scale */
+  --space-0: 0;
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+
+  /* Border Radius */
+  --radius-sm: 0.375rem;   /* 6px */
+  --radius-md: 0.5rem;     /* 8px */
+  --radius-lg: 0.75rem;    /* 12px */
+  --radius-xl: 1rem;       /* 16px */
+  --radius-2xl: 1.5rem;    /* 24px */
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.4);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.5);
+  --shadow-xl: 0 20px 25px rgba(0,0,0,0.6);
+  --shadow-glow: 0 0 20px rgba(99,102,241,0.3);
+  --shadow-glow-sm: 0 0 10px rgba(99,102,241,0.2);
+  --shadow-glow-lg: 0 0 40px rgba(99,102,241,0.4);
+  --shadow-card: 0 4px 20px rgba(0,0,0,0.25);
+
+  /* Z-Index Scale */
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-popover: 500;
+  --z-tooltip: 600;
+  --z-toast: 700;
+  --z-command: 800;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+  --transition-spring: 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* Content Widths */
+  --content-sm: 640px;
+  --content-md: 768px;
+  --content-lg: 1024px;
+  --content-xl: 1280px;
+  --content-2xl: 1536px;
+
+  /* Navigation */
+  --nav-width: 4rem;         /* 64px collapsed */
+  --nav-width-expanded: 16rem; /* 256px expanded */
+}
+
+/* Theme-specific overrides (for future light mode) */
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-primary);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-secondary);
+}
+
+/* Selection */
+::selection {
+  background: rgba(99, 102, 241, 0.3);
+  color: var(--color-text-primary);
+}

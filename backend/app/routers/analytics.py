@@ -30,6 +30,8 @@ from app.models.learning import (
     StreakData,
     LogTimeRequest,
     LogTimeResponse,
+    DailyStatsResponse,
+    PracticeHistoryResponse,
 )
 from app.services.learning import MasteryService
 
@@ -71,6 +73,45 @@ async def get_mastery_overview(
         return await service.get_overview()
     except Exception as e:
         logger.error(f"Failed to get mastery overview: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/daily", response_model=DailyStatsResponse)
+async def get_daily_stats(
+    service: MasteryService = Depends(get_mastery_service),
+) -> DailyStatsResponse:
+    """
+    Get daily statistics for the dashboard.
+
+    Returns today's learning status including:
+    - Current streak and risk status
+    - Due cards count
+    - Cards reviewed today
+    - Overall mastery
+    - Practice time today
+    """
+    try:
+        return await service.get_daily_stats()
+    except Exception as e:
+        logger.error(f"Failed to get daily stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/practice-history", response_model=PracticeHistoryResponse)
+async def get_practice_history(
+    weeks: int = Query(52, ge=1, le=104, description="Number of weeks of history"),
+    service: MasteryService = Depends(get_mastery_service),
+) -> PracticeHistoryResponse:
+    """
+    Get practice history for activity heatmap.
+
+    Returns daily practice activity for the specified number of weeks,
+    suitable for rendering a GitHub-style contribution heatmap.
+    """
+    try:
+        return await service.get_practice_history(weeks=weeks)
+    except Exception as e:
+        logger.error(f"Failed to get practice history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

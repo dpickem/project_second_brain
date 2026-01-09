@@ -5,16 +5,20 @@ Run All Tests - Unified Test Runner for Second Brain
 This script runs all tests across the project:
 - Backend unit tests (Python/pytest)
 - Backend integration tests (Python/pytest)
-- Frontend tests (JavaScript/npm)
+- Frontend unit tests (JavaScript/Vitest)
+- Frontend e2e tests (JavaScript/Playwright)
 
 Usage:
-    python scripts/run_all_tests.py              # Run all tests
+    python scripts/run_all_tests.py              # Run all tests (excludes e2e by default)
     python scripts/run_all_tests.py --backend-unit  # Backend unit tests only
     python scripts/run_all_tests.py --backend-integration  # Backend integration tests
-    python scripts/run_all_tests.py --frontend   # Frontend tests only
+    python scripts/run_all_tests.py --frontend   # Frontend unit tests only
+    python scripts/run_all_tests.py --frontend-e2e  # Frontend e2e tests only
+    python scripts/run_all_tests.py --frontend --frontend-e2e  # All frontend tests
     python scripts/run_all_tests.py --coverage   # Run with coverage reports
     python scripts/run_all_tests.py --fail-fast  # Stop on first failure
     python scripts/run_all_tests.py --verbose    # Verbose output
+    python scripts/run_all_tests.py --e2e-headed # Run e2e with visible browser
 """
 
 import argparse
@@ -215,15 +219,15 @@ def run_frontend_tests(
     coverage: bool = False,
     fail_fast: bool = False,
 ) -> TestResult:
-    """Run frontend tests."""
-    print_header("Frontend Tests")
+    """Run frontend unit tests."""
+    print_header("Frontend Unit Tests")
     
     # Check if frontend test script exists
     package_json = FRONTEND_DIR / "package.json"
     if not package_json.exists():
         print_warning("Frontend package.json not found, skipping frontend tests")
         return TestResult(
-            name="Frontend Tests",
+            name="Frontend Unit Tests",
             success=True,
             duration=0,
             output="Skipped - no package.json",
@@ -241,7 +245,7 @@ def run_frontend_tests(
         print_info("To enable frontend tests, add a 'test' script to frontend/package.json")
         print_info("Example: \"test\": \"vitest run\"")
         return TestResult(
-            name="Frontend Tests",
+            name="Frontend Unit Tests",
             success=True,
             duration=0,
             output="Skipped - no test script configured",
@@ -274,12 +278,93 @@ def run_frontend_tests(
     success = result.returncode == 0
     
     if success:
-        print_success(f"Frontend tests passed ({duration:.2f}s)")
+        print_success(f"Frontend unit tests passed ({duration:.2f}s)")
     else:
-        print_failure(f"Frontend tests failed ({duration:.2f}s)")
+        print_failure(f"Frontend unit tests failed ({duration:.2f}s)")
     
     return TestResult(
-        name="Frontend Tests",
+        name="Frontend Unit Tests",
+        success=success,
+        duration=duration,
+        output=result.stdout if hasattr(result, 'stdout') and result.stdout else "",
+        return_code=result.returncode,
+    )
+
+
+def run_frontend_e2e_tests(
+    verbose: bool = False,
+    fail_fast: bool = False,
+    headed: bool = False,
+) -> TestResult:
+    """Run frontend e2e tests with Playwright."""
+    print_header("Frontend E2E Tests (Playwright)")
+    
+    # Check if frontend test script exists
+    package_json = FRONTEND_DIR / "package.json"
+    if not package_json.exists():
+        print_warning("Frontend package.json not found, skipping e2e tests")
+        return TestResult(
+            name="Frontend E2E Tests",
+            success=True,
+            duration=0,
+            output="Skipped - no package.json",
+            return_code=0,
+        )
+    
+    # Check if e2e test script is configured
+    import json
+    with open(package_json) as f:
+        pkg = json.load(f)
+    
+    scripts = pkg.get("scripts", {})
+    if "test:e2e" not in scripts:
+        print_warning("No 'test:e2e' script in package.json, skipping e2e tests")
+        print_info("To enable e2e tests, add 'test:e2e': 'playwright test' to frontend/package.json")
+        return TestResult(
+            name="Frontend E2E Tests",
+            success=True,
+            duration=0,
+            output="Skipped - no test:e2e script configured",
+            return_code=0,
+        )
+    
+    # Check if playwright config exists
+    playwright_config = FRONTEND_DIR / "playwright.config.js"
+    if not playwright_config.exists():
+        print_warning("No playwright.config.js found, skipping e2e tests")
+        return TestResult(
+            name="Frontend E2E Tests",
+            success=True,
+            duration=0,
+            output="Skipped - no playwright.config.js",
+            return_code=0,
+        )
+    
+    start_time = time.time()
+    
+    # Build command
+    if headed:
+        command = ["npm", "run", "test:e2e:headed"]
+    else:
+        command = ["npm", "run", "test:e2e"]
+    
+    print_info(f"Running: {' '.join(command)}")
+    print_info(f"Working directory: {FRONTEND_DIR}")
+    print_warning("E2E tests will start the dev server automatically\n")
+    
+    result = run_command(command, FRONTEND_DIR)
+    
+    duration = time.time() - start_time
+    success = result.returncode == 0
+    
+    if success:
+        print_success(f"Frontend e2e tests passed ({duration:.2f}s)")
+    else:
+        print_failure(f"Frontend e2e tests failed ({duration:.2f}s)")
+        print_info("Run 'npm run test:e2e:report' in frontend/ to view detailed report")
+    
+    return TestResult(
+        name="Frontend E2E Tests",
         success=success,
         duration=duration,
         output=result.stdout if hasattr(result, 'stdout') and result.stdout else "",
@@ -328,12 +413,15 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python scripts/run_all_tests.py                    # Run all tests
+  python scripts/run_all_tests.py                    # Run all tests (excludes e2e)
   python scripts/run_all_tests.py --backend-unit     # Backend unit tests only
   python scripts/run_all_tests.py --backend          # All backend tests
-  python scripts/run_all_tests.py --frontend         # Frontend tests only
+  python scripts/run_all_tests.py --frontend         # Frontend unit tests only
+  python scripts/run_all_tests.py --frontend-e2e     # Frontend e2e tests only
+  python scripts/run_all_tests.py --frontend --frontend-e2e  # All frontend tests
   python scripts/run_all_tests.py --coverage         # Run with coverage
   python scripts/run_all_tests.py -v --fail-fast     # Verbose, stop on failure
+  python scripts/run_all_tests.py --frontend-e2e --e2e-headed  # E2E with browser
         """,
     )
     
@@ -357,7 +445,12 @@ Examples:
     selection.add_argument(
         "--frontend",
         action="store_true",
-        help="Run frontend tests only",
+        help="Run frontend unit tests only",
+    )
+    selection.add_argument(
+        "--frontend-e2e",
+        action="store_true",
+        help="Run frontend e2e tests (Playwright)",
     )
     
     # Options
@@ -382,6 +475,11 @@ Examples:
         action="store_true",
         help="Run tests in parallel (requires pytest-xdist)",
     )
+    options.add_argument(
+        "--e2e-headed",
+        action="store_true",
+        help="Run e2e tests with visible browser (requires --frontend-e2e)",
+    )
     
     return parser.parse_args()
 
@@ -390,21 +488,25 @@ def main() -> int:
     """Main entry point."""
     args = parse_args()
     
+    # Check if any specific test suite was requested
+    specific_tests_requested = any([
+        args.backend_unit, args.backend_integration, args.backend, 
+        args.frontend, args.frontend_e2e
+    ])
+    
     # Determine which tests to run
-    run_backend_unit = args.backend_unit or args.backend or not any([
-        args.backend_unit, args.backend_integration, args.backend, args.frontend
-    ])
-    run_backend_int = args.backend_integration or args.backend or not any([
-        args.backend_unit, args.backend_integration, args.backend, args.frontend
-    ])
-    run_frontend = args.frontend or not any([
-        args.backend_unit, args.backend_integration, args.backend, args.frontend
-    ])
+    # By default, run backend + frontend unit tests (NOT e2e - those are opt-in)
+    run_backend_unit = args.backend_unit or args.backend or not specific_tests_requested
+    run_backend_int = args.backend_integration or args.backend or not specific_tests_requested
+    run_frontend = args.frontend or not specific_tests_requested
+    run_frontend_e2e = args.frontend_e2e  # E2E is always opt-in
     
     print_header("Second Brain Test Runner")
     print_info(f"Project root: {PROJECT_ROOT}")
-    print_info(f"Backend tests: {run_backend_unit or run_backend_int}")
-    print_info(f"Frontend tests: {run_frontend}")
+    print_info(f"Backend unit tests: {run_backend_unit}")
+    print_info(f"Backend integration tests: {run_backend_int}")
+    print_info(f"Frontend unit tests: {run_frontend}")
+    print_info(f"Frontend e2e tests: {run_frontend_e2e}")
     
     results: list[TestResult] = []
     
@@ -439,6 +541,18 @@ def main() -> int:
             verbose=args.verbose,
             coverage=args.coverage,
             fail_fast=args.fail_fast,
+        )
+        results.append(result)
+        
+        if args.fail_fast and not result.success:
+            print_summary(results)
+            return 1
+    
+    if run_frontend_e2e:
+        result = run_frontend_e2e_tests(
+            verbose=args.verbose,
+            fail_fast=args.fail_fast,
+            headed=args.e2e_headed,
         )
         results.append(result)
     

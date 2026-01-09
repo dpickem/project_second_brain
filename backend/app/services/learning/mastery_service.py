@@ -44,22 +44,56 @@ from app.enums.learning import MasteryTrend, ExerciseType, CardState, TimePeriod
 from app.services.learning.exercise_generator import get_suggested_exercise_types
 from app.services.tag_service import TagService
 from app.models.learning import (
-    MasteryState,
-    MasteryOverview,
-    WeakSpot,
+    DailyStatsResponse,
     LearningCurveDataPoint,
     LearningCurveResponse,
-    TimeInvestmentPeriod,
-    TimeInvestmentResponse,
-    StreakData,
     LogTimeRequest,
     LogTimeResponse,
+    MasteryOverview,
+    MasteryState,
+    PracticeHistoryDay,
+    PracticeHistoryResponse,
+    StreakData,
+    TimeInvestmentPeriod,
+    TimeInvestmentResponse,
+    WeakSpot,
 )
 
 logger = logging.getLogger(__name__)
 
 # Streak milestones for gamification (in days)
 STREAK_MILESTONES = [7, 14, 30, 60, 90, 180, 365]
+
+# Activity level thresholds for heatmap visualization (0-4 scale)
+_ACTIVITY_LEVEL_THRESHOLDS = [
+    (0.75, 4),  # High activity
+    (0.50, 3),  # Medium-high activity
+    (0.25, 2),  # Medium activity
+    (0.00, 1),  # Low activity (any practice > 0)
+]
+
+
+def _calculate_activity_level(count: int, max_count: int) -> int:
+    """
+    Calculate activity level (0-4) based on count relative to max.
+
+    Used for heatmap visualizations where higher levels indicate more activity.
+
+    Args:
+        count: Activity count for the day.
+        max_count: Maximum activity count across all days.
+
+    Returns:
+        Activity level from 0 (no activity) to 4 (high activity).
+    """
+    if max_count == 0 or count == 0:
+        return 0
+
+    ratio = count / max_count
+    for threshold, level in _ACTIVITY_LEVEL_THRESHOLDS:
+        if ratio >= threshold:
+            return level
+    return 0
 
 
 def _calculate_trend(current_score: float, previous_score: float) -> MasteryTrend:
@@ -259,7 +293,7 @@ class MasteryService:
         """
         if days is None:
             days = settings.MASTERY_LEARNING_CURVE_DAYS
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         # Get snapshots for the period
         query = select(MasterySnapshot).where(
@@ -339,7 +373,7 @@ class MasteryService:
 
         # Create snapshots for all topics
         count = 0
-        snapshot_time = datetime.utcnow()
+        snapshot_time = datetime.now(timezone.utc)
 
         for state in all_states:
             try:
@@ -448,7 +482,7 @@ class MasteryService:
         Returns:
             Dict mapping topic -> most recent MasterySnapshot (if exists).
         """
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
         result = await self.db.execute(
             select(MasterySnapshot)
@@ -587,7 +621,8 @@ class MasteryService:
         )
 
         # Compute derived metrics
-        now = datetime.utcnow()
+        # Use naive UTC for days_since_review to handle both naive/aware timestamps from DB
+        now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Success rate (None if no reviews)
         grouped["success_rate"] = grouped.apply(
@@ -627,9 +662,11 @@ class MasteryService:
             axis=1,
         )
 
-        # Days since review
+        # Days since review (strip tz from timestamp if present for consistent comparison)
         grouped["days_since_review"] = grouped["last_practiced"].apply(
-            lambda x: (now - x).days if pd.notna(x) else None
+            lambda x: (now_naive - (x.replace(tzinfo=None) if hasattr(x, 'tzinfo') and x.tzinfo else x)).days
+            if pd.notna(x)
+            else None
         )
 
         return grouped
@@ -649,7 +686,7 @@ class MasteryService:
         Returns:
             Most recent MasterySnapshot within cutoff, or None if not found.
         """
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
         result = await self.db.execute(
             select(MasterySnapshot)
@@ -688,7 +725,7 @@ class MasteryService:
         Returns:
             Number of consecutive practice days.
         """
-        cutoff = datetime.utcnow() - timedelta(days=settings.MASTERY_STREAK_WINDOW_DAYS)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=settings.MASTERY_STREAK_WINDOW_DAYS)
 
         result = await self.db.execute(
             select(distinct(func.date(SpacedRepCard.last_reviewed)))
@@ -702,7 +739,7 @@ class MasteryService:
             return 0
 
         # Count consecutive days from today
-        today = datetime.utcnow().date()
+        today = datetime.now(timezone.utc).date()
         streak = 0
 
         for i, review_date in enumerate(review_dates):
@@ -1152,9 +1189,9 @@ class MasteryService:
         """
         Calculate current consecutive practice streak.
 
-        Iterates through practice_dates (expected in descending order) counting consecutive
-        days from today. If the user hasn't practiced today but practiced yesterday,
-        the streak is still considered active (they have until end of today).
+        Counts consecutive practice days starting from today (or yesterday if no
+        practice today). The streak remains valid if the user practiced yesterday
+        but hasn't practiced today yet.
 
         Args:
             practice_dates: List of practice dates in descending order (most recent first).
@@ -1168,26 +1205,30 @@ class MasteryService:
         if not practice_dates:
             return 0, None
 
-        yesterday = today - timedelta(days=1)
-        current_streak = 0
+        # Determine the reference date: today if practiced today, else yesterday
+        most_recent = practice_dates[0]
+        if most_recent == today:
+            reference_date = today
+        elif most_recent == today - timedelta(days=1):
+            # Streak still active - user hasn't practiced today but did yesterday
+            reference_date = most_recent
+        else:
+            # No recent practice - no active streak
+            return 0, None
+
+        # Count consecutive days backwards from the reference date
+        streak_count = 0
         streak_start = None
 
-        for i, d in enumerate(practice_dates):
-            expected_date = today - timedelta(days=i)
-
-            if d == expected_date:
-                current_streak += 1
-                streak_start = d
-            elif d == expected_date - timedelta(days=1) and i == 0:
-                # Didn't practice today but practiced yesterday - streak still valid
-                expected_date = yesterday - timedelta(days=i)
-                if d == expected_date:
-                    current_streak += 1
-                    streak_start = d
+        for i, practice_date in enumerate(practice_dates):
+            expected_date = reference_date - timedelta(days=i)
+            if practice_date == expected_date:
+                streak_count += 1
+                streak_start = practice_date
             else:
                 break
 
-        return current_streak, streak_start
+        return streak_count, streak_start
 
     @staticmethod
     def _calculate_longest_streak(practice_dates: list[date]) -> int:
@@ -1282,4 +1323,148 @@ class MasteryService:
             id=log.id,
             duration_seconds=duration_seconds,
             message=f"Logged {duration_seconds // 60} minutes of {request.activity_type}",
+        )
+
+    # ===========================================
+    # Dashboard & Daily Stats
+    # ===========================================
+
+    async def get_daily_stats(self) -> DailyStatsResponse:
+        """
+        Get daily statistics for the dashboard.
+
+        Provides a quick overview including streak, due cards, and today's progress.
+
+        Returns:
+            DailyStatsResponse with today's learning metrics.
+        """
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Get streak
+        streak = await self._calculate_streak()
+
+        # Count total cards
+        total_result = await self.db.execute(select(func.count(SpacedRepCard.id)))
+        total_cards = total_result.scalar() or 0
+
+        # Count due cards (due_date <= now)
+        due_result = await self.db.execute(
+            select(func.count(SpacedRepCard.id)).where(SpacedRepCard.due_date <= now)
+        )
+        due_cards = due_result.scalar() or 0
+
+        # Count cards reviewed today
+        reviewed_today_result = await self.db.execute(
+            select(func.count(SpacedRepCard.id)).where(
+                SpacedRepCard.last_reviewed >= today_start
+            )
+        )
+        cards_reviewed_today = reviewed_today_result.scalar() or 0
+
+        # Get overall mastery
+        overview = await self.get_overview()
+
+        # Get last practice date
+        last_review_result = await self.db.execute(
+            select(func.max(SpacedRepCard.last_reviewed))
+        )
+        last_reviewed = last_review_result.scalar()
+        last_practice_date = last_reviewed.date() if last_reviewed else None
+
+        # Check if streak is at risk (no practice today yet)
+        streak_at_risk = cards_reviewed_today == 0 and streak > 0
+
+        # Get practice time today
+        time_result = await self.db.execute(
+            select(func.sum(LearningTimeLog.duration_seconds)).where(
+                LearningTimeLog.started_at >= today_start
+            )
+        )
+        practice_seconds = time_result.scalar() or 0
+
+        return DailyStatsResponse(
+            streak_days=streak,
+            streak_at_risk=streak_at_risk,
+            due_cards_count=due_cards,
+            total_cards=total_cards,
+            cards_reviewed_today=cards_reviewed_today,
+            overall_mastery=overview.overall_mastery,
+            practice_time_today_minutes=practice_seconds // 60,
+            last_practice_date=last_practice_date,
+        )
+
+    async def get_practice_history(self, weeks: int = 52) -> PracticeHistoryResponse:
+        """
+        Get practice history for activity heatmap.
+
+        Returns daily practice activity for the specified number of weeks.
+
+        Args:
+            weeks: Number of weeks of history to return (default 52).
+
+        Returns:
+            PracticeHistoryResponse with daily activity data.
+        """
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(weeks=weeks)
+
+        # Query daily practice counts from cards
+        result = await self.db.execute(
+            select(
+                func.date(SpacedRepCard.last_reviewed).label("practice_date"),
+                func.count(SpacedRepCard.id).label("count"),
+            )
+            .where(SpacedRepCard.last_reviewed >= cutoff)
+            .group_by(func.date(SpacedRepCard.last_reviewed))
+            .order_by(func.date(SpacedRepCard.last_reviewed))
+        )
+
+        rows = result.fetchall()
+
+        # Query daily practice time
+        time_result = await self.db.execute(
+            select(
+                func.date(LearningTimeLog.started_at).label("practice_date"),
+                func.sum(LearningTimeLog.duration_seconds).label("total_seconds"),
+            )
+            .where(LearningTimeLog.started_at >= cutoff)
+            .group_by(func.date(LearningTimeLog.started_at))
+        )
+
+        time_rows = {row[0]: row[1] for row in time_result.fetchall()}
+
+        # Build response
+        days = []
+        max_count = 0
+        total_items = 0
+        total_practice_days = 0
+
+        for row in rows:
+            practice_date = row[0]
+            count = row[1]
+            minutes = (time_rows.get(practice_date, 0) or 0) // 60
+
+            max_count = max(max_count, count)
+            total_items += count
+            total_practice_days += 1
+
+            days.append(
+                PracticeHistoryDay(
+                    date=practice_date,
+                    count=count,
+                    minutes=minutes,
+                    level=0,  # Will be calculated below
+                )
+            )
+
+        # Calculate activity levels (0-4 based on count relative to max)
+        for day in days:
+            day.level = _calculate_activity_level(day.count, max_count)
+
+        return PracticeHistoryResponse(
+            days=days,
+            total_practice_days=total_practice_days,
+            total_items=total_items,
+            max_daily_count=max_count,
         )

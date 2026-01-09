@@ -72,6 +72,10 @@ async def create_knowledge_nodes(
                 all_tags.append(str(tag))
 
         # Create content node
+        # Use the obsidian note path from result (set by pipeline after note generation)
+        # or fall back to content.obsidian_path if available
+        file_path = result.obsidian_note_path or content.obsidian_path
+        
         content_node_id = await neo4j_client.create_content_node(
             content_id=content.id,
             title=content.title,
@@ -80,6 +84,7 @@ async def create_knowledge_nodes(
             embedding=embedding,
             tags=all_tags,
             source_url=content.source_url,
+            file_path=file_path,
             metadata={
                 "domain": str(result.analysis.domain) if result.analysis.domain else "",
                 "complexity": (

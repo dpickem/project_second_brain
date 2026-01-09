@@ -56,6 +56,7 @@ from app.enums.knowledge import (
     ConnectionDirection,
 )
 from app.enums.api import (
+    ExplanationStyle,
     RateLimitType,
 )
 
@@ -96,5 +97,6 @@ __all__ = [
     "GraphConnectionType",
     "ConnectionDirection",
     # API enums
+    "ExplanationStyle",
     "RateLimitType",
 ]

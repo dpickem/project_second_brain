@@ -7,6 +7,7 @@ For enums, import from app.enums:
 For models, import from app.models:
     from app.models import UnifiedContent, ProcessingResult, LLMUsage
     from app.models import GraphNode, GraphResponse, SearchRequest  # Knowledge graph
+    from app.models import ChatRequest, ChatResponse  # Assistant
 """
 
 from app.models.content import (
@@ -43,6 +44,29 @@ from app.models.knowledge import (
     TopicNode,
     TopicHierarchyResponse,
 )
+from app.models.assistant import (
+    ChatRequest,
+    ChatResponse,
+    SourceReference,
+    ConversationListResponse,
+    ConversationSummary,
+    ConversationDetail,
+    MessageInfo,
+    ConversationUpdateRequest,
+    ConversationUpdateResponse,
+    DeleteResponse,
+    SuggestionsResponse,
+    PromptSuggestion,
+    KnowledgeSearchResponse,
+    KnowledgeSearchResult,
+    RecommendationsResponse,
+    StudyRecommendation,
+    QuizRequest,
+    QuizResponse,
+    QuizQuestion,
+    ExplanationResponse,
+    RelatedConcept,
+)
 
 __all__ = [
     # Content models
@@ -75,4 +99,26 @@ __all__ = [
     "ConnectionsResponse",
     "TopicNode",
     "TopicHierarchyResponse",
+    # Assistant models
+    "ChatRequest",
+    "ChatResponse",
+    "SourceReference",
+    "ConversationListResponse",
+    "ConversationSummary",
+    "ConversationDetail",
+    "MessageInfo",
+    "ConversationUpdateRequest",
+    "ConversationUpdateResponse",
+    "DeleteResponse",
+    "SuggestionsResponse",
+    "PromptSuggestion",
+    "KnowledgeSearchResponse",
+    "KnowledgeSearchResult",
+    "RecommendationsResponse",
+    "StudyRecommendation",
+    "QuizRequest",
+    "QuizResponse",
+    "QuizQuestion",
+    "ExplanationResponse",
+    "RelatedConcept",
 ]

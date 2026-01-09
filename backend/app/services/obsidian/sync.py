@@ -64,6 +64,7 @@ from sqlalchemy import select
 from app.db.base import async_session_maker
 from app.db.models import SystemMeta
 from app.services.knowledge_graph.client import get_neo4j_client
+from app.services.obsidian import get_vault_manager
 from app.services.obsidian.frontmatter import parse_frontmatter_file, update_frontmatter
 from app.services.obsidian.links import extract_tags, extract_wikilinks
 
@@ -465,11 +466,19 @@ class VaultSyncService:
             # Update Neo4j node if client is available
             neo4j = await self._ensure_neo4j()
             if neo4j:
+                # Get vault manager to compute relative path
+                vault = get_vault_manager()
+                try:
+                    file_path = str(note_path.relative_to(vault.vault_path))
+                except ValueError:
+                    file_path = str(note_path)
+                
                 await self._update_neo4j_node(
                     node_id=node_id,
                     title=title,
                     note_type=note_type,
                     tags=all_tags,
+                    file_path=file_path,
                     metadata=fm,
                 )
 
@@ -498,6 +507,7 @@ class VaultSyncService:
         title: str,
         note_type: str,
         tags: list[str],
+        file_path: str,
         metadata: dict,
     ):
         """
@@ -511,6 +521,7 @@ class VaultSyncService:
             title: Display title for the note
             note_type: Content type (paper, article, concept, etc.)
             tags: List of all tags (frontmatter + inline)
+            file_path: Relative path to the note file from vault root
             metadata: Full frontmatter dict (reserved for future use)
         """
         neo4j = await self._ensure_neo4j()
@@ -523,6 +534,7 @@ class VaultSyncService:
                 title=title,
                 note_type=note_type,
                 tags=tags,
+                file_path=file_path,
             )
         except Exception as e:
             logger.error(f"Failed to update Neo4j node {node_id}: {e}")

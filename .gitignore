@@ -20,3 +20,9 @@ scripts/*.json
 
 # Cursor files.
 .cursor/
+
+# Test results.
+frontend/test-results/
+
+# Playwright reports.
+frontend/playwright-report/

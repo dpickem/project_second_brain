@@ -19,6 +19,7 @@ from app.enums.learning import MasteryTrend, ExerciseType, CardState
 from app.models.learning import MasteryState
 from app.services.learning.mastery_service import (
     MasteryService,
+    _calculate_activity_level,
     _calculate_trend,
 )
 
@@ -81,6 +82,38 @@ def sample_cards_df():
 # ============================================================================
 # Test _calculate_trend helper function
 # ============================================================================
+
+
+class TestCalculateActivityLevel:
+    """Tests for the _calculate_activity_level helper function."""
+
+    @pytest.mark.parametrize(
+        "count,max_count,expected",
+        [
+            (0, 100, 0),      # No activity
+            (0, 0, 0),        # No activity (edge case: max is 0)
+            (10, 0, 0),       # Edge case: max is 0 but count > 0
+            (100, 100, 4),    # Full activity (100%)
+            (80, 100, 4),     # High activity (>= 75%)
+            (75, 100, 4),     # Exactly 75% threshold
+            (60, 100, 3),     # Medium-high activity (>= 50%)
+            (50, 100, 3),     # Exactly 50% threshold
+            (30, 100, 2),     # Medium activity (>= 25%)
+            (25, 100, 2),     # Exactly 25% threshold
+            (10, 100, 1),     # Low activity (> 0%)
+            (1, 100, 1),      # Minimum activity
+        ],
+        ids=[
+            "no_activity", "max_zero", "count_with_zero_max",
+            "full", "high", "threshold_75",
+            "medium_high", "threshold_50",
+            "medium", "threshold_25",
+            "low", "minimum"
+        ],
+    )
+    def test_activity_level_calculation(self, count, max_count, expected):
+        """Test activity level is calculated correctly for various ratios."""
+        assert _calculate_activity_level(count, max_count) == expected
 
 
 class TestCalculateTrend:

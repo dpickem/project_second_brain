@@ -103,7 +103,7 @@ from app.db.models import ContentStatus
 from app.enums import ProcessingRunStatus
 from app.services.obsidian.sync import VaultSyncService
 from app.services.queue import celery_app
-from app.services.storage import load_content, update_content, update_status
+from app.services.storage import load_content, save_content, update_content, update_status
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +235,11 @@ def process_content(
     """
     Process ingested content through the appropriate pipeline.
 
+    IMPORTANT: Content must already exist in the database before calling this task.
+    This task calls update_content() to update fields after pipeline processing,
+    which assumes the Content record already exists. If content doesn't exist,
+    use save_content() first (see sync_raindrop and sync_github for examples).
+
     Uses PipelineRegistry to route content based on content_type:
     - "pdf" → PDFProcessor
     - "book" → BookOCRPipeline
@@ -245,7 +250,7 @@ def process_content(
     Retry behavior is handled by tenacity (3 attempts, exponential backoff 1-4 min).
 
     Args:
-        content_id: UUID of the content to process
+        content_id: UUID of the content to process (must already exist in DB)
         content_type: PipelineContentType value for routing (e.g., "pdf", "book")
         source_path: File path for file-based content
         source_url: URL for web-based content (GitHub, articles)
@@ -281,6 +286,8 @@ def process_content_high(
 
     Same as process_content but routed to high_priority queue.
     Retry behavior inherited from _process_content_impl via tenacity.
+
+    Note: Content must already exist in DB before calling. See process_content docstring.
     """
     return process_content(
         content_id, content_type, source_path, source_url, source_text
@@ -300,6 +307,8 @@ def process_content_low(
 
     Same as process_content but routed to low_priority queue.
     Retry behavior inherited from _process_content_impl via tenacity.
+
+    Note: Content must already exist in DB before calling. See process_content docstring.
     """
     return process_content(
         content_id, content_type, source_path, source_url, source_text
@@ -435,12 +444,13 @@ def process_book(
 
 
 @sync_retry
-def _sync_raindrop_impl(since_dt: datetime) -> list[Any]:
+def _sync_raindrop_impl(since_dt: datetime, limit: Optional[int] = None) -> list[Any]:
     """
     Internal implementation of Raindrop sync with tenacity retry.
 
     Args:
         since_dt: Datetime to sync items from.
+        limit: Maximum number of items to sync (default: no limit).
 
     Returns:
         List of synced items.
@@ -451,7 +461,7 @@ def _sync_raindrop_impl(since_dt: datetime) -> list[Any]:
     async def run_sync():
         sync = RaindropSync(access_token=settings.RAINDROP_ACCESS_TOKEN)
         try:
-            items = await sync.sync_collection(since=since_dt)
+            items = await sync.sync_collection(since=since_dt, limit=limit)
             return items
         finally:
             await sync.close()
@@ -460,7 +470,7 @@ def _sync_raindrop_impl(since_dt: datetime) -> list[Any]:
 
 
 @celery_app.task(name="app.services.tasks.sync_raindrop")
-def sync_raindrop(since: Optional[str] = None) -> dict[str, Any]:
+def sync_raindrop(since: Optional[str] = None, limit: Optional[int] = None) -> dict[str, Any]:
     """
     Sync bookmarks from Raindrop.io.
 
@@ -469,11 +479,12 @@ def sync_raindrop(since: Optional[str] = None) -> dict[str, Any]:
     Args:
         since: ISO format datetime string. If provided, only sync items
                created after this date. Defaults to last 24 hours.
+        limit: Maximum number of items to sync (default: no limit).
 
     Returns:
         Dictionary with sync results
     """
-    logger.info(f"Starting Raindrop sync since {since}")
+    logger.info(f"Starting Raindrop sync since {since}, limit={limit}")
 
     # Parse since date
     if since:
@@ -487,24 +498,35 @@ def sync_raindrop(since: Optional[str] = None) -> dict[str, Any]:
         return {"status": ProcessingRunStatus.SKIPPED.value, "reason": "No API token"}
 
     try:
-        items = _sync_raindrop_impl(since_dt)
+        items = _sync_raindrop_impl(since_dt, limit=limit)
     except RetryError as e:
         logger.error(f"Raindrop sync failed after all retries: {e}")
         raise
 
-    # Queue each item for processing with ARTICLE content type
-    for item in items:
-        process_content_low.delay(
-            content_id=item.id,
-            content_type=PipelineContentType.ARTICLE.value,
-            source_url=item.url if hasattr(item, "url") else None,
-        )
+    # Save each item to database and queue for processing
+    async def save_and_queue():
+        saved_count = 0
+        for item in items:
+            try:
+                # Save content to database first
+                await save_content(item)
+                saved_count += 1
+                # Then queue for processing
+                process_content_low.delay(
+                    content_id=item.id,
+                    content_type=PipelineContentType.ARTICLE.value,
+                    source_url=item.source_url,
+                )
+            except Exception as e:
+                logger.error(f"Failed to save/queue content {item.id}: {e}")
+        return saved_count
 
-    logger.info(f"Raindrop sync complete: {len(items)} items queued")
+    saved_count = asyncio.run(save_and_queue())
+    logger.info(f"Raindrop sync complete: {saved_count} items saved and queued")
 
     return {
         "status": ProcessingRunStatus.COMPLETED.value,
-        "items_synced": len(items),
+        "items_synced": saved_count,
         "synced_at": datetime.utcnow().isoformat(),
     }
 
@@ -560,19 +582,30 @@ def sync_github(limit: int = 50) -> dict[str, Any]:
         logger.error(f"GitHub sync failed after all retries: {e}")
         raise
 
-    # Queue each item for processing with CODE content type
-    for item in items:
-        process_content_low.delay(
-            content_id=item.id,
-            content_type=PipelineContentType.CODE.value,
-            source_url=item.url if hasattr(item, "url") else None,
-        )
+    # Save each item to database and queue for processing
+    async def save_and_queue():
+        saved_count = 0
+        for item in items:
+            try:
+                # Save content to database first
+                await save_content(item)
+                saved_count += 1
+                # Then queue for processing
+                process_content_low.delay(
+                    content_id=item.id,
+                    content_type=PipelineContentType.CODE.value,
+                    source_url=item.source_url,
+                )
+            except Exception as e:
+                logger.error(f"Failed to save/queue repo {item.id}: {e}")
+        return saved_count
 
-    logger.info(f"GitHub sync complete: {len(items)} repos queued")
+    saved_count = asyncio.run(save_and_queue())
+    logger.info(f"GitHub sync complete: {saved_count} repos saved and queued")
 
     return {
         "status": ProcessingRunStatus.COMPLETED.value,
-        "repos_synced": len(items),
+        "repos_synced": saved_count,
         "synced_at": datetime.utcnow().isoformat(),
     }
 

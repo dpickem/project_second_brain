@@ -21,6 +21,13 @@ from app.services.obsidian.sync import (
 )
 
 
+def create_mock_vault_manager(vault_path: Path) -> MagicMock:
+    """Create a mock VaultManager pointing to the given path."""
+    mock = MagicMock()
+    mock.vault_path = vault_path
+    return mock
+
+
 # ============================================================================
 # Fixtures
 # ============================================================================
@@ -174,15 +181,19 @@ See [[Other Note]] for more.
 """
         )
 
-        with patch.object(
-            sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
+        mock_vault = create_mock_vault_manager(temp_vault)
+        with patch(
+            "app.services.obsidian.sync.get_vault_manager", return_value=mock_vault
         ):
             with patch.object(
-                sync_service,
-                "_generate_and_persist_node_id",
-                AsyncMock(return_value="test-uuid"),
+                sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                result = await sync_service.sync_note(note_path)
+                with patch.object(
+                    sync_service,
+                    "_generate_and_persist_node_id",
+                    AsyncMock(return_value="test-uuid"),
+                ):
+                    result = await sync_service.sync_note(note_path)
 
         assert "error" not in result
         assert result["path"] == str(note_path)
@@ -208,10 +219,14 @@ Content
 """
         )
 
-        with patch.object(
-            sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
+        mock_vault = create_mock_vault_manager(temp_vault)
+        with patch(
+            "app.services.obsidian.sync.get_vault_manager", return_value=mock_vault
         ):
-            result = await sync_service.sync_note(note_path)
+            with patch.object(
+                sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
+            ):
+                result = await sync_service.sync_note(note_path)
 
         assert result["node_id"] == "existing-id-12345"
 
@@ -230,15 +245,19 @@ Content
 """
         )
 
-        with patch.object(
-            sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
+        mock_vault = create_mock_vault_manager(temp_vault)
+        with patch(
+            "app.services.obsidian.sync.get_vault_manager", return_value=mock_vault
         ):
             with patch.object(
-                sync_service,
-                "_generate_and_persist_node_id",
-                AsyncMock(return_value="generated-uuid"),
-            ) as mock_gen:
-                result = await sync_service.sync_note(note_path)
+                sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
+            ):
+                with patch.object(
+                    sync_service,
+                    "_generate_and_persist_node_id",
+                    AsyncMock(return_value="generated-uuid"),
+                ) as mock_gen:
+                    result = await sync_service.sync_note(note_path)
 
         mock_gen.assert_called_once_with(note_path)
         assert result["node_id"] == "generated-uuid"
@@ -260,15 +279,19 @@ Content about #inline-tag and #another-tag
 """
         )
 
-        with patch.object(
-            sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
+        mock_vault = create_mock_vault_manager(temp_vault)
+        with patch(
+            "app.services.obsidian.sync.get_vault_manager", return_value=mock_vault
         ):
             with patch.object(
-                sync_service,
-                "_generate_and_persist_node_id",
-                AsyncMock(return_value="uuid"),
+                sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                result = await sync_service.sync_note(note_path)
+                with patch.object(
+                    sync_service,
+                    "_generate_and_persist_node_id",
+                    AsyncMock(return_value="uuid"),
+                ):
+                    result = await sync_service.sync_note(note_path)
 
         assert "frontmatter-tag" in result["tags"]
         assert "inline-tag" in result["tags"]
@@ -290,15 +313,19 @@ Content
 """
         )
 
-        with patch.object(
-            sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
+        mock_vault = create_mock_vault_manager(temp_vault)
+        with patch(
+            "app.services.obsidian.sync.get_vault_manager", return_value=mock_vault
         ):
             with patch.object(
-                sync_service,
-                "_generate_and_persist_node_id",
-                AsyncMock(return_value="uuid"),
+                sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                result = await sync_service.sync_note(note_path)
+                with patch.object(
+                    sync_service,
+                    "_generate_and_persist_node_id",
+                    AsyncMock(return_value="uuid"),
+                ):
+                    result = await sync_service.sync_note(note_path)
 
         assert "single-tag" in result["tags"]
 
@@ -362,16 +389,22 @@ class TestFullSync:
         (concepts / "Note1.md").write_text("---\ntitle: Note 1\n---\nContent")
         (concepts / "Note2.md").write_text("---\ntitle: Note 2\n---\nContent")
 
-        with patch.object(
-            sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
+        mock_vault = create_mock_vault_manager(vault)
+        with patch(
+            "app.services.obsidian.sync.get_vault_manager", return_value=mock_vault
         ):
             with patch.object(
-                sync_service,
-                "_generate_and_persist_node_id",
-                AsyncMock(return_value="uuid"),
+                sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
-                with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
-                    result = await sync_service.full_sync(vault)
+                with patch.object(
+                    sync_service,
+                    "_generate_and_persist_node_id",
+                    AsyncMock(return_value="uuid"),
+                ):
+                    with patch.object(
+                        sync_service, "_update_last_sync_time", AsyncMock()
+                    ):
+                        result = await sync_service.full_sync(vault)
 
         assert result["synced"] == 2
         assert result["failed"] == 0

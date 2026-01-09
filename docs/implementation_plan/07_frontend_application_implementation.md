@@ -8,6 +8,79 @@
 
 ---
 
+## Table of Contents
+
+1. [Executive Summary](#1-executive-summary)
+   - [Current State Assessment](#current-state-assessment)
+   - [What This Plan Covers](#what-this-plan-covers)
+   - [Architecture Overview](#architecture-overview)
+
+2. [Prerequisites](#2-prerequisites)
+   - [2.1 Prior Work Required](#21-prior-work-required)
+   - [2.2 New Dependencies](#22-new-dependencies)
+   - [2.3 Already Available](#23-already-available-no-changes)
+
+3. [Implementation Phases](#3-implementation-phases)
+   - [Phase 9A: Foundation & Design System (Days 1-5)](#phase-9a-foundation--design-system-days-1-5)
+     - Task 9A.1: Design Token System
+     - Task 9A.2: Common UI Components
+     - Task 9A.3: Animation Utilities
+     - Task 9A.4: API Client Foundation
+     - Task 9A.5: Global State Stores
+   - [Phase 9B: Dashboard Upgrade (Days 6-10)](#phase-9b-dashboard-upgrade-days-6-10)
+     - Task 9B.1: Dashboard Page
+     - Task 9B.2: Dashboard Components
+   - [Phase 9C: Knowledge Explorer Enhancements (Days 11-15)](#phase-9c-knowledge-explorer-enhancements-days-11-15)
+     - Task 9C.1: Topic Tree Sidebar
+     - Task 9C.2: Global Search Bar
+     - Task 9C.3: Note Viewer Panel
+   - [Phase 9D: Assistant Chat Interface (Days 16-20)](#phase-9d-assistant-chat-interface-days-16-20)
+     - Task 9D.1: Chat Interface Page
+     - Task 9D.2: Chat Components
+   - [Phase 9E: Custom Hooks (Days 21-23)](#phase-9e-custom-hooks-days-21-23)
+     - Task 9E.1: Data Fetching Hooks
+     - Task 9E.2: Learning System Hooks
+   - [Phase 9F: Navigation & Routing (Days 24-25)](#phase-9f-navigation--routing-days-24-25)
+     - Task 9F.1: Route Configuration
+     - Task 9F.2: Navigation Updates
+   - [Phase 9G: Settings Page (Days 26-27)](#phase-9g-settings-page-days-26-27)
+     - Task 9G.1: Settings Page
+
+4. [Learning System Frontend](#4-learning-system-frontend)
+   - [Phase 9H: Practice Session UI (Days 28-35)](#phase-9h-practice-session-ui-days-28-35)
+     - Task 9H.1: Practice Session Core Components
+     - Task 9H.2: Response Input Components
+     - Task 9H.3: Feedback Display Components
+   - [Phase 9I: Review Queue UI (Days 36-40)](#phase-9i-review-queue-ui-days-36-40)
+     - Task 9I.1: Review Queue Components
+   - [Phase 9J: Analytics Dashboard (Days 41-45)](#phase-9j-analytics-dashboard-days-41-45)
+     - Task 9J.1: Analytics Overview Components
+     - Task 9J.2: Learning System API Client
+     - Task 9J.3: Learning System State Stores
+
+5. [Timeline Summary](#5-timeline-summary)
+   - [Phase 9: Complete Frontend Implementation](#phase-9-complete-frontend-implementation-days-1-45)
+   - [Gantt View](#gantt-view)
+
+6. [Testing Strategy](#6-testing-strategy)
+   - [6.1 Component Testing](#61-component-testing)
+   - [6.2 Integration Testing](#62-integration-testing)
+   - [6.3 Current Test Coverage Status](#63-current-test-coverage-status)
+     - ✅ Files WITH Unit Tests
+     - ❌ Files WITHOUT Unit Tests
+     - Coverage Summary
+
+7. [Success Criteria](#7-success-criteria)
+   - [Functional Requirements](#functional-requirements)
+   - [Quality Requirements](#quality-requirements)
+   - [Design Requirements](#design-requirements)
+
+8. [Risk Assessment](#8-risk-assessment)
+
+9. [Related Documents](#9-related-documents)
+
+---
+
 ## 1. Executive Summary
 
 This document provides a detailed implementation plan for the **complete Frontend Application**, including all learning system UI components. It consolidates all frontend work into a single Phase 9, covering foundation components, the Dashboard, Knowledge Explorer, Practice Session, Review Queue, Analytics Dashboard, and Assistant.
@@ -1559,12 +1632,189 @@ Days:     1----5----10---15---20---25---30---35---40---45
 
 **Tool:** Playwright
 
-| Test | Scenario |
-|------|----------|
-| `dashboard.spec.ts` | Load dashboard, see stats, navigate to practice |
-| `practice-flow.spec.ts` | Create session, submit response, see feedback |
-| `review-flow.spec.ts` | Load due cards, rate card, see next card |
-| `search.spec.ts` | Open ⌘K, search, navigate to result |
+**Setup:**
+```bash
+npm install -D @playwright/test
+npx playwright install  # Install browser binaries
+```
+
+**Scripts:**
+```bash
+npm run test:e2e          # Run all e2e tests
+npm run test:e2e:ui       # Run with interactive UI
+npm run test:e2e:headed   # Run with visible browser
+npm run test:e2e:report   # Show HTML report
+```
+
+| Test | Scenario | Status |
+|------|----------|--------|
+| `dashboard.spec.js` | Load dashboard, see stats, navigate to practice | ✅ Implemented |
+| `practice-flow.spec.js` | Create session, submit response, see feedback | ❌ TODO |
+| `review-flow.spec.js` | Load due cards, rate card, see next card | ❌ TODO |
+| `search.spec.js` | Open ⌘K, search, navigate to result | ❌ TODO |
+
+**Example Test Structure (`e2e/dashboard.spec.js`):**
+
+```javascript
+import { test, expect } from '@playwright/test'
+
+test.describe('Dashboard Page', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+  })
+
+  test('should load the dashboard page', async ({ page }) => {
+    await expect(page).toHaveURL('/')
+    await expect(page.locator('main')).toBeVisible()
+  })
+
+  test('should navigate to practice page', async ({ page }) => {
+    const practiceCard = page.getByRole('link', { name: /practice/i })
+    await practiceCard.click()
+    await expect(page).toHaveURL('/practice')
+  })
+})
+```
+
+---
+
+## 6.3 Current Test Coverage Status
+
+> **Last Updated:** January 2025  
+> **Total Tests:** 354 passing  
+> **Test Files:** 14
+
+### ✅ Files WITH Unit Tests
+
+#### Test Infrastructure
+| File | Purpose |
+|------|---------|
+| `vitest.config.js` | Vitest configuration with jsdom |
+| `src/test/setup.js` | Global mocks (matchMedia, localStorage, ResizeObserver, IntersectionObserver) |
+| `src/test/test-utils.jsx` | Custom render with QueryClient + Router providers |
+
+#### Hooks (2/3 covered - 67%)
+| Test File | Source File | Tests |
+|-----------|-------------|-------|
+| `src/hooks/useLocalStorage.test.js` | `src/hooks/useLocalStorage.js` | 7 |
+| `src/hooks/useDebouncedSearch.test.js` | `src/hooks/useDebouncedSearch.js` | 9 |
+
+#### Zustand Stores (4/4 covered - 100%)
+| Test File | Source File | Tests |
+|-----------|-------------|-------|
+| `src/stores/settingsStore.test.js` | `src/stores/settingsStore.js` | 15 |
+| `src/stores/uiStore.test.js` | `src/stores/uiStore.js` | 22 |
+| `src/stores/practiceStore.test.js` | `src/stores/practiceStore.js` | 17 |
+| `src/stores/reviewStore.test.js` | `src/stores/reviewStore.js` | 23 |
+
+#### Common Components (6/9 covered - 67%)
+| Test File | Source File | Tests |
+|-----------|-------------|-------|
+| `src/components/common/Button.test.jsx` | `Button.jsx` | 27 |
+| `src/components/common/Badge.test.jsx` | `Badge.jsx` | 39 |
+| `src/components/common/Card.test.jsx` | `Card.jsx` | 20 |
+| `src/components/common/Input.test.jsx` | `Input.jsx` | 34 |
+| `src/components/common/Loading.test.jsx` | `Loading.jsx` | 34 |
+| `src/components/common/EmptyState.test.jsx` | `EmptyState.jsx` | 32 |
+
+#### Utilities (1/1 covered - 100%)
+| Test File | Source File | Tests |
+|-----------|-------------|-------|
+| `src/utils/animations.test.js` | `src/utils/animations.js` | 45 |
+
+#### API Clients (1/8 covered - 12%)
+| Test File | Source File | Tests |
+|-----------|-------------|-------|
+| `src/api/client.test.js` | `src/api/client.js` | 30 |
+
+---
+
+### ❌ Files WITHOUT Unit Tests (To Do)
+
+#### Hooks
+- [ ] `src/hooks/useKeyboardShortcuts.js`
+
+#### Common Components
+- [ ] `src/components/common/Modal.jsx`
+- [ ] `src/components/common/Tooltip.jsx`
+- [ ] `src/components/common/CommandPalette.jsx`
+
+#### Dashboard Components
+- [ ] `src/components/dashboard/StatsHeader.jsx`
+- [ ] `src/components/dashboard/ActionCard.jsx`
+- [ ] `src/components/dashboard/DueCardsPreview.jsx`
+- [ ] `src/components/dashboard/WeakSpotsList.jsx`
+- [ ] `src/components/dashboard/QuickCapture.jsx`
+- [ ] `src/components/dashboard/StreakCalendar.jsx`
+
+#### Knowledge Components
+- [ ] `src/components/knowledge/TopicTree.jsx`
+- [ ] `src/components/knowledge/NoteViewer.jsx`
+
+#### Practice Components
+- [ ] `src/components/practice/ExerciseCard.jsx`
+- [ ] `src/components/practice/ResponseInput.jsx`
+- [ ] `src/components/practice/FeedbackDisplay.jsx`
+- [ ] `src/components/practice/SessionProgress.jsx`
+- [ ] `src/components/practice/SessionComplete.jsx`
+
+#### Review Components
+- [ ] `src/components/review/FlashCard.jsx`
+- [ ] `src/components/review/RatingButtons.jsx`
+- [ ] `src/components/review/ReviewStats.jsx`
+- [ ] `src/components/review/ReviewComplete.jsx`
+
+#### Analytics Components
+- [ ] `src/components/analytics/LearningChart.jsx`
+- [ ] `src/components/analytics/MasteryRadar.jsx`
+- [ ] `src/components/analytics/TopicBreakdown.jsx`
+- [ ] `src/components/analytics/StatsGrid.jsx`
+- [ ] `src/components/analytics/WeakSpotsAnalysis.jsx`
+
+#### GraphViewer Components
+- [ ] All files in `src/components/GraphViewer/`
+
+#### Pages
+- [ ] `src/pages/Dashboard.jsx`
+- [ ] `src/pages/PracticeSession.jsx`
+- [ ] `src/pages/ReviewQueue.jsx`
+- [ ] `src/pages/Analytics.jsx`
+- [ ] `src/pages/Assistant.jsx`
+- [ ] `src/pages/Settings.jsx`
+- [ ] `src/pages/Knowledge.jsx`
+- [ ] `src/pages/KnowledgeGraph.jsx`
+- [ ] `src/pages/Vault.jsx`
+- [ ] `src/App.jsx`
+
+#### API Clients
+- [ ] `src/api/knowledge.js`
+- [ ] `src/api/vault.js`
+- [ ] `src/api/capture.js`
+- [ ] `src/api/analytics.js`
+- [ ] `src/api/review.js`
+- [ ] `src/api/practice.js`
+- [ ] `src/api/assistant.js`
+
+---
+
+### Coverage Summary
+
+| Category | Covered | Total | Percentage |
+|----------|---------|-------|------------|
+| Hooks | 2 | 3 | 67% |
+| Stores | 4 | 4 | **100%** |
+| Common Components | 6 | 9 | 67% |
+| Feature Components | 0 | 22 | 0% |
+| Pages | 0 | 10 | 0% |
+| Utils | 1 | 1 | **100%** |
+| API Clients | 1 | 8 | 12% |
+| **Overall** | **14** | **~57** | **~25%** |
+
+### Notes
+
+- **Priority 1**: Stores and common components are fully tested - these are the most reusable building blocks
+- **Priority 2**: Feature components and pages require more integration testing with mocked API calls
+- **Integration tests**: Playwright tests (Section 6.2) should cover page-level and flow-level testing
 
 ---
 

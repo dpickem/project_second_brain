@@ -136,7 +136,7 @@ function NodeDetailsPanel({ nodeId, onClose, onViewInVault }) {
                   onClick={() => onViewInVault(node)}
                   className="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
                 >
-                  View in Vault
+                  View Note
                 </button>
               </div>
             </div>
@@ -175,15 +175,14 @@ export default function KnowledgeGraphPage() {
   }
 
   const handleViewInVault = (node) => {
-    // For Note nodes, use the id directly as the file path
-    // The id IS the file path (without .md extension), e.g., "meta/plugin-setup"
-    if (node.type === 'Note' && node.id) {
-      const notePath = node.id.endsWith('.md') ? node.id : `${node.id}.md`
-      navigate(`/vault?note=${encodeURIComponent(notePath)}`)
+    // For any node with a file_path, navigate directly to the note
+    if (node.file_path) {
+      const notePath = node.file_path.endsWith('.md') ? node.file_path : `${node.file_path}.md`
+      navigate(`/knowledge?note=${encodeURIComponent(notePath)}`)
     } else {
-      // For other node types, search by label
+      // Fallback: search by label for nodes without file_path
       const searchTerm = node.label || node.name || node.id
-      navigate(`/vault?search=${encodeURIComponent(searchTerm)}`)
+      navigate(`/knowledge?search=${encodeURIComponent(searchTerm)}`)
     }
   }
 
@@ -383,7 +382,7 @@ export default function KnowledgeGraphPage() {
                   <li>• Drag nodes to rearrange</li>
                   <li>• Scroll to zoom in/out</li>
                   <li>• Click a node for details</li>
-                  <li>• Use "Focus on Node" to explore connections</li>
+                  <li>• Use &quot;Focus on Node&quot; to explore connections</li>
                 </ul>
               </div>
             </div>

@@ -87,7 +87,7 @@ export function GraphViewer({
   const data = useMemo(() => {
     if (!rawData) return null
     return rawData
-  }, [rawData?.nodes?.length, rawData?.links?.length])
+  }, [rawData])
 
   // Measure container on mount only (not on every resize)
   useEffect(() => {

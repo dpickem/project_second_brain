@@ -1,63 +1,155 @@
 /**
  * Knowledge Graph API Client
  *
- * Functions for fetching graph data and statistics from the backend.
+ * Functions for interacting with the Neo4j knowledge graph database.
+ * This API provides access to the graph structure, relationships, and analytics.
+ * 
+ * ## Use Cases
+ * - **Graph Visualization**: Fetch nodes and edges for rendering interactive graph views
+ * - **Relationship Exploration**: Navigate connections between concepts, topics, and notes
+ * - **Semantic Search**: Search across the graph for related concepts
+ * - **Topic Hierarchy**: Access hierarchical topic structures for navigation
+ * - **Mastery Analytics**: Track learning progress and mastery levels per topic
+ * 
+ * ## When to Use This vs vaultApi
+ * Use `knowledgeApi` when you need:
+ * - Graph-based queries (nodes, edges, relationships)
+ * - Cross-note connections and link traversal
+ * - Topic-level aggregations and statistics
+ * - Mastery/learning progress data
+ * 
+ * Use `vaultApi` instead when you need:
+ * - Direct file access to markdown notes
+ * - Note content browsing and editing
+ * - Folder structure and file metadata
+ * - Vault sync operations
+ * 
+ * @see vaultApi - For direct Obsidian vault file operations
  */
 
-import axios from 'axios'
+import { apiClient } from './client'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+export const knowledgeApi = {
+  /**
+   * Fetch graph data for visualization
+   * @param {Object} params - Query parameters
+   * @param {string} [params.center_id] - Center graph on this node ID
+   * @param {string} [params.node_types] - Comma-separated node types to include
+   * @param {number} [params.depth] - Traversal depth from center node (default: 2)
+   * @param {number} [params.limit] - Maximum number of nodes to return
+   * @returns {Promise<{nodes: Array<{id: string, label: string, type: string}>, edges: Array<{source: string, target: string, type: string}>}>} Graph data with nodes and edges
+   */
+  getGraph: (params) => 
+    apiClient.get('/api/knowledge/graph', { params }).then(r => r.data),
 
-/**
- * Fetch graph data for visualization
- *
- * @param {Object} options - Query options
- * @param {string} [options.centerId] - Center graph on this node ID
- * @param {string} [options.nodeTypes] - Comma-separated node types
- * @param {number} [options.depth] - Traversal depth from center
- * @param {number} [options.limit] - Max nodes to return
- * @returns {Promise<{nodes: Array, edges: Array, total_nodes: number, total_edges: number}>}
- */
-export async function fetchGraph({ centerId, nodeTypes, depth, limit } = {}) {
-  const params = new URLSearchParams()
-  if (centerId) params.set('center_id', centerId)
-  if (nodeTypes) params.set('node_types', nodeTypes)
-  if (depth) params.set('depth', depth)
-  if (limit) params.set('limit', limit)
+  /**
+   * Fetch graph statistics
+   * @returns {Promise<{node_count: number, edge_count: number, node_types: Object<string, number>, edge_types: Object<string, number>}>} Statistics about the knowledge graph
+   */
+  getStats: () => 
+    apiClient.get('/api/knowledge/stats').then(r => r.data),
 
-  const url = `${API_URL}/api/knowledge/graph${params.toString() ? '?' + params : ''}`
-  const response = await axios.get(url)
-  return response.data
+  /**
+   * Fetch details for a specific node
+   * @param {string} nodeId - The node's unique identifier
+   * @returns {Promise<{id: string, label: string, type: string, properties: Object, connections: Array}>} Node details with properties and connections
+   */
+  getNode: (nodeId) => 
+    apiClient.get(`/api/knowledge/node/${nodeId}`).then(r => r.data),
+
+  /**
+   * Check knowledge graph health
+   * @returns {Promise<{status: string, connected: boolean, message?: string}>} Health status of the knowledge graph service
+   */
+  checkHealth: () => 
+    apiClient.get('/api/knowledge/health').then(r => r.data),
+
+  /**
+   * Search nodes by query
+   * @param {string} query - Search query string
+   * @param {Object} [options] - Search options
+   * @param {number} [options.limit] - Maximum number of results to return
+   * @param {string} [options.type] - Filter results by node type
+   * @returns {Promise<{results: Array<{id: string, label: string, type: string, score: number}>}>} Search results with relevance scores
+   */
+  search: (query, options = {}) => 
+    apiClient.get('/api/knowledge/search', { 
+      params: { q: query, ...options } 
+    }).then(r => r.data),
+
+  /**
+   * Get related concepts for a node
+   * @param {string} nodeId - The node's unique identifier
+   * @param {number} [limit=10] - Maximum number of related nodes to return
+   * @returns {Promise<{related: Array<{id: string, label: string, type: string, relationship: string}>}>} Related nodes with relationship types
+   */
+  getRelated: (nodeId, limit = 10) => 
+    apiClient.get(`/api/knowledge/node/${nodeId}/related`, { 
+      params: { limit } 
+    }).then(r => r.data),
+
+  /**
+   * Get topic hierarchy
+   * @returns {Promise<{topics: Array<{id: string, name: string, parent_id?: string, children?: Array}>}>} Hierarchical topic structure
+   */
+  getTopics: () => 
+    apiClient.get('/api/knowledge/topics').then(r => r.data),
+
+  /**
+   * Get mastery data for topics
+   * @param {string} [topicId] - Optional topic ID for specific topic mastery data
+   * @returns {Promise<{mastery: number, total_cards: number, mastered_cards: number, topics?: Array<{id: string, name: string, mastery: number}>}>} Mastery statistics for topic(s)
+   */
+  getMastery: (topicId) => {
+    const path = topicId 
+      ? `/api/knowledge/mastery/${topicId}` 
+      : '/api/knowledge/mastery'
+    return apiClient.get(path).then(r => r.data)
+  },
 }
 
 /**
- * Fetch graph statistics
- *
- * @returns {Promise<{total_content: number, total_concepts: number, total_notes: number, total_relationships: number, content_by_type: Object}>}
+ * Fetch graph data for visualization (legacy export)
+ * @param {Object} [options] - Query options
+ * @param {string} [options.centerId] - Center graph on this node ID
+ * @param {string} [options.nodeTypes] - Comma-separated node types to include
+ * @param {number} [options.depth] - Traversal depth from center node
+ * @param {number} [options.limit] - Maximum number of nodes to return
+ * @returns {Promise<{nodes: Array, edges: Array}>} Graph data with nodes and edges
+ */
+export async function fetchGraph(options) {
+  const params = {}
+  if (options?.centerId) params.center_id = options.centerId
+  if (options?.nodeTypes) params.node_types = options.nodeTypes
+  if (options?.depth) params.depth = options.depth
+  if (options?.limit) params.limit = options.limit
+  
+  return knowledgeApi.getGraph(params)
+}
+
+/**
+ * Fetch graph statistics (legacy export)
+ * @returns {Promise<{node_count: number, edge_count: number, node_types: Object, edge_types: Object}>} Statistics about the knowledge graph
  */
 export async function fetchGraphStats() {
-  const response = await axios.get(`${API_URL}/api/knowledge/stats`)
-  return response.data
+  return knowledgeApi.getStats()
 }
 
 /**
- * Fetch details for a specific node
- *
+ * Fetch details for a specific node (legacy export)
  * @param {string} nodeId - The node's unique identifier
- * @returns {Promise<{id: string, label: string, type: string, content_type?: string, summary?: string, tags: string[], connections: number}>}
+ * @returns {Promise<{id: string, label: string, type: string, properties: Object, connections: Array}>} Node details
  */
 export async function fetchNodeDetails(nodeId) {
-  const response = await axios.get(`${API_URL}/api/knowledge/node/${nodeId}`)
-  return response.data
+  return knowledgeApi.getNode(nodeId)
 }
 
 /**
- * Check knowledge graph health
- *
- * @returns {Promise<{status: string, neo4j_connected: boolean}>}
+ * Check knowledge graph health (legacy export)
+ * @returns {Promise<{status: string, connected: boolean, message?: string}>} Health status
  */
 export async function checkKnowledgeHealth() {
-  const response = await axios.get(`${API_URL}/api/knowledge/health`)
-  return response.data
+  return knowledgeApi.checkHealth()
 }
 
+export default knowledgeApi

@@ -30,6 +30,7 @@ from app.routers import (
     practice_router,
     review_router,
     analytics_router,
+    assistant_router,
 )
 from app.services.obsidian.lifecycle import (
     startup_vault_services,
@@ -132,6 +133,7 @@ app.include_router(knowledge_router.router)
 app.include_router(practice_router.router)
 app.include_router(review_router.router)
 app.include_router(analytics_router.router)
+app.include_router(assistant_router.router)
 
 
 @app.get("/graph")
@@ -168,5 +170,6 @@ async def root():
             "practice": "/api/practice",
             "review": "/api/review",
             "analytics": "/api/analytics",
+            "assistant": "/api/assistant",
         },
     }

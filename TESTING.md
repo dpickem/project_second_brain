@@ -11,6 +11,8 @@ This document provides comprehensive instructions for running tests across the S
   - [Integration Tests](#integration-tests)
   - [Test Coverage](#test-coverage)
 - [Frontend Testing](#frontend-testing)
+  - [Unit Tests](#frontend-unit-tests)
+  - [E2E Tests (Playwright)](#e2e-tests-playwright)
 - [Running All Tests](#running-all-tests)
 - [Test Configuration](#test-configuration)
 - [Writing Tests](#writing-tests)
@@ -26,9 +28,11 @@ This document provides comprehensive instructions for running tests across the S
 python scripts/run_all_tests.py
 
 # Or run specific test suites
-python scripts/run_all_tests.py --backend-unit      # Backend unit tests only
+python scripts/run_all_tests.py --backend-unit         # Backend unit tests only
 python scripts/run_all_tests.py --backend-integration  # Backend integration tests only
-python scripts/run_all_tests.py --frontend          # Frontend tests only
+python scripts/run_all_tests.py --frontend             # Frontend unit tests only
+python scripts/run_all_tests.py --frontend-e2e         # Frontend e2e tests only (Playwright)
+python scripts/run_all_tests.py --frontend --frontend-e2e  # All frontend tests
 ```
 
 ---
@@ -187,14 +191,18 @@ pytest tests/ --cov=app --cov-fail-under=70
 
 ## Frontend Testing
 
-Frontend tests use Vitest (or Jest) with React Testing Library.
+Frontend tests are split into two categories:
+- **Unit Tests**: Fast, isolated tests using Vitest + React Testing Library
+- **E2E Tests**: Integration tests using Playwright that test the full application
 
-### Running Frontend Tests
+### Frontend Unit Tests
+
+Unit tests use Vitest with React Testing Library for component, hook, and utility testing.
 
 ```bash
 cd frontend
 
-# Run all frontend tests
+# Run all unit tests
 npm test
 
 # Run tests in watch mode (development)
@@ -207,7 +215,7 @@ npm run test:coverage
 npm test -- src/components/common/Button.test.jsx
 ```
 
-### Test File Structure
+#### Test File Structure
 
 Frontend tests follow the convention:
 - Component tests: `ComponentName.test.jsx`
@@ -229,6 +237,90 @@ frontend/src/
     └── animations.test.js     # Utility test
 ```
 
+### E2E Tests (Playwright)
+
+End-to-end tests use Playwright to test the full application in a real browser.
+
+#### Setup
+
+```bash
+cd frontend
+
+# Install Playwright (already in devDependencies)
+npm install
+
+# Install browser binaries (required once)
+npx playwright install
+```
+
+#### Running E2E Tests
+
+```bash
+cd frontend
+
+# Run all e2e tests (headless)
+npm run test:e2e
+
+# Run with interactive UI (great for debugging)
+npm run test:e2e:ui
+
+# Run with visible browser
+npm run test:e2e:headed
+
+# View HTML test report
+npm run test:e2e:report
+
+# Run specific test file
+npx playwright test e2e/dashboard.spec.js
+
+# Run tests in debug mode
+npx playwright test --debug
+```
+
+#### E2E Test Structure
+
+E2E tests are located in `frontend/e2e/`:
+
+```
+frontend/e2e/
+├── dashboard.spec.js      # Dashboard page tests
+├── practice-flow.spec.js  # Practice session flow (TODO)
+├── review-flow.spec.js    # Review queue flow (TODO)
+└── search.spec.js         # Search/command palette (TODO)
+```
+
+#### Example E2E Test
+
+```javascript
+import { test, expect } from '@playwright/test'
+
+test.describe('Dashboard Page', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+  })
+
+  test('should load the dashboard page', async ({ page }) => {
+    await expect(page).toHaveURL('/')
+    await expect(page.locator('main')).toBeVisible()
+  })
+
+  test('should navigate to practice page', async ({ page }) => {
+    const practiceCard = page.getByRole('link', { name: /practice/i })
+    await practiceCard.click()
+    await expect(page).toHaveURL('/practice')
+  })
+})
+```
+
+#### Playwright Configuration
+
+The `playwright.config.js` file configures:
+- Test directory: `./e2e`
+- Base URL: `http://localhost:3000`
+- Auto-starts dev server before tests
+- Screenshots/videos on failure
+- HTML reporter for test results
+
 ---
 
 ## Running All Tests
@@ -243,14 +335,18 @@ python scripts/run_all_tests.py
 ### Command-Line Options
 
 ```bash
-# Run all tests (default)
+# Run all tests (default - excludes e2e by default)
 python scripts/run_all_tests.py
 
 # Run specific test suites
 python scripts/run_all_tests.py --backend-unit
 python scripts/run_all_tests.py --backend-integration
-python scripts/run_all_tests.py --frontend
-python scripts/run_all_tests.py --backend  # Both unit and integration
+python scripts/run_all_tests.py --frontend          # Frontend unit tests
+python scripts/run_all_tests.py --frontend-e2e      # Frontend e2e tests (Playwright)
+python scripts/run_all_tests.py --backend           # Both backend unit and integration
+
+# Run all frontend tests (unit + e2e)
+python scripts/run_all_tests.py --frontend --frontend-e2e
 
 # Run with coverage
 python scripts/run_all_tests.py --coverage
@@ -263,6 +359,9 @@ python scripts/run_all_tests.py --parallel
 
 # Verbose output
 python scripts/run_all_tests.py --verbose
+
+# Run e2e tests with visible browser
+python scripts/run_all_tests.py --frontend-e2e --e2e-headed
 ```
 
 ---
@@ -493,10 +592,44 @@ jobs:
           cd frontend
           npm ci
       
-      - name: Run tests
+      - name: Run unit tests
         run: |
           cd frontend
           npm test -- --coverage
+
+  frontend-e2e-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+      
+      - name: Install Playwright browsers
+        run: |
+          cd frontend
+          npx playwright install --with-deps
+      
+      - name: Run e2e tests
+        run: |
+          cd frontend
+          npm run test:e2e
+      
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 30
 ```
 
 ---

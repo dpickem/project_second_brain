@@ -10,6 +10,7 @@ Features:
 - Collection sync with pagination
 - Highlight extraction from Raindrop.io
 - Full article content fetching (via WebArticlePipeline)
+- LLM-powered title extraction for poor Raindrop titles
 - Rate limit handling
 - Concurrent processing
 
@@ -23,16 +24,32 @@ Usage:
 import asyncio
 from datetime import datetime
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 import httpx
 
+from app.config import settings
+from app.enums.pipeline import PipelineName, PipelineOperation
 from app.models.content import (
     Annotation,
     AnnotationType,
     ContentType,
     UnifiedContent,
 )
+from app.models.llm_usage import LLMUsage
 from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
+from app.pipelines.web_article import WebArticlePipeline
+from app.services.cost_tracking import CostTracker
+from app.services.llm import get_llm_client, get_default_text_model, build_messages
+
+
+# =============================================================================
+# CONSTANTS
+# =============================================================================
+
+# Pagination defaults
+INITIAL_PAGE_NUMBER = 0
+DEFAULT_COUNT = 0
 
 
 class RaindropSync(BasePipeline):
@@ -76,6 +93,7 @@ class RaindropSync(BasePipeline):
         access_token: str,
         timeout: Optional[float] = None,
         max_concurrent: Optional[int] = None,
+        track_costs: bool = True,
     ) -> None:
         """
         Initialize Raindrop sync.
@@ -84,6 +102,7 @@ class RaindropSync(BasePipeline):
             access_token: Raindrop.io API access token
             timeout: HTTP request timeout in seconds (default: DEFAULT_TIMEOUT_SECONDS)
             max_concurrent: Max concurrent article fetches (default: DEFAULT_MAX_CONCURRENT)
+            track_costs: Whether to log LLM costs to database (default: True)
         """
         super().__init__()
         self.access_token: str = access_token
@@ -95,6 +114,8 @@ class RaindropSync(BasePipeline):
             if max_concurrent is not None
             else self.DEFAULT_MAX_CONCURRENT
         )
+        self.track_costs: bool = track_costs
+        self._usage_records: list[LLMUsage] = []
         self.client: httpx.AsyncClient = httpx.AsyncClient(
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=self.timeout,
@@ -170,7 +191,10 @@ class RaindropSync(BasePipeline):
         if collection_id is None:
             collection_id = self.COLLECTION_ALL
 
-        params: dict[str, Any] = {"perpage": self.DEFAULT_PAGE_SIZE, "page": 0}
+        # Reset usage records for this sync run
+        self._usage_records = []
+
+        params: dict[str, Any] = {"perpage": self.DEFAULT_PAGE_SIZE, "page": INITIAL_PAGE_NUMBER}
 
         if since:
             params["search"] = f"created:>{since.strftime('%Y-%m-%d')}"
@@ -219,10 +243,19 @@ class RaindropSync(BasePipeline):
                 break
 
             params["page"] += 1
-            total_count = data.get("count", 0)
+            total_count = data.get("count", DEFAULT_COUNT)
 
             if params["page"] * self.DEFAULT_PAGE_SIZE >= total_count:
                 break
+
+        # Log accumulated LLM costs to database
+        if self.track_costs and self._usage_records:
+            total_cost = sum(u.cost_usd or 0 for u in self._usage_records)
+            self.logger.info(
+                f"Raindrop sync complete - Total LLM cost: ${total_cost:.4f} "
+                f"({len(self._usage_records)} API calls)"
+            )
+            await CostTracker.log_usages_batch(self._usage_records)
 
         self.logger.info(f"Synced {len(all_items)} items from Raindrop")
         return all_items
@@ -250,8 +283,14 @@ class RaindropSync(BasePipeline):
         Returns:
             UnifiedContent with article content, highlights as annotations, and metadata
         """
+        url = item["link"]
+        raindrop_title = item.get("title", "")
+        
         # Fetch full article content
-        article_content = await self._fetch_article_content(item["link"])
+        article_content = await self._fetch_article_content(url)
+
+        # Determine best title: use LLM if Raindrop title is poor quality
+        title = await self._get_best_title(raindrop_title, article_content, url)
 
         # Get highlights
         highlights = await self._get_highlights(item["_id"])
@@ -282,12 +321,12 @@ class RaindropSync(BasePipeline):
 
         return UnifiedContent(
             source_type=ContentType.ARTICLE,
-            source_url=item["link"],
-            title=item.get("title", "Untitled"),
+            source_url=url,
+            title=title,
             authors=[item.get("creator", "Unknown")],
             created_at=created_at,
             full_text=article_content
-            or f"[Content could not be fetched from {item['link']}]",
+            or f"[Content could not be fetched from {url}]",
             annotations=annotations,
             tags=tags,
             metadata={
@@ -297,6 +336,110 @@ class RaindropSync(BasePipeline):
                 "excerpt": item.get("excerpt"),
             },
         )
+
+    async def _get_best_title(
+        self, raindrop_title: str, article_content: str, url: str
+    ) -> str:
+        """
+        Generate the best title for an article using LLM.
+
+        Always uses the LLM to generate a clean, descriptive title based on
+        the article content. The existing Raindrop title is provided as context
+        to help the LLM understand what the article is about.
+
+        Args:
+            raindrop_title: Title from Raindrop API (used as context hint)
+            article_content: Fetched article text content
+            url: Source URL (fallback if LLM fails)
+
+        Returns:
+            LLM-generated title, or fallback to raindrop_title/URL hostname
+        """
+        # Need content to generate a good title
+        if not article_content:
+            return raindrop_title or urlparse(url).netloc or "Untitled"
+
+        try:
+            title = await self._generate_title_with_llm(
+                article_content, raindrop_title, url
+            )
+            if title:
+                if raindrop_title and title != raindrop_title:
+                    self.logger.info(
+                        f"Generated title: '{raindrop_title}' -> '{title}'"
+                    )
+                return title
+        except Exception as e:
+            self.logger.warning(f"LLM title generation failed: {e}")
+
+        # Fallback to original Raindrop title or URL hostname
+        return raindrop_title or urlparse(url).netloc or "Untitled"
+
+    async def _generate_title_with_llm(
+        self, article_content: str, existing_title: str, url: str
+    ) -> Optional[str]:
+        """
+        Use LLM to generate a clean, descriptive title for an article.
+
+        Args:
+            article_content: Article body text
+            existing_title: Current title from Raindrop (may be URL or poor quality)
+            url: Source URL for context
+
+        Returns:
+            Generated title string, or None if generation fails
+        """
+        # Use first N chars for title generation
+        text_sample = (
+            article_content[:settings.RAINDROP_TITLE_SAMPLE_LENGTH]
+            if len(article_content) > settings.RAINDROP_TITLE_SAMPLE_LENGTH
+            else article_content
+        )
+
+        # Build prompt with existing title as context
+        context_hint = ""
+        if existing_title and not existing_title.startswith(("http://", "https://", "www.")):
+            context_hint = f"\nThe current title is: \"{existing_title}\" (this may or may not be accurate)"
+
+        prompt = f"""Generate a concise, descriptive title for this article.
+The title should:
+- Be 5-15 words
+- Capture the main topic or thesis
+- Be suitable for a note-taking system
+- NOT be a URL or domain name
+{context_hint}
+
+Article text:
+{text_sample}
+
+Respond with ONLY the title, nothing else."""
+
+        client = get_llm_client()
+        messages = build_messages(
+            prompt,
+            "You are a helpful assistant that generates article titles. Respond with only the title, no quotes or explanation.",
+        )
+
+        response, usage = await client.complete(
+            operation=PipelineOperation.TITLE_EXTRACTION,
+            messages=messages,
+            model=get_default_text_model(),
+            max_tokens=settings.RAINDROP_TITLE_MAX_TOKENS,
+            temperature=settings.RAINDROP_TITLE_TEMPERATURE,
+            pipeline=PipelineName.RAINDROP_SYNC,
+        )
+
+        # Track LLM usage for cost reporting
+        if usage:
+            self._usage_records.append(usage)
+
+        if response:
+            # Clean up the response
+            title = response.strip().strip('"').strip("'").strip()
+            if settings.RAINDROP_TITLE_MIN_LENGTH <= len(title) <= settings.RAINDROP_TITLE_MAX_LENGTH:
+                return title
+
+        return None
 
     async def _fetch_article_content(self, url: str) -> str:
         """
@@ -308,9 +451,6 @@ class RaindropSync(BasePipeline):
         Returns:
             Extracted article text, or empty string if extraction fails
         """
-        # Import here to avoid circular imports
-        from app.pipelines.web_article import WebArticlePipeline
-
         try:
             pipeline = WebArticlePipeline()
             return await pipeline.extract_text_only(url)

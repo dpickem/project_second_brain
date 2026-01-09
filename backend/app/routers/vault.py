@@ -208,24 +208,34 @@ async def list_folders():
     try:
         vault = get_vault_manager()
         folders = []
+        total_notes = 0
 
         all_types = content_registry.get_all_types()
         for type_key, type_config in all_types.items():
             folder = type_config.get("folder")
             if folder:
                 folder_path = vault.vault_path / folder
+                # Count markdown files in this folder
+                note_count = 0
+                if folder_path.exists():
+                    note_count = sum(
+                        1 for f in folder_path.rglob("*.md")
+                        if not any(part.startswith(".") for part in f.parts)
+                    )
+                total_notes += note_count
                 folders.append(
                     {
                         "type": type_key,
                         "folder": folder,
                         "exists": folder_path.exists(),
                         "icon": type_config.get("icon", "📄"),
+                        "note_count": note_count,
                     }
                 )
 
-        return {"folders": folders}
+        return {"folders": folders, "total_notes": total_notes}
     except ValueError as e:
-        return {"folders": [], "error": str(e)}
+        return {"folders": [], "total_notes": 0, "error": str(e)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -427,19 +437,21 @@ async def get_note(note_path: str):
         content = file_path.read_text(encoding="utf-8")
         stat = file_path.stat()
 
-        # Parse frontmatter
+        # Parse frontmatter and extract body content (without frontmatter)
+        body_content = content
         frontmatter = {}
         try:
-            fm, _ = parse_frontmatter(content)
+            fm, body = await parse_frontmatter(content)
             if fm:
                 frontmatter = fm
+                body_content = body
         except Exception:
             pass
 
         return NoteContent(
             path=note_path,
             name=file_path.stem,
-            content=content,
+            content=body_content,
             frontmatter=frontmatter,
             modified=datetime.fromtimestamp(stat.st_mtime),
             size=stat.st_size,

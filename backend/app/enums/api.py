@@ -1,10 +1,34 @@
 """
 API-related enums.
 
-Defines enums for rate limiting, API versioning, and other API concerns.
+Defines enums for rate limiting, API versioning, explanation styles,
+and other API concerns.
 """
 
 from enum import Enum
+
+
+class ExplanationStyle(str, Enum):
+    """
+    Style for AI-generated concept explanations.
+
+    Controls the verbosity and complexity of explanations returned
+    by the assistant's explain endpoint.
+
+    Usage:
+        from app.enums import ExplanationStyle
+
+        style = ExplanationStyle.ELI5
+    """
+
+    # Brief, concise explanation suitable for quick reference.
+    SIMPLE = "simple"
+
+    # Comprehensive explanation with full context and nuance.
+    DETAILED = "detailed"
+
+    # 'Explain Like I'm 5' - simplified explanation using analogies.
+    ELI5 = "eli5"
 
 
 class RateLimitType(str, Enum):

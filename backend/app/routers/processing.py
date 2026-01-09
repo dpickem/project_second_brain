@@ -498,7 +498,8 @@ async def get_pending_content(limit: int = 100, include_failed: bool = False):
     """
     async with async_session_maker() as session:
         # Build status filter
-        statuses = [ProcessingStatus.PENDING, ProcessingStatus.INGESTED]
+        # Note: ProcessingStatus only has PENDING, PROCESSING, PROCESSED, FAILED
+        statuses = [ProcessingStatus.PENDING]
         if include_failed:
             statuses.append(ProcessingStatus.FAILED)
 

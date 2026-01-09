@@ -374,7 +374,7 @@ class ExerciseGenerator:
             exercise_type = ExerciseType.FREE_RECALL
 
         # Format prompt (default language only for code exercises)
-        is_code_exercise = exercise_type in self.CODE_EXERCISE_TYPES
+        is_code_exercise = exercise_type in CODE_EXERCISE_TYPES
         language = request.language or ("python" if is_code_exercise else None)
         prompt = template.format(
             topic=request.topic,
@@ -392,7 +392,7 @@ class ExerciseGenerator:
         )
 
         response, _usage = await self.llm.complete(
-            operation=PipelineOperation.EXTRACTION,
+            operation=PipelineOperation.CONCEPT_EXTRACTION,
             messages=messages,
             model=self.model,
             temperature=0.7,  # Some creativity for variety
@@ -507,7 +507,7 @@ Respond with ONLY a JSON object:
             )
 
             response, _usage = await self.llm.complete(
-                operation=PipelineOperation.EXTRACTION,
+                operation=PipelineOperation.CONCEPT_EXTRACTION,
                 messages=messages,
                 model=self.model,
                 temperature=0.0,  # Deterministic classification

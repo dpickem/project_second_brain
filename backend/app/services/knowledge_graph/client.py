@@ -39,6 +39,7 @@ from app.services.knowledge_graph.queries import (
     GET_CONTENT_BY_ID,
     DELETE_CONTENT_AND_RELATIONS,
     DELETE_CONTENT_OUTGOING_RELATIONSHIPS,
+    UPDATE_CONTENT_FILE_PATH,
     CREATE_RELATIONSHIP,
     GET_CONNECTED_NODES,
     VECTOR_SEARCH,
@@ -235,6 +236,7 @@ class Neo4jClient:
         embedding: list[float],
         tags: list[str],
         source_url: Optional[str] = None,
+        file_path: Optional[str] = None,
         metadata: Optional[dict] = None,
     ) -> str:
         """
@@ -251,6 +253,7 @@ class Neo4jClient:
             embedding: Vector embedding for similarity search
             tags: Assigned tags from taxonomy
             source_url: Original source URL if available
+            file_path: Path to the Obsidian vault note file
             metadata: Additional metadata dict
 
         Returns:
@@ -277,6 +280,7 @@ class Neo4jClient:
                 embedding=embedding,
                 tags=tags,
                 source_url=source_url,
+                file_path=file_path,
                 metadata=metadata_json,
             )
             record = await result.single()
@@ -463,6 +467,33 @@ class Neo4jClient:
             record = await result.single()
             return record["deleted_count"] if record else 0
 
+    async def update_content_file_path(
+        self, content_id: str, file_path: str
+    ) -> Optional[str]:
+        """
+        Update the file_path property of an existing Content node.
+
+        Used to backfill file_path for nodes created before this property
+        was added.
+
+        Args:
+            content_id: Content UUID
+            file_path: Path to the Obsidian vault note file
+
+        Returns:
+            The node ID if updated, None if not found
+        """
+        await self._ensure_initialized()
+
+        async with self._async_driver.session(
+            database=settings.NEO4J_DATABASE
+        ) as session:
+            result = await session.run(
+                UPDATE_CONTENT_FILE_PATH, id=content_id, file_path=file_path
+            )
+            record = await result.single()
+            return record["id"] if record else None
+
     # =========================================================================
     # Obsidian Vault Sync Operations (Note nodes)
     # =========================================================================
@@ -475,6 +506,7 @@ class Neo4jClient:
         title: str,
         note_type: str,
         tags: list[str],
+        file_path: Optional[str] = None,
     ) -> str:
         """
         Create or update a Note node from an Obsidian vault file.
@@ -488,6 +520,7 @@ class Neo4jClient:
             title: Note title (from frontmatter or filename)
             note_type: Content type (paper, article, daily, etc.)
             tags: Combined frontmatter and inline tags
+            file_path: Relative path to the note file from vault root
 
         Returns:
             The node's ID
@@ -503,6 +536,7 @@ class Neo4jClient:
                 title=title,
                 note_type=note_type,
                 tags=tags,
+                file_path=file_path,
             )
             record = await result.single()
             return record["id"]

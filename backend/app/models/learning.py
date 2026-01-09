@@ -671,3 +671,63 @@ class LogTimeResponse(BaseModel):
     id: int
     duration_seconds: int
     message: str
+
+
+# ===========================================
+# Dashboard & Daily Stats Models
+# ===========================================
+
+
+class DailyStatsResponse(BaseModel):
+    """
+    Daily statistics for the dashboard.
+    
+    Provides a quick overview of today's learning status including due cards,
+    streak information, and recent activity. Used by the frontend dashboard
+    to show the user's current learning status at a glance.
+    """
+
+    # Streak info
+    streak_days: int = Field(0, description="Current consecutive practice days")
+    streak_at_risk: bool = Field(False, description="True if no practice today yet")
+    
+    # Cards
+    due_cards_count: int = Field(0, description="Cards due for review today")
+    total_cards: int = Field(0, description="Total cards in the system")
+    cards_reviewed_today: int = Field(0, description="Cards reviewed so far today")
+    
+    # Progress
+    overall_mastery: float = Field(0.0, ge=0.0, le=1.0, description="Overall mastery score")
+    practice_time_today_minutes: int = Field(0, description="Practice time today in minutes")
+    
+    # Greeting context
+    last_practice_date: Optional[date] = Field(None, description="Date of last practice")
+
+
+class PracticeHistoryDay(BaseModel):
+    """
+    Single day of practice history for activity heatmap.
+    
+    Contains practice activity metrics for one day, used to render
+    GitHub-style activity heatmaps on the dashboard.
+    """
+
+    date: date
+    count: int = Field(0, description="Number of practice items completed")
+    minutes: int = Field(0, description="Total practice minutes")
+    level: int = Field(0, ge=0, le=4, description="Activity level 0-4 for heatmap coloring")
+
+
+class PracticeHistoryResponse(BaseModel):
+    """
+    Practice history for activity heatmap visualization.
+    
+    Returns daily practice activity over a configurable time range,
+    typically 26 or 52 weeks. Used to render a contribution-style
+    heatmap showing practice consistency over time.
+    """
+
+    days: list[PracticeHistoryDay] = Field(default_factory=list)
+    total_practice_days: int = Field(0, description="Days with at least one practice")
+    total_items: int = Field(0, description="Total items practiced")
+    max_daily_count: int = Field(0, description="Maximum items in a single day")

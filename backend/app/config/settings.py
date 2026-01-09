@@ -212,6 +212,19 @@ class Settings(BaseSettings):
     # Voice transcription
     VOICE_EXPAND_NOTES: bool = True
 
+    # Web article extraction
+    ARTICLE_HTTP_TIMEOUT: float = 30.0  # HTTP timeout in seconds
+    JINA_RATE_LIMIT_RPM: int = 20  # Jina Reader API rate limit (requests/minute)
+    # Free tier: 20 RPM, Paid tiers: 500-5000 RPM
+    # See: https://jina.ai/api-dashboard/rate-limit
+
+    # Raindrop sync - LLM title generation
+    RAINDROP_TITLE_SAMPLE_LENGTH: int = 2000  # Chars to sample for title extraction
+    RAINDROP_TITLE_MAX_TOKENS: int = 50  # Max tokens for LLM title response
+    RAINDROP_TITLE_TEMPERATURE: float = 0.3  # LLM temperature for title extraction
+    RAINDROP_TITLE_MIN_LENGTH: int = 3  # Minimum valid title length
+    RAINDROP_TITLE_MAX_LENGTH: int = 200  # Maximum valid title length
+
     # =========================================================================
     # OBSERVABILITY
     # =========================================================================
@@ -270,6 +283,36 @@ class Settings(BaseSettings):
 
     # Session content limits
     SESSION_MAX_WEAK_SPOTS: int = 3  # Max weak spot topics to consider per session
+
+    # =========================================================================
+    # ASSISTANT SERVICE
+    # =========================================================================
+    # Maximum characters for auto-generated conversation titles
+    ASSISTANT_MAX_TITLE_LENGTH: int = 50
+
+    # Knowledge search limits for chat context
+    ASSISTANT_CHAT_SEARCH_LIMIT: int = 5
+    ASSISTANT_CHAT_SEARCH_MIN_SCORE: float = 0.5
+
+    # Knowledge search limits for explicit search
+    ASSISTANT_KNOWLEDGE_SEARCH_LIMIT: int = 20
+    ASSISTANT_KNOWLEDGE_SEARCH_MIN_SCORE: float = 0.3
+
+    # Context formatting
+    ASSISTANT_MAX_SUMMARY_LENGTH: int = 500
+    ASSISTANT_SNIPPET_LENGTH: int = 200
+
+    # Conversation history
+    ASSISTANT_MAX_HISTORY_MESSAGES: int = 10
+    ASSISTANT_DEFAULT_PAGE_LIMIT: int = 20
+
+    # LLM generation parameters
+    ASSISTANT_LLM_TEMPERATURE: float = 0.7
+    ASSISTANT_LLM_MAX_TOKENS: int = 2048
+
+    # Quiz generation
+    ASSISTANT_DEFAULT_QUIZ_QUESTIONS: int = 5
+    ASSISTANT_QUIZ_CONTEXT_LIMIT: int = 5
 
     # =========================================================================
     # RATE LIMITING

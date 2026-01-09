@@ -1017,7 +1017,7 @@ class TestRaindropSyncIntegration:
         """Test syncing a Raindrop collection."""
         from app.pipelines.raindrop_sync import RaindropSync
 
-        sync = RaindropSync(access_token="test-token")
+        sync = RaindropSync(access_token="test-token", track_costs=False)
 
         # Mock HTTP client
         async def mock_get(url, **kwargs):
@@ -1044,9 +1044,14 @@ class TestRaindropSyncIntegration:
 
         sync.client.get = mock_get
 
-        # Mock article content fetching
+        # Mock article content fetching and LLM title generation
+        async def mock_generate_title(*args, **kwargs):
+            return "LLM Generated Title"
+
         with patch.object(
             sync, "_fetch_article_content", return_value="Test article content"
+        ), patch.object(
+            sync, "_generate_title_with_llm", side_effect=mock_generate_title
         ):
             results = await sync.sync_collection(limit=1)
 
@@ -1054,9 +1059,109 @@ class TestRaindropSyncIntegration:
         result = results[0]
         assert isinstance(result, UnifiedContent)
         assert result.source_type == ContentType.ARTICLE
-        assert result.title == "Test Article"
+        assert result.title == "LLM Generated Title"  # Now uses LLM-generated title
         assert len(result.annotations) == 2  # 2 highlights
         assert result.tags == ["test", "example"]
+
+        await sync.close()
+
+    @pytest.mark.asyncio
+    async def test_sync_improves_url_title(self, mock_raindrop_highlights):
+        """Test that URL-like titles get improved by LLM."""
+        from app.pipelines.raindrop_sync import RaindropSync
+
+        # Raindrop item with URL as title (common when bookmarking)
+        url_title_item = {
+            "_id": 789,
+            "link": "https://www.physicalintelligence.company/blog/pi0",
+            "title": "www.physicalintelligence.company",  # URL as title
+            "created": "2024-01-15T12:00:00Z",
+            "tags": ["ai", "robotics"],
+            "creator": "Physical Intelligence",
+            "collection": {"$id": 1},
+        }
+
+        sync = RaindropSync(access_token="test-token", track_costs=False)
+
+        # Mock HTTP client
+        async def mock_get(url, **kwargs):
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            if "raindrops" in url and "raindrop/" not in url:
+                mock_response.json.return_value = {
+                    "result": True,
+                    "items": [url_title_item],
+                    "count": 1,
+                }
+            else:
+                mock_response.json.return_value = {
+                    "result": True,
+                    "item": {**url_title_item, "highlights": []},
+                }
+            mock_response.raise_for_status = MagicMock()
+            return mock_response
+
+        sync.client.get = mock_get
+
+        # Mock LLM to generate a better title
+        async def mock_generate_title(*args, **kwargs):
+            return "Physical Intelligence π0 Robot Foundation Model"
+
+        with patch.object(
+            sync, "_fetch_article_content", return_value="Article about robotics AI..."
+        ), patch.object(
+            sync, "_generate_title_with_llm", side_effect=mock_generate_title
+        ):
+            results = await sync.sync_collection(limit=1)
+
+        assert len(results) == 1
+        result = results[0]
+        # Title should be LLM-generated, NOT the URL
+        assert result.title == "Physical Intelligence π0 Robot Foundation Model"
+        assert "www.physicalintelligence.company" not in result.title
+
+        await sync.close()
+
+    @pytest.mark.asyncio
+    async def test_sync_fallback_on_llm_failure(self, mock_raindrop_item):
+        """Test fallback to Raindrop title when LLM fails."""
+        from app.pipelines.raindrop_sync import RaindropSync
+
+        sync = RaindropSync(access_token="test-token", track_costs=False)
+
+        async def mock_get(url, **kwargs):
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            if "raindrops" in url and "raindrop/" not in url:
+                mock_response.json.return_value = {
+                    "result": True,
+                    "items": [mock_raindrop_item],
+                    "count": 1,
+                }
+            else:
+                mock_response.json.return_value = {
+                    "result": True,
+                    "item": {**mock_raindrop_item, "highlights": []},
+                }
+            mock_response.raise_for_status = MagicMock()
+            return mock_response
+
+        sync.client.get = mock_get
+
+        # Mock LLM to fail (returns None)
+        async def mock_generate_title_fails(*args, **kwargs):
+            return None
+
+        with patch.object(
+            sync, "_fetch_article_content", return_value="Some article content"
+        ), patch.object(
+            sync, "_generate_title_with_llm", side_effect=mock_generate_title_fails
+        ):
+            results = await sync.sync_collection(limit=1)
+
+        assert len(results) == 1
+        # Should fallback to original Raindrop title
+        assert results[0].title == "Test Article"
 
         await sync.close()
 

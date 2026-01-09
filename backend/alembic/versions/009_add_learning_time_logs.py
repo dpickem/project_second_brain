@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "009"
-down_revision = "008_timestamps_with_tz"
+down_revision = "008"
 branch_labels = None
 depends_on = None
 
@@ -63,15 +63,9 @@ def upgrade() -> None:
         "learning_time_logs",
         ["started_at"],
     )
-    op.create_index(
-        "ix_learning_time_logs_activity_date",
-        "learning_time_logs",
-        [sa.text("DATE(started_at)")],
-    )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_learning_time_logs_activity_date")
     op.drop_index("ix_learning_time_logs_started_at")
     op.drop_table("learning_time_logs")
 
