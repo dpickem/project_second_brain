@@ -353,12 +353,50 @@ created: {{date}}
 
 ## 4. Tagging System
 
-> **EXTENSIBILITY**: The tag taxonomy is defined in `config/tag-taxonomy.yaml` (single source of truth) and can be extended by adding new domains/categories. The `meta/tag-taxonomy.md` file in the vault is **auto-generated** from the YAML config—do not edit it directly.
+> **EXTENSIBILITY**: The tag taxonomy uses a two-tier architecture. The `config/tag-taxonomy.yaml` file is the **curated baseline** and can be extended by adding new domains/categories. The database Tag table is the **live state** that includes both predefined tags and auto-created tags from user content.
 
-### 4.1 Tag Taxonomy
+### 4.1 Two-Tier Tag Architecture
+
+The system uses a deliberate separation between curated and auto-created tags:
+
+```
+┌─────────────────────────────────────┐
+│  config/tag-taxonomy.yaml           │  ← CURATED BASELINE
+│  (versioned, hand-picked tags)      │     - Predefined domains/categories
+└─────────────────┬───────────────────┘     - Version controlled
+                  │                         - Edit manually to add tags
+                  │ sync_taxonomy_to_db()
+                  ▼
+┌─────────────────────────────────────┐
+│  Database: Tag table                │  ← LIVE STATE
+│  (YAML tags + auto-created)         │     - Includes all YAML tags
+└─────────────────────────────────────┘     - Plus auto-created from content
+                  ▲                         - Knowledge graph topics
+                  │                         - Practice session topics
+                  │ ensure_tags_exist()
+┌─────────────────┴───────────────────┐
+│  Knowledge Graph / User Content     │  ← AUTO-DISCOVERY
+│  (topics from processed content)    │
+└─────────────────────────────────────┘
+```
+
+**Design Rationale:**
+- **YAML stays curated**: The config file remains clean and version-controlled
+- **DB accumulates tags**: New topics from user content are auto-created in the database
+- **No DB → YAML sync**: Auto-created tags don't pollute the curated taxonomy
+- **Knowledge graph drives discovery**: Topic discovery happens through content, not manual taxonomy editing
+
+**Key Services:**
+- `TagService.sync_taxonomy_to_db()` - Syncs YAML → Database
+- `TagService.ensure_tags_exist()` - Auto-creates missing tags in DB
+- `TagService.validate_tags()` - Validates tags exist (raises if missing)
+
+The `meta/tag-taxonomy.md` file in the vault is **auto-generated** from the YAML config—do not edit it directly.
+
+### 4.2 Predefined Tag Taxonomy
 
 ```yaml
-# config/tag-taxonomy.yaml (single source of truth)
+# config/tag-taxonomy.yaml (curated baseline)
 # Tag Hierarchy: domain/category/topic (3 levels)
 
 # TECHNICAL DOMAIN TAGS (hierarchical)
@@ -443,7 +481,7 @@ quality:
 # Use domain tags and status tags instead.
 ```
 
-### 4.2 Tag Usage Rules
+### 4.3 Tag Usage Rules
 
 1. **1-3 domain tags** per note (most specific that applies)
 2. **1 status tag** (required)
