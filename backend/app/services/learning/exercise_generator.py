@@ -8,15 +8,59 @@ content and mastery level. Implements learning science principles:
 - Intermediate (mastery 0.3-0.7): Free recall, self-explain, implementations
 - Advanced (mastery > 0.7): Applications, teach-back, refactoring
 
+===============================================================================
+EXERCISES vs SPACED REPETITION CARDS - Key Distinction
+===============================================================================
+
+EXERCISES (this module):
+- Purpose: Active practice & deep skill application
+- Format: Rich, structured problems with:
+  * Detailed prompts requiring thought and composition
+  * Worked examples (for novices) with follow-up problems
+  * Code templates, test cases, buggy code (for programming topics)
+  * Progressive hints and expected key points
+- Scheduling: Mastery-based adaptive selection
+  * Exercise TYPE changes based on skill level
+  * Novices get worked examples, experts get teach-back exercises
+- Evaluation: LLM-powered evaluation providing:
+  * Score (0-100%)
+  * Detailed feedback on strengths/weaknesses
+  * Key points covered vs missed
+  * Identified misconceptions with corrections
+- Generation: Created on-demand during Practice Sessions
+- UI: Appears in /practice (Practice Session page)
+- Database: exercises table, exercise_attempts table
+- Use case: "I want to PRACTICE and get feedback on my understanding"
+
+SPACED REP CARDS (see card_generator.py):
+- Purpose: Passive recall & long-term memory retention
+- Format: Simple front/back flashcards
+- Scheduling: FSRS algorithm (optimizes for memory retention)
+- Evaluation: Self-rated (Again/Hard/Good/Easy)
+- Generation: During content ingestion OR on-demand from Review Queue
+- UI: Appears in /review (Review Queue page)
+- Database: spaced_rep_cards table, practice_attempts table
+- Use case: "I want to REMEMBER facts and definitions"
+
+WHY BOTH?
+Learning science shows optimal retention requires:
+1. Initial understanding (Exercises - active engagement)
+2. Long-term retention (Cards - spaced repetition)
+
+The Practice Session combines both: cards for review + exercises for practice.
+
+===============================================================================
+
 Usage:
     from app.services.learning.exercise_generator import ExerciseGenerator
 
     generator = ExerciseGenerator(llm_client, db_session)
 
-    exercise = await generator.generate_exercise(
-        topic="ml/transformers/attention",
+    exercise, usages = await generator.generate_exercise(
+        request=ExerciseGenerateRequest(topic="ml/transformers/attention"),
         mastery_level=0.5,
     )
+    # usages contains LLMUsage objects for cost tracking
 """
 
 import json
@@ -34,6 +78,8 @@ from app.models.learning import (
     ExerciseGenerateRequest,
     ExerciseResponse,
 )
+from app.models.processing import ExtractionResult
+from app.models.llm_usage import LLMUsage
 from app.services.llm.client import LLMClient, build_messages
 from app.services.tag_service import TagService
 from app.config import settings
@@ -331,27 +377,25 @@ class ExerciseGenerator:
         self,
         request: ExerciseGenerateRequest,
         mastery_level: float = 0.5,
-        validate_topic: bool = True,
-    ) -> ExerciseResponse:
+        ensure_topic: bool = True,
+    ) -> tuple[ExerciseResponse, list[LLMUsage]]:
         """
         Generate an exercise for a topic.
 
         Args:
             request: Exercise generation request
             mastery_level: Current mastery level (0-1)
-            validate_topic: If True, validate topic exists in database (default True).
-                           Missing topics are auto-created if they exist in taxonomy.
+            ensure_topic: If True, ensure topic exists in database (default True).
+                         Missing topics are auto-created to keep Tag table in sync.
 
         Returns:
-            Generated exercise
-
-        Raises:
-            InvalidTagError: If topic is invalid and not in taxonomy
+            Tuple of (generated exercise, LLM usages for cost tracking)
         """
-        # Validate topic against database
-        if validate_topic:
+        usages: list[LLMUsage] = []
+        # Ensure topic exists in database (auto-creates if missing)
+        if ensure_topic:
             tag_service = TagService(self.db)
-            await tag_service.validate_topic(request.topic)
+            await tag_service.ensure_topic_exists(request.topic)
 
         # Select difficulty based on mastery
         difficulty = self._select_difficulty(mastery_level)
@@ -359,7 +403,11 @@ class ExerciseGenerator:
             difficulty = request.difficulty
 
         # Select exercise type based on mastery and topic
-        is_code_topic = await self._is_code_topic(request.topic, request.language)
+        is_code_topic, classify_usage = await self._is_code_topic(
+            request.topic, request.language
+        )
+        if classify_usage:
+            usages.append(classify_usage)
         exercise_type = self._select_exercise_type(
             mastery_level,
             is_code_topic,
@@ -391,18 +439,18 @@ class ExerciseGenerator:
             system_prompt="You are an expert educational content creator. Generate exercises in JSON format.",
         )
 
-        response, _usage = await self.llm.complete(
+        response, usage = await self.llm.complete(
             operation=PipelineOperation.CONCEPT_EXTRACTION,
             messages=messages,
             model=self.model,
             temperature=0.7,  # Some creativity for variety
             json_mode=True,
         )
+        if usage:
+            usages.append(usage)
 
         # Response is already parsed when json_mode=True
-        exercise_data = (
-            response if isinstance(response, dict) else json.loads(response)
-        )
+        exercise_data = response if isinstance(response, dict) else json.loads(response)
 
         # Create exercise record
         exercise = Exercise(
@@ -433,7 +481,7 @@ class ExerciseGenerator:
             f"Created exercise {exercise.id}: {exercise_type.value} for {request.topic}"
         )
 
-        return self._to_response(exercise)
+        return self._to_response(exercise), usages
 
     def _select_difficulty(self, mastery_level: float) -> ExerciseDifficulty:
         """Select difficulty based on mastery level."""
@@ -461,7 +509,9 @@ class ExerciseGenerator:
         # Pick one randomly from the candidates
         return random.choice(candidates) if candidates else ExerciseType.FREE_RECALL
 
-    async def _is_code_topic(self, topic: str, language: Optional[str]) -> bool:
+    async def _is_code_topic(
+        self, topic: str, language: Optional[str]
+    ) -> tuple[bool, Optional[LLMUsage]]:
         """
         Determine if a topic is code-related using LLM classification.
 
@@ -474,11 +524,11 @@ class ExerciseGenerator:
             language: If a programming language is explicitly specified, returns True
 
         Returns:
-            True if the topic is code-related, False otherwise
+            Tuple of (is_code_topic, LLM usage if LLM was called)
         """
         # If language is explicitly specified, it's definitely a code topic
         if language:
-            return True
+            return True, None
 
         prompt = f"""Classify whether this learning topic is primarily about programming/coding or is a conceptual/theoretical topic.
 
@@ -506,7 +556,7 @@ Respond with ONLY a JSON object:
                 system_prompt="You are a classifier. Respond only with the requested JSON.",
             )
 
-            response, _usage = await self.llm.complete(
+            response, usage = await self.llm.complete(
                 operation=PipelineOperation.CONCEPT_EXTRACTION,
                 messages=messages,
                 model=self.model,
@@ -515,11 +565,13 @@ Respond with ONLY a JSON object:
             )
 
             result = response if isinstance(response, dict) else json.loads(response)
-            return result.get("is_code_topic", False)
+            return result.get("is_code_topic", False), usage
 
         except Exception as e:
-            logger.warning(f"Failed to classify topic '{topic}': {e}, defaulting to False")
-            return False
+            logger.warning(
+                f"Failed to classify topic '{topic}': {e}, defaulting to False"
+            )
+            return False, None
 
     def _to_response(self, exercise: Exercise) -> ExerciseResponse:
         """Convert database model to response (hiding solution)."""
@@ -540,3 +592,120 @@ Respond with ONLY a JSON object:
             estimated_time_minutes=exercise.estimated_time_minutes or 10,
             tags=exercise.tags or [],
         )
+
+    async def generate_from_concepts(
+        self,
+        extraction: ExtractionResult,
+        content_id: str,
+        tags: list[str],
+        max_exercises: int = 3,
+    ) -> tuple[list[ExerciseResponse], list[LLMUsage]]:
+        """
+        Generate exercises from extracted concepts during content processing.
+
+        Focuses on CORE concepts to generate practice exercises that reinforce
+        the main ideas from the processed content. Uses FOUNDATIONAL difficulty
+        since this is initial learning, not review.
+
+        Args:
+            extraction: Extraction result containing concepts
+            content_id: UUID of the source content
+            tags: Tags to apply to generated exercises
+            max_exercises: Maximum number of exercises to generate (default 3)
+
+        Returns:
+            Tuple of (generated exercises, LLM usages for cost tracking)
+        """
+        exercises: list[ExerciseResponse] = []
+        usages: list[LLMUsage] = []
+
+        if not extraction.concepts:
+            logger.debug("No concepts found, skipping exercise generation")
+            return exercises, usages
+
+        # Focus on CORE concepts only
+        core_concepts = [c for c in extraction.concepts if c.importance == "CORE"]
+        if not core_concepts:
+            # Fallback to first few concepts if no CORE concepts
+            core_concepts = extraction.concepts[:max_exercises]
+        else:
+            core_concepts = core_concepts[:max_exercises]
+
+        logger.info(f"Generating exercises for {len(core_concepts)} core concepts")
+
+        for concept in core_concepts:
+            try:
+                # Build topic from concept name (use first tag as domain if available)
+                topic = (
+                    tags[0] + "/" + concept.name.lower().replace(" ", "-")
+                    if tags
+                    else concept.name.lower().replace(" ", "-")
+                )
+
+                request = ExerciseGenerateRequest(
+                    topic=topic,
+                    exercise_type=None,  # Auto-select based on mastery (will be novice)
+                    difficulty=ExerciseDifficulty.FOUNDATIONAL,  # Start easy
+                    source_content_ids=[content_id],
+                )
+
+                # Generate exercise (mastery 0.3 = novice, gets worked examples/free recall)
+                exercise, exercise_usages = await self.generate_exercise(
+                    request=request,
+                    mastery_level=0.3,  # Assume novice for newly ingested content
+                    ensure_topic=True,
+                )
+                usages.extend(exercise_usages)
+
+                # Update tags to include content tags
+                if exercise:
+                    exercises.append(exercise)
+                    logger.debug(f"Generated exercise for concept: {concept.name}")
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to generate exercise for concept '{concept.name}': {e}"
+                )
+                continue
+
+        logger.info(f"Generated {len(exercises)} exercises from extraction")
+        return exercises, usages
+
+
+# ===========================================
+# Convenience function for pipeline integration
+# ===========================================
+
+
+async def generate_exercises_from_extraction(
+    db: AsyncSession,
+    llm_client: LLMClient,
+    extraction: ExtractionResult,
+    content_id: str,
+    tags: list[str],
+    max_exercises: int = 3,
+) -> tuple[list[ExerciseResponse], list[LLMUsage]]:
+    """
+    Convenience function to generate exercises from extraction results.
+
+    Used by the processing pipeline after concept extraction to create
+    practice exercises for the main concepts.
+
+    Args:
+        db: Database session
+        llm_client: LLM client for generation
+        extraction: Extraction result with concepts
+        content_id: UUID of the source content
+        tags: Tags to apply to exercises
+        max_exercises: Maximum exercises to generate (default 3)
+
+    Returns:
+        Tuple of (generated exercises, LLM usages for cost tracking)
+    """
+    generator = ExerciseGenerator(llm_client, db)
+    return await generator.generate_from_concepts(
+        extraction=extraction,
+        content_id=content_id,
+        tags=tags,
+        max_exercises=max_exercises,
+    )

@@ -19,7 +19,14 @@ Usage:
 import logging
 
 from app.models.content import UnifiedContent
-from app.models.processing import Concept, ExtractionResult, ContentAnalysis
+from app.models.processing import (
+    Concept,
+    ConceptExample,
+    ConceptMisconception,
+    ConceptRelation,
+    ExtractionResult,
+    ContentAnalysis,
+)
 from app.enums.pipeline import PipelineOperation
 from app.enums.processing import ConceptImportance
 from app.models.llm_usage import LLMUsage
@@ -51,12 +58,18 @@ Content:
 Extract the following:
 
 1. **CONCEPTS**: Key ideas, terms, frameworks, theories mentioned
+   For each concept, provide:
    - Name: The concept name
-   - Definition: A clear, concise definition
+   - Definition: A clear, concise definition (1-2 sentences, standalone)
    - Context: How this concept is used/discussed in THIS content
    - Importance: 
 {_importance_section}
-   - Related concepts: Other concepts in this content it connects to
+   - Why it matters: Why understanding this concept is valuable (1-2 sentences)
+   - Properties: 2-4 key characteristics or attributes of this concept
+   - Examples: 1-2 concrete examples that illustrate this concept
+   - Misconceptions: Common misunderstandings people have (if applicable)
+   - Prerequisites: Other concepts that should be understood first
+   - Related concepts: Other concepts in this content it connects to, with relationship type
 
 2. **KEY FINDINGS**: Main insights, conclusions, claims, or arguments made
 
@@ -74,7 +87,18 @@ Return as JSON:
       "definition": "clear definition in 1-2 sentences",
       "context": "how it's used in this specific content",
       "importance": "{"|".join(i.value for i in ConceptImportance)}",
-      "related_concepts": ["concept1", "concept2"]
+      "why_it_matters": "why understanding this is valuable",
+      "properties": ["key characteristic 1", "key characteristic 2"],
+      "examples": [
+        {{{{"title": "Example Title", "content": "Explanation of the example"}}}}
+      ],
+      "misconceptions": [
+        {{{{"wrong": "common incorrect belief", "correct": "the actual truth"}}}}
+      ],
+      "prerequisites": ["prerequisite concept 1"],
+      "related_concepts": [
+        {{{{"name": "related concept", "relationship": "how they're related"}}}}
+      ]
     }}}}
   ],
   "key_findings": ["finding or insight 1", "finding or insight 2"],
@@ -85,10 +109,13 @@ Return as JSON:
 
 Guidelines:
 - Extract 5-15 concepts depending on content length and density
-- At least 2-3 should be "{ConceptImportance.CORE.value}" concepts
+- At least 2-3 should be "{ConceptImportance.CORE.value}" concepts with full detail
 - Definitions should be standalone (understandable without reading content)
 - Context should explain how concept is used IN THIS SPECIFIC content
 - Key findings should be specific claims, not generic observations
+- For CORE concepts: provide all fields (properties, examples, misconceptions, prerequisites)
+- For SUPPORTING/TANGENTIAL: properties and examples are sufficient, others optional
+- Relationship types: "extends", "contrasts with", "is a type of", "enables", "applies to", etc.
 """
 
 
@@ -137,6 +164,47 @@ async def extract_concepts(
         concepts = []
         for c in data.get("concepts", []):
             if c.get("name"):  # Skip empty concepts
+                # Parse examples
+                examples = []
+                for ex in c.get("examples", []):
+                    if isinstance(ex, dict):
+                        examples.append(
+                            ConceptExample(
+                                title=ex.get("title", ""),
+                                content=ex.get("content", ""),
+                            )
+                        )
+                    elif isinstance(ex, str):
+                        # Handle case where LLM returns string instead of object
+                        examples.append(ConceptExample(content=ex))
+
+                # Parse misconceptions
+                misconceptions = []
+                for mis in c.get("misconceptions", []):
+                    if isinstance(mis, dict) and mis.get("wrong"):
+                        misconceptions.append(
+                            ConceptMisconception(
+                                wrong=mis.get("wrong", ""),
+                                correct=mis.get("correct", ""),
+                            )
+                        )
+
+                # Parse related concepts
+                related_concepts = []
+                for rel in c.get("related_concepts", []):
+                    if isinstance(rel, dict):
+                        related_concepts.append(
+                            ConceptRelation(
+                                name=rel.get("name", ""),
+                                relationship=rel.get("relationship", "relates to"),
+                            )
+                        )
+                    elif isinstance(rel, str):
+                        # Backward compatibility: handle simple string list
+                        related_concepts.append(
+                            ConceptRelation(name=rel, relationship="relates to")
+                        )
+
                 concepts.append(
                     Concept(
                         name=c.get("name", ""),
@@ -145,7 +213,12 @@ async def extract_concepts(
                         importance=_validate_importance(
                             c.get("importance", ConceptImportance.SUPPORTING.value)
                         ),
-                        related_concepts=c.get("related_concepts", []),
+                        why_it_matters=c.get("why_it_matters", ""),
+                        properties=c.get("properties", []),
+                        examples=examples,
+                        misconceptions=misconceptions,
+                        prerequisites=c.get("prerequisites", []),
+                        related_concepts=related_concepts,
                     )
                 )
 

@@ -37,7 +37,7 @@ export const usePracticeStore = create((set, get) => ({
   
   startSession: (session) => set({
     session,
-    sessionId: session.id,
+    sessionId: session.session_id,
     currentItemIndex: 0,
     responses: [],
     startTime: Date.now(),
@@ -153,7 +153,7 @@ export const usePracticeStore = create((set, get) => ({
     const total = responses.length
     
     return {
-      sessionId: session.id,
+      sessionId: session.session_id,
       totalItems: session.items?.length || 0,
       completedItems: total,
       correctItems: correct,

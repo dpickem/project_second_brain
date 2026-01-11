@@ -219,7 +219,8 @@ async def list_folders():
                 note_count = 0
                 if folder_path.exists():
                     note_count = sum(
-                        1 for f in folder_path.rglob("*.md")
+                        1
+                        for f in folder_path.rglob("*.md")
                         if not any(part.startswith(".") for part in f.parts)
                     )
                 total_notes += note_count

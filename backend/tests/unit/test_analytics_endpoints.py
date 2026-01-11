@@ -185,7 +185,9 @@ class TestCalculateTimeTrend:
         - 'decreasing': second half is >10% lower than first half
         """
         periods = [
-            make_time_period(now_utc, days_offset=len(minutes_sequence) - i, total_minutes=m)
+            make_time_period(
+                now_utc, days_offset=len(minutes_sequence) - i, total_minutes=m
+            )
             for i, m in enumerate(minutes_sequence)
         ]
         result = MasteryService._calculate_time_trend(periods)

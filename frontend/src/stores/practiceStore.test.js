@@ -28,7 +28,7 @@ describe('practiceStore', () => {
   describe('startSession', () => {
     it('should initialize a new session', () => {
       const mockSession = {
-        id: 'session-123',
+        session_id: 'session-123',
         items: [
           { id: '1', question: 'Q1' },
           { id: '2', question: 'Q2' },
@@ -323,7 +323,7 @@ describe('practiceStore', () => {
 
       it('should return summary when session exists', () => {
         const items = [{ id: '1' }, { id: '2' }]
-        const mockSession = { id: 'session-123', items }
+        const mockSession = { session_id: 'session-123', items }
         usePracticeStore.getState().startSession(mockSession)
         usePracticeStore.getState().submitResponse('1', 'answer', { is_correct: true })
         

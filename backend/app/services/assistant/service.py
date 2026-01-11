@@ -874,10 +874,10 @@ class AssistantService:
         for _ in range(question_count):
             try:
                 request = ExerciseGenerateRequest(topic=topic_id)
-                exercise = await self.exercise_generator.generate_exercise(
+                exercise, _usages = await self.exercise_generator.generate_exercise(
                     request=request,
                     mastery_level=mastery_level,
-                    validate_topic=False,  # Don't require topic in DB
+                    ensure_topic=True,  # Auto-create tag if not in database
                 )
 
                 # Convert exercise to quiz question format

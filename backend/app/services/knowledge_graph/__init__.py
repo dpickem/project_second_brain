@@ -15,7 +15,7 @@ Usage:
 
     client = await get_neo4j_client()
     similar = await client.vector_search(embedding, top_k=10)
-    
+
     search = KnowledgeSearchService(client)
     results = await search.semantic_search("machine learning")
 
@@ -30,7 +30,10 @@ Usage:
 """
 
 from app.services.knowledge_graph.client import Neo4jClient, get_neo4j_client
-from app.services.knowledge_graph.search import KnowledgeSearchService, get_search_service
+from app.services.knowledge_graph.search import (
+    KnowledgeSearchService,
+    get_search_service,
+)
 from app.services.knowledge_graph.utils import build_topic_tree
 from app.services.knowledge_graph.visualization import (
     KnowledgeVisualizationService,

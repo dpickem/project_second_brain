@@ -172,7 +172,7 @@ class TestSpacedRepServiceReviewCard:
         """Create a mock card object with all required FSRS attributes."""
         # Use timezone-aware datetimes to match FSRS expectations
         now = datetime.now(timezone.utc)
-        
+
         card = MagicMock()
         card.id = 1
         card.state = "review"

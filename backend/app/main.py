@@ -57,6 +57,7 @@ async def lifespan(app: FastAPI):
     # Start scheduler for periodic syncs (lazy import to avoid test failures)
     try:
         from app.services.scheduler import start_scheduler
+
         start_scheduler()
         logger.info("Scheduler started")
     except Exception as e:
@@ -87,6 +88,7 @@ async def lifespan(app: FastAPI):
 
     try:
         from app.services.scheduler import stop_scheduler
+
         stop_scheduler()
     except Exception:
         pass
@@ -94,6 +96,7 @@ async def lifespan(app: FastAPI):
     # Close Neo4j client
     try:
         from app.services.knowledge_graph import get_neo4j_client
+
         client = await get_neo4j_client()
         await client.close()
     except Exception:

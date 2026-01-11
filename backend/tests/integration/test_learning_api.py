@@ -100,7 +100,11 @@ async def sample_exercise(clean_db: AsyncSession):
         difficulty="intermediate",
         prompt="Explain the attention mechanism in transformers.",
         hints=["Think about queries, keys, and values"],
-        expected_key_points=["Self-attention", "Query-key-value", "Softmax normalization"],
+        expected_key_points=[
+            "Self-attention",
+            "Query-key-value",
+            "Softmax normalization",
+        ],
         estimated_time_minutes=10,
         tags=["ml", "transformers"],
     )
@@ -185,12 +189,19 @@ class TestReviewEndpoints:
     @pytest.mark.parametrize(
         "query_params,expected_check",
         [
-            ("?topic=ml/transformers", lambda d: all("ml/transformers" in c.get("tags", []) for c in d["cards"])),
+            (
+                "?topic=ml/transformers",
+                lambda d: all(
+                    "ml/transformers" in c.get("tags", []) for c in d["cards"]
+                ),
+            ),
             ("?limit=1", lambda d: len(d["cards"]) <= 1),
         ],
     )
     @pytest.mark.asyncio
-    async def test_get_due_cards_filtered(self, async_test_client, sample_cards, query_params, expected_check):
+    async def test_get_due_cards_filtered(
+        self, async_test_client, sample_cards, query_params, expected_check
+    ):
         """Test GET /api/review/due with filters."""
         response = await async_test_client.get(f"/api/review/due{query_params}")
 
@@ -200,8 +211,8 @@ class TestReviewEndpoints:
     @pytest.mark.parametrize(
         "rating,expected_correct,expected_state",
         [
-            (3, True, None),       # GOOD - correct, state varies
-            (4, True, None),       # EASY - correct
+            (3, True, None),  # GOOD - correct, state varies
+            (4, True, None),  # EASY - correct
             (1, False, "relearning"),  # AGAIN - incorrect, enters relearning
         ],
     )
@@ -298,7 +309,9 @@ class TestPracticeEndpoints:
     @pytest.mark.asyncio
     async def test_end_session(self, async_test_client, sample_session):
         """Test POST /api/practice/session/{id}/end returns summary."""
-        response = await async_test_client.post(f"/api/practice/session/{sample_session.id}/end")
+        response = await async_test_client.post(
+            f"/api/practice/session/{sample_session.id}/end"
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -310,7 +323,9 @@ class TestPracticeEndpoints:
     @pytest.mark.asyncio
     async def test_get_exercise(self, async_test_client, sample_exercise):
         """Test GET /api/practice/exercise/{id} returns exercise without solution."""
-        response = await async_test_client.get(f"/api/practice/exercise/{sample_exercise.id}")
+        response = await async_test_client.get(
+            f"/api/practice/exercise/{sample_exercise.id}"
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -381,15 +396,20 @@ class TestAnalyticsEndpoints:
         data = response.json()
 
         expected_fields = [
-            "overall_mastery", "total_cards", "cards_mastered",
-            "cards_learning", "cards_new"
+            "overall_mastery",
+            "total_cards",
+            "cards_mastered",
+            "cards_learning",
+            "cards_new",
         ]
         assert all(field in data for field in expected_fields)
 
     @pytest.mark.asyncio
     async def test_get_topic_mastery(self, async_test_client, sample_mastery_data):
         """Test GET /api/analytics/mastery/{topic} returns topic-specific mastery."""
-        response = await async_test_client.get("/api/analytics/mastery/ml%2Ftransformers")
+        response = await async_test_client.get(
+            "/api/analytics/mastery/ml%2Ftransformers"
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -420,7 +440,9 @@ class TestAnalyticsEndpoints:
         self, async_test_client, sample_mastery_data, query_params, expected_topic
     ):
         """Test GET /api/analytics/learning-curve returns curve data."""
-        response = await async_test_client.get(f"/api/analytics/learning-curve{query_params}")
+        response = await async_test_client.get(
+            f"/api/analytics/learning-curve{query_params}"
+        )
 
         assert response.status_code == 200
         data = response.json()

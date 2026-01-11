@@ -196,4 +196,3 @@ def create_error_usage(
         content_id=content_id,
         operation=operation,
     )
-

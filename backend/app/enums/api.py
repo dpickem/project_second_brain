@@ -66,4 +66,3 @@ class RateLimitType(str, Enum):
 
     # Batch operations
     BATCH = "batch"
-

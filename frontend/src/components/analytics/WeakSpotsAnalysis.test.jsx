@@ -10,12 +10,12 @@ import { WeakSpotsAnalysis } from './WeakSpotsAnalysis'
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, initial, animate, transition, custom, variants, ...props }) => (
+    div: ({ children, className, ...props }) => (
       <div className={className} {...props}>
         {children}
       </div>
     ),
-    button: ({ children, className, variants, initial, whileHover, whileTap, ...props }) => (
+    button: ({ children, className, ...props }) => (
       <button className={className} {...props}>
         {children}
       </button>

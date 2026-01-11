@@ -175,7 +175,9 @@ class TestCardModels:
     def test_card_review_request_rejects_negative_time(self, invalid_time):
         """Test CardReviewRequest rejects negative time."""
         with pytest.raises(ValidationError):
-            CardReviewRequest(card_id=1, rating=Rating.GOOD, time_spent_seconds=invalid_time)
+            CardReviewRequest(
+                card_id=1, rating=Rating.GOOD, time_spent_seconds=invalid_time
+            )
 
     def test_card_review_response(self, now):
         """Test CardReviewResponse structure."""
@@ -193,7 +195,9 @@ class TestCardModels:
 
     def test_review_forecast(self):
         """Test ReviewForecast structure."""
-        forecast = ReviewForecast(overdue=5, today=10, tomorrow=8, this_week=20, later=100)
+        forecast = ReviewForecast(
+            overdue=5, today=10, tomorrow=8, this_week=20, later=100
+        )
         assert (forecast.overdue, forecast.today) == (5, 10)
 
     def test_due_cards_response(self, card_response):
@@ -338,7 +342,9 @@ class TestAttemptModels:
     @pytest.mark.parametrize("valid_confidence", [1, 2, 3, 4, 5])
     def test_attempt_confidence_valid(self, valid_confidence):
         """Test valid confidence values."""
-        request = AttemptSubmitRequest(exercise_id=1, confidence_before=valid_confidence)
+        request = AttemptSubmitRequest(
+            exercise_id=1, confidence_before=valid_confidence
+        )
         assert request.confidence_before == valid_confidence
 
     def test_attempt_evaluation_response_text(self):
@@ -368,7 +374,9 @@ class TestAttemptModels:
             tests_passed=3,
             tests_total=4,
             test_results=[
-                CodeExecutionResult(test_index=i, passed=(i < 3), error="Timeout" if i == 3 else None)
+                CodeExecutionResult(
+                    test_index=i, passed=(i < 3), error="Timeout" if i == 3 else None
+                )
                 for i in range(4)
             ],
         )
@@ -500,7 +508,10 @@ class TestMasteryModels:
             success_rate=0.45,
             trend=MasteryTrend.DECLINING,
             recommendation="Practice more backpropagation exercises",
-            suggested_exercise_types=[ExerciseType.WORKED_EXAMPLE, ExerciseType.FREE_RECALL],
+            suggested_exercise_types=[
+                ExerciseType.WORKED_EXAMPLE,
+                ExerciseType.FREE_RECALL,
+            ],
         )
         assert spot.mastery_score == 0.35
         assert len(spot.suggested_exercise_types) == 2
@@ -522,18 +533,49 @@ class TestMasteryModels:
         assert len(response.weak_spots) == 1
 
     def test_mastery_overview(self):
-        """Test MasteryOverview."""
+        """Test MasteryOverview with separate card and exercise stats."""
         overview = MasteryOverview(
             overall_mastery=0.72,
             topics=[],
-            total_cards=100,
-            cards_mastered=50,
-            cards_learning=30,
-            cards_new=20,
+            # Spaced rep card stats
+            spaced_rep_cards_total=60,
+            spaced_rep_cards_mastered=30,
+            spaced_rep_cards_learning=20,
+            spaced_rep_cards_new=10,
+            spaced_rep_reviews_total=150,
+            # Exercise stats
+            exercises_total=40,
+            exercises_completed=25,
+            exercises_mastered=20,
+            exercises_attempts_total=60,
+            exercises_avg_score=0.75,
+            # General stats
             streak_days=5,
+            total_practice_time_hours=10.5,
         )
         assert overview.overall_mastery == 0.72
-        assert overview.total_cards == 100
+        # Verify spaced rep card stats
+        assert overview.spaced_rep_cards_total == 60
+        assert overview.spaced_rep_cards_mastered == 30
+        assert overview.spaced_rep_reviews_total == 150
+        # Verify exercise stats
+        assert overview.exercises_total == 40
+        assert overview.exercises_completed == 25
+        assert overview.exercises_mastered == 20
+        assert overview.exercises_attempts_total == 60
+        assert overview.exercises_avg_score == 0.75
+
+    def test_mastery_overview_defaults(self):
+        """Test MasteryOverview with default values."""
+        overview = MasteryOverview(
+            overall_mastery=0.5,
+            topics=[],
+        )
+        # Default values should be 0
+        assert overview.spaced_rep_cards_total == 0
+        assert overview.exercises_total == 0
+        assert overview.exercises_avg_score == 0.0
+        assert overview.streak_days == 0
 
     def test_learning_curve_data_point(self, now):
         """Test LearningCurveDataPoint."""

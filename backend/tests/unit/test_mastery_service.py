@@ -48,35 +48,37 @@ def service(mock_db):
 @pytest.fixture
 def sample_cards_df():
     """Create a sample cards DataFrame for testing."""
-    return pd.DataFrame([
-        {
-            "id": 1,
-            "tags": ["ml", "python"],
-            "state": CardState.REVIEW,
-            "stability": 15.0,
-            "total_reviews": 10,
-            "correct_reviews": 8,
-            "last_reviewed": datetime.utcnow() - timedelta(days=3),
-        },
-        {
-            "id": 2,
-            "tags": ["ml"],
-            "state": CardState.REVIEW,
-            "stability": 20.0,
-            "total_reviews": 15,
-            "correct_reviews": 14,
-            "last_reviewed": datetime.utcnow() - timedelta(days=1),
-        },
-        {
-            "id": 3,
-            "tags": ["python"],
-            "state": CardState.LEARNING,
-            "stability": 1.0,
-            "total_reviews": 2,
-            "correct_reviews": 2,
-            "last_reviewed": datetime.utcnow(),
-        },
-    ])
+    return pd.DataFrame(
+        [
+            {
+                "id": 1,
+                "tags": ["ml", "python"],
+                "state": CardState.REVIEW,
+                "stability": 15.0,
+                "total_reviews": 10,
+                "correct_reviews": 8,
+                "last_reviewed": datetime.utcnow() - timedelta(days=3),
+            },
+            {
+                "id": 2,
+                "tags": ["ml"],
+                "state": CardState.REVIEW,
+                "stability": 20.0,
+                "total_reviews": 15,
+                "correct_reviews": 14,
+                "last_reviewed": datetime.utcnow() - timedelta(days=1),
+            },
+            {
+                "id": 3,
+                "tags": ["python"],
+                "state": CardState.LEARNING,
+                "stability": 1.0,
+                "total_reviews": 2,
+                "correct_reviews": 2,
+                "last_reviewed": datetime.utcnow(),
+            },
+        ]
+    )
 
 
 # ============================================================================
@@ -90,25 +92,32 @@ class TestCalculateActivityLevel:
     @pytest.mark.parametrize(
         "count,max_count,expected",
         [
-            (0, 100, 0),      # No activity
-            (0, 0, 0),        # No activity (edge case: max is 0)
-            (10, 0, 0),       # Edge case: max is 0 but count > 0
-            (100, 100, 4),    # Full activity (100%)
-            (80, 100, 4),     # High activity (>= 75%)
-            (75, 100, 4),     # Exactly 75% threshold
-            (60, 100, 3),     # Medium-high activity (>= 50%)
-            (50, 100, 3),     # Exactly 50% threshold
-            (30, 100, 2),     # Medium activity (>= 25%)
-            (25, 100, 2),     # Exactly 25% threshold
-            (10, 100, 1),     # Low activity (> 0%)
-            (1, 100, 1),      # Minimum activity
+            (0, 100, 0),  # No activity
+            (0, 0, 0),  # No activity (edge case: max is 0)
+            (10, 0, 0),  # Edge case: max is 0 but count > 0
+            (100, 100, 4),  # Full activity (100%)
+            (80, 100, 4),  # High activity (>= 75%)
+            (75, 100, 4),  # Exactly 75% threshold
+            (60, 100, 3),  # Medium-high activity (>= 50%)
+            (50, 100, 3),  # Exactly 50% threshold
+            (30, 100, 2),  # Medium activity (>= 25%)
+            (25, 100, 2),  # Exactly 25% threshold
+            (10, 100, 1),  # Low activity (> 0%)
+            (1, 100, 1),  # Minimum activity
         ],
         ids=[
-            "no_activity", "max_zero", "count_with_zero_max",
-            "full", "high", "threshold_75",
-            "medium_high", "threshold_50",
-            "medium", "threshold_25",
-            "low", "minimum"
+            "no_activity",
+            "max_zero",
+            "count_with_zero_max",
+            "full",
+            "high",
+            "threshold_75",
+            "medium_high",
+            "threshold_50",
+            "medium",
+            "threshold_25",
+            "low",
+            "minimum",
         ],
     )
     def test_activity_level_calculation(self, count, max_count, expected):
@@ -124,9 +133,9 @@ class TestCalculateTrend:
         [
             (0.8, 0.5, MasteryTrend.IMPROVING),  # Large increase
             (0.3, 0.7, MasteryTrend.DECLINING),  # Large decrease
-            (0.52, 0.50, MasteryTrend.STABLE),   # Small increase
-            (0.48, 0.50, MasteryTrend.STABLE),   # Small decrease
-            (0.5, 0.5, MasteryTrend.STABLE),     # No change
+            (0.52, 0.50, MasteryTrend.STABLE),  # Small increase
+            (0.48, 0.50, MasteryTrend.STABLE),  # Small decrease
+            (0.5, 0.5, MasteryTrend.STABLE),  # No change
         ],
         ids=["improving", "declining", "small_increase", "small_decrease", "no_change"],
     )
@@ -179,7 +188,9 @@ class TestGetMasteryState:
             days_since_review=2,
         )
 
-        with patch.object(service, "_get_recent_snapshot", new_callable=AsyncMock) as mock_get:
+        with patch.object(
+            service, "_get_recent_snapshot", new_callable=AsyncMock
+        ) as mock_get:
             mock_get.return_value = mock_snapshot
             result = await service.get_mastery_state("ml/transformers")
 
@@ -194,9 +205,13 @@ class TestGetMasteryState:
             topic_path="ml/transformers", mastery_score=0.6, practice_count=5
         )
 
-        with patch.object(service, "_get_recent_snapshot", new_callable=AsyncMock) as mock_get:
+        with patch.object(
+            service, "_get_recent_snapshot", new_callable=AsyncMock
+        ) as mock_get:
             mock_get.return_value = None
-            with patch.object(service, "_calculate_mastery", new_callable=AsyncMock) as mock_calc:
+            with patch.object(
+                service, "_calculate_mastery", new_callable=AsyncMock
+            ) as mock_calc:
                 mock_calc.return_value = expected_state
                 result = await service.get_mastery_state("ml/transformers")
 
@@ -217,29 +232,41 @@ class TestGetWeakSpots:
         """Create test states with weak and strong topics."""
         return [
             MasteryState(
-                topic_path="weak/topic1", mastery_score=0.3,
-                practice_count=10, trend=MasteryTrend.DECLINING,
+                topic_path="weak/topic1",
+                mastery_score=0.3,
+                practice_count=10,
+                trend=MasteryTrend.DECLINING,
             ),
             MasteryState(
-                topic_path="strong/topic", mastery_score=0.9,
-                practice_count=20, trend=MasteryTrend.STABLE,
+                topic_path="strong/topic",
+                mastery_score=0.9,
+                practice_count=20,
+                trend=MasteryTrend.STABLE,
             ),
             MasteryState(
-                topic_path="new/topic", mastery_score=0.2,
-                practice_count=1, trend=MasteryTrend.STABLE,  # Below min attempts
+                topic_path="new/topic",
+                mastery_score=0.2,
+                practice_count=1,
+                trend=MasteryTrend.STABLE,  # Below min attempts
             ),
             MasteryState(
-                topic_path="weak/topic2", mastery_score=0.4,
-                practice_count=15, trend=MasteryTrend.STABLE,
+                topic_path="weak/topic2",
+                mastery_score=0.4,
+                practice_count=15,
+                trend=MasteryTrend.STABLE,
             ),
         ]
 
     @pytest.mark.asyncio
     async def test_filters_by_threshold_and_attempts(self, service, weak_spot_states):
         """Test weak spots are filtered by threshold and min attempts."""
-        with patch.object(service, "_get_all_topics", new_callable=AsyncMock) as mock_topics:
+        with patch.object(
+            service, "_get_all_topics", new_callable=AsyncMock
+        ) as mock_topics:
             mock_topics.return_value = [s.topic_path for s in weak_spot_states]
-            with patch.object(service, "_calculate_mastery_batch", new_callable=AsyncMock) as mock_batch:
+            with patch.object(
+                service, "_calculate_mastery_batch", new_callable=AsyncMock
+            ) as mock_batch:
                 mock_batch.return_value = weak_spot_states
 
                 result = await service.get_weak_spots(limit=10)
@@ -256,18 +283,26 @@ class TestGetWeakSpots:
         """Test that declining trends are sorted first."""
         test_states = [
             MasteryState(
-                topic_path="stable/weak", mastery_score=0.3,
-                practice_count=10, trend=MasteryTrend.STABLE,
+                topic_path="stable/weak",
+                mastery_score=0.3,
+                practice_count=10,
+                trend=MasteryTrend.STABLE,
             ),
             MasteryState(
-                topic_path="declining/weak", mastery_score=0.35,
-                practice_count=10, trend=MasteryTrend.DECLINING,
+                topic_path="declining/weak",
+                mastery_score=0.35,
+                practice_count=10,
+                trend=MasteryTrend.DECLINING,
             ),
         ]
 
-        with patch.object(service, "_get_all_topics", new_callable=AsyncMock) as mock_topics:
+        with patch.object(
+            service, "_get_all_topics", new_callable=AsyncMock
+        ) as mock_topics:
             mock_topics.return_value = [s.topic_path for s in test_states]
-            with patch.object(service, "_calculate_mastery_batch", new_callable=AsyncMock) as mock_batch:
+            with patch.object(
+                service, "_calculate_mastery_batch", new_callable=AsyncMock
+            ) as mock_batch:
                 mock_batch.return_value = test_states
                 result = await service.get_weak_spots(limit=10)
 
@@ -280,15 +315,21 @@ class TestGetWeakSpots:
         """Test that limit parameter is respected."""
         test_states = [
             MasteryState(
-                topic_path=f"weak/topic{i}", mastery_score=0.3,
-                practice_count=10, trend=MasteryTrend.STABLE,
+                topic_path=f"weak/topic{i}",
+                mastery_score=0.3,
+                practice_count=10,
+                trend=MasteryTrend.STABLE,
             )
             for i in range(20)
         ]
 
-        with patch.object(service, "_get_all_topics", new_callable=AsyncMock) as mock_topics:
+        with patch.object(
+            service, "_get_all_topics", new_callable=AsyncMock
+        ) as mock_topics:
             mock_topics.return_value = [s.topic_path for s in test_states]
-            with patch.object(service, "_calculate_mastery_batch", new_callable=AsyncMock) as mock_batch:
+            with patch.object(
+                service, "_calculate_mastery_batch", new_callable=AsyncMock
+            ) as mock_batch:
                 mock_batch.return_value = test_states
                 result = await service.get_weak_spots(limit=limit)
 
@@ -322,22 +363,37 @@ class TestGetOverview:
         """Test that card counts are aggregated correctly."""
         service = MasteryService(mock_db_with_counts)
 
-        with patch.object(service, "_get_all_topics", new_callable=AsyncMock) as mock_topics:
+        with patch.object(
+            service, "_get_all_topics", new_callable=AsyncMock
+        ) as mock_topics:
             mock_topics.return_value = ["topic1", "topic2"]
-            with patch.object(service, "_calculate_mastery_batch", new_callable=AsyncMock) as mock_batch:
+            with patch.object(
+                service, "_calculate_mastery_batch", new_callable=AsyncMock
+            ) as mock_batch:
                 mock_batch.return_value = [
-                    MasteryState(topic_path="topic1", mastery_score=0.7, practice_count=10),
-                    MasteryState(topic_path="topic2", mastery_score=0.5, practice_count=5),
+                    MasteryState(
+                        topic_path="topic1", mastery_score=0.7, practice_count=10
+                    ),
+                    MasteryState(
+                        topic_path="topic2", mastery_score=0.5, practice_count=5
+                    ),
                 ]
-                with patch.object(service, "_calculate_streak", new_callable=AsyncMock) as mock_streak:
-                    mock_streak.return_value = 5
-                    result = await service.get_overview()
+                with patch.object(
+                    service, "_enhance_with_exercise_data", new_callable=AsyncMock
+                ) as mock_enhance:
+                    mock_enhance.return_value = mock_batch.return_value
+                    with patch.object(
+                        service, "_calculate_streak", new_callable=AsyncMock
+                    ) as mock_streak:
+                        mock_streak.return_value = 5
+                        result = await service.get_overview()
 
-                    assert result.total_cards == 100
-                    assert result.cards_mastered == 30
-                    assert result.cards_learning == 50
-                    assert result.cards_new == 20
-                    assert result.streak_days == 5
+                        # Use current attribute names (spaced_rep_cards_*)
+                        assert result.spaced_rep_cards_total == 100
+                        assert result.spaced_rep_cards_mastered == 30
+                        assert result.spaced_rep_cards_learning == 50
+                        assert result.spaced_rep_cards_new == 20
+                        assert result.streak_days == 5
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -350,7 +406,9 @@ class TestGetOverview:
         ],
         ids=["basic", "same", "extremes", "three_topics"],
     )
-    async def test_calculates_overall_mastery(self, mock_db_with_counts, scores, expected_avg):
+    async def test_calculates_overall_mastery(
+        self, mock_db_with_counts, scores, expected_avg
+    ):
         """Test overall mastery is average of topic scores."""
         service = MasteryService(mock_db_with_counts)
         topics = [f"topic{i}" for i in range(len(scores))]
@@ -359,11 +417,17 @@ class TestGetOverview:
             for t, s in zip(topics, scores)
         ]
 
-        with patch.object(service, "_get_all_topics", new_callable=AsyncMock) as mock_topics:
+        with patch.object(
+            service, "_get_all_topics", new_callable=AsyncMock
+        ) as mock_topics:
             mock_topics.return_value = topics
-            with patch.object(service, "_calculate_mastery_batch", new_callable=AsyncMock) as mock_batch:
+            with patch.object(
+                service, "_calculate_mastery_batch", new_callable=AsyncMock
+            ) as mock_batch:
                 mock_batch.return_value = states
-                with patch.object(service, "_calculate_streak", new_callable=AsyncMock) as mock_streak:
+                with patch.object(
+                    service, "_calculate_streak", new_callable=AsyncMock
+                ) as mock_streak:
                     mock_streak.return_value = 0
                     result = await service.get_overview()
 
@@ -395,10 +459,24 @@ class TestFetchCardsDataframe:
     async def test_converts_cards_to_dataframe(self, mock_db, service):
         """Test cards are converted to DataFrame correctly."""
         mock_cards = [
-            MagicMock(id=1, tags=["ml"], state=CardState.REVIEW, stability=10.0,
-                      total_reviews=5, correct_reviews=4, last_reviewed=datetime.utcnow()),
-            MagicMock(id=2, tags=["python"], state=CardState.LEARNING, stability=2.0,
-                      total_reviews=2, correct_reviews=2, last_reviewed=datetime.utcnow()),
+            MagicMock(
+                id=1,
+                tags=["ml"],
+                state=CardState.REVIEW,
+                stability=10.0,
+                total_reviews=5,
+                correct_reviews=4,
+                last_reviewed=datetime.utcnow(),
+            ),
+            MagicMock(
+                id=2,
+                tags=["python"],
+                state=CardState.LEARNING,
+                stability=2.0,
+                total_reviews=2,
+                correct_reviews=2,
+                last_reviewed=datetime.utcnow(),
+            ),
         ]
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = mock_cards
@@ -428,11 +506,13 @@ class TestComputeMasteryDataframe:
     @pytest.mark.parametrize(
         "topic,expected_reviews,expected_correct",
         [
-            ("ml", 25, 22),      # Cards 1 + 2: 10+15=25 reviews, 8+14=22 correct
+            ("ml", 25, 22),  # Cards 1 + 2: 10+15=25 reviews, 8+14=22 correct
             ("python", 12, 10),  # Cards 1 + 3: 10+2=12 reviews, 8+2=10 correct
         ],
     )
-    def test_aggregates_reviews(self, service, sample_cards_df, topic, expected_reviews, expected_correct):
+    def test_aggregates_reviews(
+        self, service, sample_cards_df, topic, expected_reviews, expected_correct
+    ):
         """Test review counts are aggregated correctly per topic."""
         result = service._compute_mastery_dataframe(sample_cards_df, [topic])
         assert result.loc[topic]["total_reviews"] == expected_reviews
@@ -456,10 +536,19 @@ class TestComputeMasteryDataframe:
 
     def test_handles_zero_reviews(self, service):
         """Test handling of topics with zero reviews."""
-        cards_df = pd.DataFrame([{
-            "id": 1, "tags": ["new_topic"], "state": CardState.NEW,
-            "stability": 0.0, "total_reviews": 0, "correct_reviews": 0, "last_reviewed": None,
-        }])
+        cards_df = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "tags": ["new_topic"],
+                    "state": CardState.NEW,
+                    "stability": 0.0,
+                    "total_reviews": 0,
+                    "correct_reviews": 0,
+                    "last_reviewed": None,
+                }
+            ]
+        )
         result = service._compute_mastery_dataframe(cards_df, ["new_topic"])
 
         assert result.loc["new_topic"]["success_rate"] is None
@@ -483,9 +572,13 @@ class TestCalculateMasteryBatch:
     @pytest.mark.asyncio
     async def test_returns_empty_states_when_no_cards(self, service):
         """Test empty states are returned when no cards exist."""
-        with patch.object(service, "_fetch_cards_dataframe", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(
+            service, "_fetch_cards_dataframe", new_callable=AsyncMock
+        ) as mock_fetch:
             mock_fetch.return_value = pd.DataFrame()
-            with patch.object(service, "_get_recent_snapshots_batch", new_callable=AsyncMock) as mock_snap:
+            with patch.object(
+                service, "_get_recent_snapshots_batch", new_callable=AsyncMock
+            ) as mock_snap:
                 mock_snap.return_value = {}
                 result = await service._calculate_mastery_batch(["topic1", "topic2"])
 
@@ -496,16 +589,36 @@ class TestCalculateMasteryBatch:
     @pytest.mark.asyncio
     async def test_calculates_mastery_for_multiple_topics(self, service):
         """Test mastery is calculated for all topics."""
-        cards_df = pd.DataFrame([
-            {"id": 1, "tags": ["topic1"], "state": CardState.REVIEW, "stability": 15.0,
-             "total_reviews": 10, "correct_reviews": 8, "last_reviewed": datetime.utcnow()},
-            {"id": 2, "tags": ["topic2"], "state": CardState.REVIEW, "stability": 20.0,
-             "total_reviews": 20, "correct_reviews": 18, "last_reviewed": datetime.utcnow()},
-        ])
+        cards_df = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "tags": ["topic1"],
+                    "state": CardState.REVIEW,
+                    "stability": 15.0,
+                    "total_reviews": 10,
+                    "correct_reviews": 8,
+                    "last_reviewed": datetime.utcnow(),
+                },
+                {
+                    "id": 2,
+                    "tags": ["topic2"],
+                    "state": CardState.REVIEW,
+                    "stability": 20.0,
+                    "total_reviews": 20,
+                    "correct_reviews": 18,
+                    "last_reviewed": datetime.utcnow(),
+                },
+            ]
+        )
 
-        with patch.object(service, "_fetch_cards_dataframe", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(
+            service, "_fetch_cards_dataframe", new_callable=AsyncMock
+        ) as mock_fetch:
             mock_fetch.return_value = cards_df
-            with patch.object(service, "_get_recent_snapshots_batch", new_callable=AsyncMock) as mock_snap:
+            with patch.object(
+                service, "_get_recent_snapshots_batch", new_callable=AsyncMock
+            ) as mock_snap:
                 mock_snap.return_value = {}
                 result = await service._calculate_mastery_batch(["topic1", "topic2"])
 
@@ -527,20 +640,39 @@ class TestGenerateRecommendation:
         "state_kwargs,expected_text",
         [
             (
-                {"trend": MasteryTrend.DECLINING, "mastery_score": 0.5, "practice_count": 10},
+                {
+                    "trend": MasteryTrend.DECLINING,
+                    "mastery_score": 0.5,
+                    "practice_count": 10,
+                },
                 "declining",
             ),
             (
-                {"success_rate": 0.4, "trend": MasteryTrend.STABLE, "mastery_score": 0.5, "practice_count": 10},
+                {
+                    "success_rate": 0.4,
+                    "trend": MasteryTrend.STABLE,
+                    "mastery_score": 0.5,
+                    "practice_count": 10,
+                },
                 "success rate",
             ),
             (
-                {"days_since_review": 30, "trend": MasteryTrend.STABLE, "mastery_score": 0.5, "practice_count": 10},
+                {
+                    "days_since_review": 30,
+                    "trend": MasteryTrend.STABLE,
+                    "mastery_score": 0.5,
+                    "practice_count": 10,
+                },
                 "30 days",
             ),
             (
-                {"success_rate": 0.8, "days_since_review": 3, "trend": MasteryTrend.STABLE,
-                 "mastery_score": 0.7, "practice_count": 10},
+                {
+                    "success_rate": 0.8,
+                    "days_since_review": 3,
+                    "trend": MasteryTrend.STABLE,
+                    "mastery_score": 0.7,
+                    "practice_count": 10,
+                },
                 "continue practicing",
             ),
         ],
@@ -564,7 +696,9 @@ class TestSuggestExerciseTypes:
     @pytest.mark.parametrize("mastery_score", [0.2, 0.5, 0.8])
     def test_returns_exercise_types(self, mastery_score):
         """Test that exercise types are returned for various mastery levels."""
-        state = MasteryState(topic_path="ml/transformers", mastery_score=mastery_score, practice_count=10)
+        state = MasteryState(
+            topic_path="ml/transformers", mastery_score=mastery_score, practice_count=10
+        )
         result = MasteryService._suggest_exercise_types(state)
 
         assert isinstance(result, list)
@@ -591,11 +725,17 @@ class TestTakeDailySnapshot:
             for t in topics
         ]
 
-        with patch.object(service, "_get_all_topics", new_callable=AsyncMock) as mock_topics:
+        with patch.object(
+            service, "_get_all_topics", new_callable=AsyncMock
+        ) as mock_topics:
             mock_topics.return_value = topics
-            with patch.object(service, "_calculate_mastery_batch", new_callable=AsyncMock) as mock_batch:
+            with patch.object(
+                service, "_calculate_mastery_batch", new_callable=AsyncMock
+            ) as mock_batch:
                 mock_batch.return_value = states
-                with patch.object(service, "_get_recent_snapshots_batch", new_callable=AsyncMock) as mock_snap:
+                with patch.object(
+                    service, "_get_recent_snapshots_batch", new_callable=AsyncMock
+                ) as mock_snap:
                     mock_snap.return_value = {}
 
                     count = await service.take_daily_snapshot()
@@ -616,10 +756,10 @@ class TestCalculateStreak:
     @pytest.mark.parametrize(
         "days_reviewed,expected_streak",
         [
-            ([], 0),                      # No reviews
-            ([0], 1),                     # Just today
-            ([0, 1, 2], 3),              # 3 consecutive days
-            ([0, 1, 2, 4], 3),           # Gap on day 3
+            ([], 0),  # No reviews
+            ([0], 1),  # Just today
+            ([0, 1, 2], 3),  # 3 consecutive days
+            ([0, 1, 2, 4], 3),  # Gap on day 3
             ([0, 1, 2, 3, 4, 5, 6], 7),  # Full week
         ],
         ids=["no_reviews", "today_only", "three_days", "with_gap", "full_week"],
@@ -628,7 +768,9 @@ class TestCalculateStreak:
         """Test streak counting for various review patterns."""
         today = datetime.utcnow().date()
         mock_result = MagicMock()
-        mock_result.fetchall.return_value = [(today - timedelta(days=d),) for d in days_reviewed]
+        mock_result.fetchall.return_value = [
+            (today - timedelta(days=d),) for d in days_reviewed
+        ]
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         service = MasteryService(mock_db)
@@ -649,18 +791,41 @@ class TestSnapshotToState:
         "snapshot_data,expected_values",
         [
             (
-                {"topic_path": "ml/transformers", "mastery_score": 0.75, "practice_count": 20,
-                 "success_rate": 0.85, "trend": "improving", "last_practiced": datetime.utcnow(),
-                 "retention_estimate": 0.92, "days_since_review": 3},
-                {"topic_path": "ml/transformers", "mastery_score": 0.75, "practice_count": 20,
-                 "success_rate": 0.85, "trend": MasteryTrend.IMPROVING},
+                {
+                    "topic_path": "ml/transformers",
+                    "mastery_score": 0.75,
+                    "practice_count": 20,
+                    "success_rate": 0.85,
+                    "trend": "improving",
+                    "last_practiced": datetime.utcnow(),
+                    "retention_estimate": 0.92,
+                    "days_since_review": 3,
+                },
+                {
+                    "topic_path": "ml/transformers",
+                    "mastery_score": 0.75,
+                    "practice_count": 20,
+                    "success_rate": 0.85,
+                    "trend": MasteryTrend.IMPROVING,
+                },
             ),
             (
-                {"topic_path": None, "mastery_score": None, "practice_count": None,
-                 "success_rate": None, "trend": None, "last_practiced": None,
-                 "retention_estimate": None, "days_since_review": None},
-                {"topic_path": "", "mastery_score": 0.0, "practice_count": 0,
-                 "trend": MasteryTrend.STABLE},
+                {
+                    "topic_path": None,
+                    "mastery_score": None,
+                    "practice_count": None,
+                    "success_rate": None,
+                    "trend": None,
+                    "last_practiced": None,
+                    "retention_estimate": None,
+                    "days_since_review": None,
+                },
+                {
+                    "topic_path": "",
+                    "mastery_score": 0.0,
+                    "practice_count": 0,
+                    "trend": MasteryTrend.STABLE,
+                },
             ),
         ],
         ids=["valid_snapshot", "none_values"],

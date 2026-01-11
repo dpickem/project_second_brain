@@ -8,8 +8,21 @@ For models, import from app.models:
     from app.models import UnifiedContent, ProcessingResult, LLMUsage
     from app.models import GraphNode, GraphResponse, SearchRequest  # Knowledge graph
     from app.models import ChatRequest, ChatResponse  # Assistant
+
+For strict API models (request/response with validation):
+    from app.models import StrictRequest, StrictResponse
 """
 
+from app.models.base import (
+    StrictRequest,
+    StrictResponse,
+    APIModel,
+    ErrorDetail,
+    PaginatedResponse,
+    SuccessResponse,
+    PaginationParams,
+    SearchParams,
+)
 from app.models.content import (
     Annotation,
     UnifiedContent,
@@ -69,6 +82,15 @@ from app.models.assistant import (
 )
 
 __all__ = [
+    # Base models for strict API validation
+    "StrictRequest",
+    "StrictResponse",
+    "APIModel",
+    "ErrorDetail",
+    "PaginatedResponse",
+    "SuccessResponse",
+    "PaginationParams",
+    "SearchParams",
     # Content models
     "Annotation",
     "UnifiedContent",

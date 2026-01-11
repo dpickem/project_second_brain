@@ -122,7 +122,9 @@ def mock_neo4j_client() -> MagicMock:
 
 
 @pytest.fixture
-def visualization_service(mock_neo4j_client: MagicMock) -> KnowledgeVisualizationService:
+def visualization_service(
+    mock_neo4j_client: MagicMock,
+) -> KnowledgeVisualizationService:
     """Create a KnowledgeVisualizationService with mocked dependencies."""
     return KnowledgeVisualizationService(mock_neo4j_client)
 
@@ -295,13 +297,15 @@ class TestVisualizationStats:
     ) -> None:
         """get_stats returns proper statistics."""
         # Arrange
-        stats_result = SingleResultMock({
-            "content_count": 50,
-            "concept_count": 25,
-            "note_count": 100,
-            "rel_count": 200,
-            "types": ["paper", "article", "paper", "book"],
-        })
+        stats_result = SingleResultMock(
+            {
+                "content_count": 50,
+                "concept_count": 25,
+                "note_count": 100,
+                "rel_count": 200,
+                "types": ["paper", "article", "paper", "book"],
+            }
+        )
         configured_session.run = AsyncMock(return_value=stats_result)
 
         # Act
@@ -338,13 +342,15 @@ class TestVisualizationStats:
         configured_session: AsyncMock,
     ) -> None:
         """get_stats handles None values in types list."""
-        stats_result = SingleResultMock({
-            "content_count": 10,
-            "concept_count": 5,
-            "note_count": 3,
-            "rel_count": 15,
-            "types": ["paper", None, "article", None],
-        })
+        stats_result = SingleResultMock(
+            {
+                "content_count": 10,
+                "concept_count": 5,
+                "note_count": 3,
+                "rel_count": 15,
+                "types": ["paper", None, "article", None],
+            }
+        )
         configured_session.run = AsyncMock(return_value=stats_result)
 
         # Act
@@ -690,4 +696,3 @@ class TestTopicHierarchy:
         # Assert - verify min_content parameter was passed
         call_args = configured_session.run.call_args
         assert call_args.kwargs.get("min_content") == 5
-

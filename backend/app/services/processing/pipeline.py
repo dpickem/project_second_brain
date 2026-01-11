@@ -29,6 +29,9 @@ Usage:
 import logging
 import time
 from dataclasses import dataclass, field
+from typing import Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import UnifiedContent
 from app.models.processing import (
@@ -119,6 +122,8 @@ class PipelineConfig:
     generate_summaries: bool = True
     extract_concepts: bool = True
     assign_tags: bool = True
+    generate_cards: bool = True  # Generate spaced repetition cards
+    generate_exercises: bool = True  # Generate practice exercises
     discover_connections: bool = True
     generate_followups: bool = True
     generate_questions: bool = True
@@ -159,6 +164,7 @@ async def process_content(
     config: PipelineConfig = None,
     llm_client: LLMClient = None,
     neo4j_client: Neo4jClient = None,
+    db: AsyncSession = None,
 ) -> ProcessingResult:
     """
     Run the full LLM processing pipeline on ingested content.
@@ -263,6 +269,64 @@ async def process_content(
             )
         except Exception as e:
             logger.error(f"Tagging failed: {e}")
+
+    # =========================================================================
+    # Stage 4b: Generate Spaced Repetition Cards
+    # =========================================================================
+    generated_cards = []
+    if config.generate_cards and extraction.concepts and db is not None:
+        logger.debug("Stage 4b: Card Generation")
+        try:
+            # Deferred import to avoid circular dependency
+            from app.services.learning.card_generator import (
+                generate_cards_from_extraction,
+            )
+
+            # Combine domain and meta tags for cards
+            card_tags = tags.domain_tags + tags.meta_tags if tags else []
+            generated_cards, card_usages = await generate_cards_from_extraction(
+                db=db,
+                extraction=extraction,
+                content_id=content.id,
+                tags=card_tags,
+            )
+            all_usages.extend(card_usages)
+            logger.info(f"Generated {len(generated_cards)} spaced repetition cards")
+        except Exception as e:
+            logger.error(f"Card generation failed: {e}")
+    elif config.generate_cards and db is None:
+        logger.warning("Card generation skipped: no database session provided")
+
+    # =========================================================================
+    # Stage 4c: Exercise Generation
+    # =========================================================================
+    generated_exercises = []
+    if config.generate_exercises and extraction.concepts and db is not None:
+        logger.debug("Stage 4c: Exercise Generation")
+        try:
+            # Deferred import to avoid circular dependency
+            from app.services.learning.exercise_generator import (
+                generate_exercises_from_extraction,
+            )
+
+            # Combine domain and meta tags for exercises
+            exercise_tags = tags.domain_tags + tags.meta_tags if tags else []
+            generated_exercises, exercise_usages = (
+                await generate_exercises_from_extraction(
+                    db=db,
+                    llm_client=llm_client,
+                    extraction=extraction,
+                    content_id=content.id,
+                    tags=exercise_tags,
+                    max_exercises=3,  # Limit to 3 exercises per content
+                )
+            )
+            all_usages.extend(exercise_usages)
+            logger.info(f"Generated {len(generated_exercises)} practice exercises")
+        except Exception as e:
+            logger.error(f"Exercise generation failed: {e}")
+    elif config.generate_exercises and db is None:
+        logger.warning("Exercise generation skipped: no database session provided")
 
     # =========================================================================
     # Stage 5: Discover Connections

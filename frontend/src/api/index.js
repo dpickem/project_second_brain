@@ -9,6 +9,7 @@
  * | API           | Purpose                                        |
  * |---------------|------------------------------------------------|
  * | `apiClient`   | Base Axios client for custom requests          |
+ * | `typedApi`    | OpenAPI-typed client (compile-time safety)     |
  * | `knowledgeApi`| Neo4j graph queries, relationships, topics     |
  * | `vaultApi`    | Obsidian vault notes, folders, sync            |
  * | `captureApi`  | Quick capture of text, URLs, files             |
@@ -27,6 +28,15 @@
  * const graph = await knowledgeApi.getGraph()
  * ```
  * 
+ * ## Typed API Client (OpenAPI-backed)
+ * ```js
+ * // After running: npm run generate:api-types
+ * import { typedApi, api } from '../api'
+ * 
+ * // Type-safe requests (catches typos at dev time)
+ * const { data } = await api.knowledge.search({ query: 'transformers' })
+ * ```
+ * 
  * ## Helper Functions
  * - `createApiEndpoint(path)` - Create CRUD wrapper for fixed paths
  * - `createDynamicEndpoint(fn)` - Create CRUD wrapper for dynamic paths
@@ -36,6 +46,7 @@
  */
 
 export { apiClient, createApiEndpoint, createDynamicEndpoint, buildQueryParams } from './client'
+export { typedApi, api, isOk, unwrap } from './typed-client'
 export { knowledgeApi } from './knowledge'
 export { vaultApi } from './vault'
 export { captureApi } from './capture'

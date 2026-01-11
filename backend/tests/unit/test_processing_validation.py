@@ -49,6 +49,8 @@ def valid_analysis() -> ContentAnalysis:
 @pytest.fixture
 def valid_extraction() -> ExtractionResult:
     """Create a valid extraction result."""
+    from app.models.processing import ConceptRelation
+
     return ExtractionResult(
         concepts=[
             Concept(
@@ -56,21 +58,28 @@ def valid_extraction() -> ExtractionResult:
                 definition="A neural network architecture based on self-attention mechanisms",
                 context="The main architecture proposed in this paper",
                 importance=ConceptImportance.CORE.value,
-                related_concepts=["attention", "encoder-decoder"],
+                related_concepts=[
+                    ConceptRelation(name="attention", relationship="uses"),
+                    ConceptRelation(name="encoder-decoder", relationship="extends"),
+                ],
             ),
             Concept(
                 name="Self-attention",
                 definition="Mechanism allowing the model to relate positions in a sequence",
                 context="Core component enabling parallelization",
                 importance=ConceptImportance.CORE.value,
-                related_concepts=["transformer"],
+                related_concepts=[
+                    ConceptRelation(name="transformer", relationship="is core to"),
+                ],
             ),
             Concept(
                 name="Multi-head attention",
                 definition="Running multiple attention operations in parallel",
                 context="Allows the model to focus on different aspects",
                 importance=ConceptImportance.SUPPORTING.value,
-                related_concepts=["attention"],
+                related_concepts=[
+                    ConceptRelation(name="attention", relationship="extends"),
+                ],
             ),
         ],
         key_findings=[

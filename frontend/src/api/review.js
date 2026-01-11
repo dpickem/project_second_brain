@@ -41,7 +41,7 @@
  * @see analyticsApi - For learning analytics computed from reviews
  */
 
-import { apiClient } from './client'
+import { typedApi } from './typed-client'
 
 export const reviewApi = {
   /**
@@ -57,7 +57,9 @@ export const reviewApi = {
     if (topic) params.topic = topic
     if (cardType) params.card_type = cardType
     
-    return apiClient.get('/api/review/due', { params }).then(r => r.data)
+    return typedApi.GET('/api/review/due', { 
+      params: { query: params } 
+    }).then(r => r.data)
   },
 
   /**
@@ -65,7 +67,7 @@ export const reviewApi = {
    * @returns {Promise<{due_count: number, new_count: number, learning_count: number, review_count: number}>} Counts by card state
    */
   getDueCount: () => 
-    apiClient.get('/api/review/due/count').then(r => r.data),
+    typedApi.GET('/api/review/due/count').then(r => r.data),
 
   /**
    * Rate a card after review using SM-2 rating scale
@@ -76,10 +78,27 @@ export const reviewApi = {
    * @returns {Promise<{card_id: string, next_due: string, new_interval_days: number, new_ease_factor: number, repetitions: number}>} Updated card scheduling
    */
   rateCard: ({ cardId, rating, timeSpentSeconds }) => 
-    apiClient.post('/api/review/rate', {
-      card_id: cardId,
-      rating,
-      time_spent_seconds: timeSpentSeconds,
+    typedApi.POST('/api/review/rate', {
+      body: {
+        card_id: cardId,
+        rating,
+        time_spent_seconds: timeSpentSeconds,
+      }
+    }).then(r => r.data),
+
+  /**
+   * Evaluate a typed answer for a card using LLM (active recall mode)
+   * @param {Object} data - Evaluation data
+   * @param {string} data.cardId - Card identifier
+   * @param {string} data.userAnswer - User's typed answer
+   * @returns {Promise<{card_id: number, rating: number, is_correct: boolean, feedback: string, key_points_covered: string[], key_points_missed: string[], expected_answer: string}>} Evaluation result with suggested rating
+   */
+  evaluateAnswer: ({ cardId, userAnswer }) =>
+    typedApi.POST('/api/review/evaluate', {
+      body: {
+        card_id: cardId,
+        user_answer: userAnswer,
+      }
     }).then(r => r.data),
 
   /**
@@ -88,7 +107,9 @@ export const reviewApi = {
    * @returns {Promise<{id: string, front: string, back: string, topic_id: string, topic_name: string, card_type: string, tags: Array<string>, created_at: string, interval_days: number, ease_factor: number, due_date: string, review_count: number}>} Full card details
    */
   getCard: (cardId) => 
-    apiClient.get(`/api/review/card/${cardId}`).then(r => r.data),
+    typedApi.GET('/api/review/card/{card_id}', {
+      params: { path: { card_id: cardId } }
+    }).then(r => r.data),
 
   /**
    * Get all cards for a specific topic
@@ -99,8 +120,11 @@ export const reviewApi = {
    * @returns {Promise<{cards: Array<{id: string, front: string, back: string, due_date: string, is_due: boolean}>, total: number}>} Cards for the topic
    */
   getCardsByTopic: (topicId, { limit = 50, includeNotDue = false } = {}) => 
-    apiClient.get(`/api/review/topic/${topicId}`, { 
-      params: { limit, include_not_due: includeNotDue } 
+    typedApi.GET('/api/review/topic/{topic_id}', { 
+      params: { 
+        path: { topic_id: topicId },
+        query: { limit, include_not_due: includeNotDue } 
+      } 
     }).then(r => r.data),
 
   /**
@@ -108,7 +132,7 @@ export const reviewApi = {
    * @returns {Promise<{total_cards: number, total_reviews: number, avg_ease_factor: number, avg_interval: number, retention_rate: number, reviews_today: number, streak_days: number}>} Review statistics
    */
   getStats: () => 
-    apiClient.get('/api/review/stats').then(r => r.data),
+    typedApi.GET('/api/review/stats').then(r => r.data),
 
   /**
    * Get predicted next intervals for each rating option
@@ -116,7 +140,9 @@ export const reviewApi = {
    * @returns {Promise<{card_id: string, predictions: {again: {interval: string, ease: number}, hard: {interval: string, ease: number}, good: {interval: string, ease: number}, easy: {interval: string, ease: number}}}>} Predicted intervals for each rating
    */
   getPredictedIntervals: (cardId) => 
-    apiClient.get(`/api/review/card/${cardId}/predict`).then(r => r.data),
+    typedApi.GET('/api/review/card/{card_id}/predict', {
+      params: { path: { card_id: cardId } }
+    }).then(r => r.data),
 
   /**
    * Bulk rate multiple cards at once
@@ -124,7 +150,9 @@ export const reviewApi = {
    * @returns {Promise<{rated_count: number, results: Array<{card_id: string, success: boolean, next_due?: string}>}>} Bulk rating results
    */
   bulkRate: (ratings) => 
-    apiClient.post('/api/review/rate/bulk', { ratings }).then(r => r.data),
+    typedApi.POST('/api/review/rate/bulk', { 
+      body: { ratings } 
+    }).then(r => r.data),
 
   /**
    * Suspend a card to remove it from the review queue
@@ -132,7 +160,9 @@ export const reviewApi = {
    * @returns {Promise<{card_id: string, suspended: boolean, suspended_at: string}>} Suspension confirmation
    */
   suspendCard: (cardId) => 
-    apiClient.post(`/api/review/card/${cardId}/suspend`).then(r => r.data),
+    typedApi.POST('/api/review/card/{card_id}/suspend', {
+      params: { path: { card_id: cardId } }
+    }).then(r => r.data),
 
   /**
    * Unsuspend a card to add it back to the review queue
@@ -140,7 +170,9 @@ export const reviewApi = {
    * @returns {Promise<{card_id: string, suspended: boolean, due_date: string}>} Unsuspension confirmation with new due date
    */
   unsuspendCard: (cardId) => 
-    apiClient.post(`/api/review/card/${cardId}/unsuspend`).then(r => r.data),
+    typedApi.POST('/api/review/card/{card_id}/unsuspend', {
+      params: { path: { card_id: cardId } }
+    }).then(r => r.data),
 
   /**
    * Reset card progress to initial state (new card)
@@ -148,7 +180,33 @@ export const reviewApi = {
    * @returns {Promise<{card_id: string, reset: boolean, new_interval: number, new_ease_factor: number, new_due_date: string}>} Reset confirmation
    */
   resetCard: (cardId) => 
-    apiClient.post(`/api/review/card/${cardId}/reset`).then(r => r.data),
+    typedApi.POST('/api/review/card/{card_id}/reset', {
+      params: { path: { card_id: cardId } }
+    }).then(r => r.data),
+
+  /**
+   * Generate spaced repetition cards for a topic on-demand
+   * @param {Object} params - Generation parameters
+   * @param {string} params.topic - Topic path (e.g., 'ml/transformers')
+   * @param {number} [params.count=10] - Number of cards to generate
+   * @param {string} [params.difficulty='mixed'] - Difficulty: easy, medium, hard, mixed
+   * @returns {Promise<{generated_count: number, total_cards: number, topic: string}>} Generation result
+   */
+  generateCards: ({ topic, count = 10, difficulty = 'mixed' }) =>
+    typedApi.POST('/api/review/generate', { 
+      body: { topic, count, difficulty } 
+    }).then(r => r.data),
+
+  /**
+   * Ensure minimum cards exist for a topic, generating if needed
+   * @param {string} topic - Topic path
+   * @param {number} [minimum=5] - Minimum cards required
+   * @returns {Promise<{generated_count: number, total_cards: number, topic: string}>} Ensured result
+   */
+  ensureCards: (topic, minimum = 5) =>
+    typedApi.POST('/api/review/ensure-cards', { 
+      params: { query: { topic, minimum } }
+    }).then(r => r.data),
 }
 
 export default reviewApi

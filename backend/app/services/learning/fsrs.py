@@ -191,7 +191,8 @@ class FSRSScheduler:
             due=result_card.due,
             last_review=review_time,
             reps=card_state.reps + 1,
-            lapses=card_state.lapses + (1 if rating == Rating.Again and card_state.state == State.Review else 0),
+            lapses=card_state.lapses
+            + (1 if rating == Rating.Again and card_state.state == State.Review else 0),
             scheduled_days=scheduled_days,
         )
 

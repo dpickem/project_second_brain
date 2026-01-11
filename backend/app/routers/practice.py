@@ -153,13 +153,67 @@ async def generate_exercise(
     - > 0.7: Applications, teach-back
     """
     try:
-        return await generator.generate_exercise(
+        exercise, _usages = await generator.generate_exercise(
             request=request,
             mastery_level=mastery_level,
         )
+        return exercise
     except Exception as e:
         logger.error(f"Failed to generate exercise: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/exercises", response_model=list[ExerciseResponse])
+async def list_exercises(
+    topic: str | None = Query(None, description="Filter by topic path"),
+    exercise_type: ExerciseType | None = Query(
+        None, description="Filter by exercise type"
+    ),
+    difficulty: ExerciseDifficulty | None = Query(
+        None, description="Filter by difficulty"
+    ),
+    limit: int = Query(50, ge=1, le=200, description="Maximum exercises to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
+    db: AsyncSession = Depends(get_db),
+) -> list[ExerciseResponse]:
+    """
+    List all exercises with optional filtering.
+
+    Returns exercises ordered by creation date (newest first).
+    """
+    query = select(Exercise).order_by(Exercise.created_at.desc())
+
+    if topic:
+        query = query.where(Exercise.topic.ilike(f"%{topic}%"))
+    if exercise_type:
+        query = query.where(Exercise.exercise_type == exercise_type.value)
+    if difficulty:
+        query = query.where(Exercise.difficulty == difficulty.value)
+
+    query = query.offset(offset).limit(limit)
+    result = await db.execute(query)
+    exercises = result.scalars().all()
+
+    return [
+        ExerciseResponse(
+            id=ex.id,
+            exercise_uuid=ex.exercise_uuid,
+            exercise_type=ExerciseType(ex.exercise_type),
+            topic=ex.topic,
+            difficulty=ExerciseDifficulty(ex.difficulty),
+            prompt=ex.prompt,
+            hints=ex.hints or [],
+            expected_key_points=ex.expected_key_points or [],
+            worked_example=ex.worked_example,
+            follow_up_problem=ex.follow_up_problem,
+            language=ex.language,
+            starter_code=ex.starter_code,
+            buggy_code=ex.buggy_code,
+            estimated_time_minutes=ex.estimated_time_minutes or 10,
+            tags=ex.tags or [],
+        )
+        for ex in exercises
+    ]
 
 
 @router.get("/exercise/{exercise_id}", response_model=ExerciseResponse)

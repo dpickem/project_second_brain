@@ -318,6 +318,111 @@ class StreakData(BaseModel):
 
 Rate limiting implemented using SlowAPI with configurable limits per endpoint type:
 
+#### Task C.3: API Contract Enforcement ✅
+
+**Status**: Complete (January 2026)  
+**Files**:
+- `backend/app/models/base.py` — Strict Pydantic base classes
+- `backend/tests/unit/test_openapi_contract.py` — OpenAPI schema tests
+- `backend/tests/integration/test_api_contract.py` — Integration contract tests
+- `frontend/src/api/typed-client.js` — OpenAPI-typed frontend client
+- `frontend/scripts/generate-api-types.js` — Type generation script
+
+**Problem Solved**: Frontend/backend parameter mismatches (typos, wrong types) discovered only at runtime.
+
+**Solution**: Multi-layer API contract enforcement:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        API CONTRACT ENFORCEMENT                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  COMPILE-TIME (Frontend)          RUNTIME (Backend)        CI/CD            │
+│  ─────────────────────────        ─────────────────        ──────           │
+│  TypeScript types from            StrictRequest base       OpenAPI          │
+│  OpenAPI schema                   (extra="forbid")         snapshot tests   │
+│                                                                              │
+│  npm run generate:api-types       422 on unknown fields    Contract tests   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Backend: Strict Pydantic Models**
+
+Base classes in `app/models/base.py`:
+
+```python
+from app.models.base import StrictRequest, StrictResponse
+
+class SearchRequest(StrictRequest):  # Rejects unknown fields (422)
+    query: str
+    limit: int = 20
+
+class SearchResponse(StrictResponse):  # Lenient for responses
+    results: list[SearchResult]
+```
+
+Models updated to use `StrictRequest`:
+- `SearchRequest` (knowledge)
+- `ChatRequest`, `ConversationUpdateRequest`, `QuizRequest` (assistant)
+- `CardReviewRequest`, `SessionCreateRequest`, `LogTimeRequest` (learning)
+- `TriggerProcessingRequest`, `ProcessingConfigRequest` (processing)
+
+**Frontend: OpenAPI Type Generation**
+
+```bash
+# Generate TypeScript types from backend
+npm run generate:api-types
+
+# Check if schema changed (fails CI if unexpected)
+npm run api:check
+```
+
+Typed API client (`frontend/src/api/typed-client.js`):
+
+```javascript
+import { api } from './api'
+
+// Type-safe - catches typos at dev time
+const { data } = await api.knowledge.search({ query: 'transformers' })
+```
+
+**Contract Tests (62 tests, all passing)**
+
+Unit tests (`test_openapi_contract.py`):
+- Schema structure validation
+- Critical endpoint existence (22 endpoints verified)
+- Parameter type validation
+- Strict validation tests (extra field rejection)
+- Response model verification
+- Schema snapshot comparison (for breaking change detection)
+
+Integration tests (`test_api_contract.py`):
+- Wrong field name rejection (`maxResults` vs `limit`)
+- Wrong HTTP method tests (POST vs GET)
+- Query vs body parameter tests
+- Missing required field tests
+- Out-of-range validation tests
+- Consistent error format tests
+
+**Test Results**:
+```
+======================== 62 passed, 2 skipped in 17.87s ========================
+```
+
+**CI Integration Recommendation**:
+
+```yaml
+# .github/workflows/api-contract.yml
+- name: Run contract tests
+  run: pytest tests/unit/test_openapi_contract.py tests/integration/test_api_contract.py -v
+
+- name: Check API types up to date
+  run: npm run api:check
+```
+
+---
+
 ```python
 # Rate limit types (from app/enums/api.py - RateLimitType enum)
 RATE_LIMITS = {
@@ -480,11 +585,43 @@ Tests are located in `backend/tests/unit/`:
 
 ### 4.2 Integration Tests
 
-Integration tests in `backend/tests/integration/test_knowledge_api.py`:
+Integration tests in `backend/tests/integration/`:
 
+**Knowledge API** (`test_knowledge_api.py`):
 - Knowledge search endpoint validation
 - Connection queries with real Neo4j
 - Topic hierarchy responses
+
+**API Contract Tests** (`test_api_contract.py`):
+- `TestKnowledgeAPIContract` — Graph params, search body validation
+- `TestCaptureAPIContract` — Form data, URL validation
+- `TestAssistantAPIContract` — Chat message validation
+- `TestPracticeAPIContract` — Review rating, session duration bounds
+- `TestHTTPMethods` — Correct HTTP method enforcement
+- `TestQueryVsBody` — Parameter location validation
+- `TestResponseStructure` — Validation error format consistency
+
+### 4.3 Contract Tests
+
+Contract tests ensure API stability between frontend and backend:
+
+**OpenAPI Contract Tests** (`tests/unit/test_openapi_contract.py`):
+- `TestOpenAPIStructure` — Schema has required sections
+- `TestCriticalEndpoints` — 22 critical endpoints exist
+- `TestParameterTypes` — Request/response schemas correct
+- `TestStrictValidation` — Unknown fields rejected (422)
+- `TestValidationErrors` — Consistent error format
+- `TestSchemaSnapshot` — Breaking change detection
+- `TestResponseModels` — Endpoints have response_model
+
+**Running Contract Tests**:
+```bash
+# Run all contract tests (62 tests)
+pytest tests/unit/test_openapi_contract.py tests/integration/test_api_contract.py -v
+
+# Create OpenAPI snapshot for CI
+curl http://localhost:8000/openapi.json > tests/snapshots/openapi.json
+```
 
 ---
 
@@ -531,6 +668,7 @@ Integration tests in `backend/tests/integration/test_knowledge_api.py`:
 | B.2 | Streak Tracking | `routers/analytics.py`, `services/learning/mastery_service.py` |
 | C.1 | Rate Limiting | `middleware/rate_limit.py`, `enums/api.py` |
 | C.2 | Error Handling | `middleware/error_handling.py` |
+| C.3 | API Contract | `models/base.py`, `tests/unit/test_openapi_contract.py`, `tests/integration/test_api_contract.py` |
 
 ### Key Design Decisions
 
@@ -539,6 +677,8 @@ Integration tests in `backend/tests/integration/test_knowledge_api.py`:
 3. **Enum-based Rate Limits**: `RateLimitType` enum centralizes rate limit configuration
 4. **Correlation IDs**: 8-character UUIDs in error responses enable log tracing
 5. **Graceful Degradation**: Missing LLM client disables vector search but doesn't break the API
+6. **Strict Request Validation**: `StrictRequest` base class with `extra="forbid"` catches frontend typos at request time
+7. **OpenAPI Contract Testing**: Snapshot tests detect breaking changes; integration tests verify validation behavior
 
 ### Remaining Work
 

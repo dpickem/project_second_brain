@@ -30,7 +30,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 import pandas as pd
-from sqlalchemy import select, func, and_, distinct
+from sqlalchemy import select, func, and_, distinct, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -39,8 +39,16 @@ from app.db.models_learning import (
     MasterySnapshot,
     PracticeSession,
     LearningTimeLog,
+    ExerciseAttempt,
+    Exercise,
 )
-from app.enums.learning import MasteryTrend, ExerciseType, CardState, TimePeriod, GroupBy
+from app.enums.learning import (
+    MasteryTrend,
+    ExerciseType,
+    CardState,
+    TimePeriod,
+    GroupBy,
+)
 from app.services.learning.exercise_generator import get_suggested_exercise_types
 from app.services.tag_service import TagService
 from app.models.learning import (
@@ -61,23 +69,13 @@ from app.models.learning import (
 
 logger = logging.getLogger(__name__)
 
-# Streak milestones for gamification (in days)
-STREAK_MILESTONES = [7, 14, 30, 60, 90, 180, 365]
-
-# Activity level thresholds for heatmap visualization (0-4 scale)
-_ACTIVITY_LEVEL_THRESHOLDS = [
-    (0.75, 4),  # High activity
-    (0.50, 3),  # Medium-high activity
-    (0.25, 2),  # Medium activity
-    (0.00, 1),  # Low activity (any practice > 0)
-]
-
 
 def _calculate_activity_level(count: int, max_count: int) -> int:
     """
     Calculate activity level (0-4) based on count relative to max.
 
     Used for heatmap visualizations where higher levels indicate more activity.
+    Thresholds are configured in settings (ACTIVITY_LEVEL_*).
 
     Args:
         count: Activity count for the day.
@@ -90,10 +88,14 @@ def _calculate_activity_level(count: int, max_count: int) -> int:
         return 0
 
     ratio = count / max_count
-    for threshold, level in _ACTIVITY_LEVEL_THRESHOLDS:
-        if ratio >= threshold:
-            return level
-    return 0
+    if ratio >= settings.ACTIVITY_LEVEL_HIGH:
+        return 4
+    elif ratio >= settings.ACTIVITY_LEVEL_MEDIUM_HIGH:
+        return 3
+    elif ratio >= settings.ACTIVITY_LEVEL_MEDIUM:
+        return 2
+    else:
+        return 1  # Any activity > 0
 
 
 def _calculate_trend(current_score: float, previous_score: float) -> MasteryTrend:
@@ -205,28 +207,31 @@ class MasteryService:
         """
         Get overall mastery statistics.
 
-        Aggregates card counts (mastered, learning, new), topic mastery states,
+        Aggregates card/exercise counts, topic mastery states,
         overall mastery average, and current practice streak.
 
         Returns:
-            MasteryOverview with comprehensive learning statistics.
+            MasteryOverview with comprehensive learning statistics including
+            separate breakdowns for spaced repetition cards and exercises.
         """
-        # 1. Count total cards in the system
-        total_cards_result = await self.db.execute(select(func.count(SpacedRepCard.id)))
-        total_cards = total_cards_result.scalar() or 0
+        # ==== SPACED REPETITION CARDS STATS ====
 
-        # 2. Count cards by learning state
-        # Mastered: cards with stability above threshold (retained long-term)
-        mastered_result = await self.db.execute(
+        # Total spaced rep cards
+        total_spaced_cards_result = await self.db.execute(
+            select(func.count(SpacedRepCard.id))
+        )
+        spaced_rep_cards_total = total_spaced_cards_result.scalar() or 0
+
+        # Mastered cards (stability >= threshold)
+        spaced_mastered_result = await self.db.execute(
             select(func.count(SpacedRepCard.id)).where(
                 SpacedRepCard.stability >= settings.MASTERY_MASTERED_STABILITY_DAYS
             )
         )
-        cards_mastered = mastered_result.scalar() or 0
+        spaced_rep_cards_mastered = spaced_mastered_result.scalar() or 0
 
-        # Learning: cards actively being studied but not yet mastered
-        # Includes learning, relearning, and review states with low stability
-        learning_result = await self.db.execute(
+        # Learning cards (in learning/relearning/review but not yet mastered)
+        spaced_learning_result = await self.db.execute(
             select(func.count(SpacedRepCard.id)).where(
                 and_(
                     SpacedRepCard.state.in_(
@@ -236,22 +241,64 @@ class MasteryService:
                 )
             )
         )
-        cards_learning = learning_result.scalar() or 0
+        spaced_rep_cards_learning = spaced_learning_result.scalar() or 0
 
-        # New: cards that have never been reviewed
-        new_result = await self.db.execute(
+        # New cards (never reviewed)
+        spaced_new_result = await self.db.execute(
             select(func.count(SpacedRepCard.id)).where(
                 SpacedRepCard.state == CardState.NEW
             )
         )
-        cards_new = new_result.scalar() or 0
+        spaced_rep_cards_new = spaced_new_result.scalar() or 0
 
-        # 3. Calculate per-topic mastery states (batch query instead of N queries)
+        # Total reviews on spaced rep cards
+        spaced_reviews_result = await self.db.execute(
+            select(func.sum(SpacedRepCard.total_reviews))
+        )
+        spaced_rep_reviews_total = spaced_reviews_result.scalar() or 0
+
+        # ==== EXERCISES STATS ====
+
+        # Total exercises
+        exercises_total_result = await self.db.execute(select(func.count(Exercise.id)))
+        exercises_total = exercises_total_result.scalar() or 0
+
+        # Exercises with at least one attempt (completed)
+        exercises_completed_result = await self.db.execute(
+            select(func.count(distinct(ExerciseAttempt.exercise_id)))
+        )
+        exercises_completed = exercises_completed_result.scalar() or 0
+
+        # Exercises with avg score >= threshold (mastered)
+        exercises_mastered_result = await self.db.execute(
+            select(func.count(distinct(ExerciseAttempt.exercise_id))).where(
+                ExerciseAttempt.score >= settings.EXERCISE_MASTERY_SCORE_THRESHOLD
+            )
+        )
+        exercises_mastered = exercises_mastered_result.scalar() or 0
+
+        # Total exercise attempts
+        exercises_attempts_result = await self.db.execute(
+            select(func.count(ExerciseAttempt.id))
+        )
+        exercises_attempts_total = exercises_attempts_result.scalar() or 0
+
+        # Average score across all exercise attempts
+        exercises_avg_result = await self.db.execute(
+            select(func.avg(ExerciseAttempt.score))
+        )
+        exercises_avg_score = exercises_avg_result.scalar() or 0.0
+
+        # ==== TOPIC MASTERY STATES ====
+
         topics = await self._get_all_topics()
         topics_to_calculate = topics[: settings.MASTERY_MAX_TOPICS_IN_OVERVIEW]
         topic_states = await self._calculate_mastery_batch(topics_to_calculate)
 
-        # 4. Compute overall mastery as average across all topics
+        # Enhance topic states with exercise attempt data
+        topic_states = await self._enhance_with_exercise_data(topic_states)
+
+        # Compute overall mastery as average across all topics
         if topic_states:
             overall_mastery = sum(s.mastery_score for s in topic_states) / len(
                 topic_states
@@ -259,19 +306,129 @@ class MasteryService:
         else:
             overall_mastery = 0.0
 
-        # 5. Calculate practice streak (consecutive days with reviews)
+        # ==== PRACTICE STREAK & TIME ====
+
         streak_days = await self._calculate_streak()
 
-        # 6. Return aggregated overview
+        practice_time_result = await self.db.execute(
+            select(func.sum(PracticeSession.duration_minutes)).where(
+                PracticeSession.ended_at.isnot(None)
+            )
+        )
+        total_practice_minutes = practice_time_result.scalar() or 0
+        total_practice_time_hours = total_practice_minutes / 60.0
+
+        # ==== RETURN COMPLETE OVERVIEW ====
+
         return MasteryOverview(
             overall_mastery=overall_mastery,
             topics=topic_states,
-            total_cards=total_cards,
-            cards_mastered=cards_mastered,
-            cards_learning=cards_learning,
-            cards_new=cards_new,
+            # Spaced rep card stats
+            spaced_rep_cards_total=spaced_rep_cards_total,
+            spaced_rep_cards_mastered=spaced_rep_cards_mastered,
+            spaced_rep_cards_learning=spaced_rep_cards_learning,
+            spaced_rep_cards_new=spaced_rep_cards_new,
+            spaced_rep_reviews_total=spaced_rep_reviews_total,
+            # Exercise stats
+            exercises_total=exercises_total,
+            exercises_completed=exercises_completed,
+            exercises_mastered=exercises_mastered,
+            exercises_attempts_total=exercises_attempts_total,
+            exercises_avg_score=exercises_avg_score,
+            # General stats
             streak_days=streak_days,
+            total_practice_time_hours=total_practice_time_hours,
         )
+
+    async def _enhance_with_exercise_data(
+        self, topic_states: list[MasteryState]
+    ) -> list[MasteryState]:
+        """
+        Enhance topic mastery states with data from exercise attempts.
+
+        For topics that have exercise attempts, compute mastery based on
+        exercise performance.
+        """
+        if not topic_states:
+            return topic_states
+
+        # Get exercise attempt stats by topic
+        topic_paths = [s.topic_path for s in topic_states]
+
+        # Query exercise attempts grouped by topic
+        exercise_stats = await self.db.execute(
+            select(
+                Exercise.topic,
+                func.count(ExerciseAttempt.id).label("practice_count"),
+                func.avg(ExerciseAttempt.score).label("avg_score"),
+                func.sum(case((ExerciseAttempt.is_correct == True, 1), else_=0)).label(
+                    "correct_count"
+                ),
+                func.max(ExerciseAttempt.attempted_at).label("last_practiced"),
+            )
+            .join(ExerciseAttempt, Exercise.id == ExerciseAttempt.exercise_id)
+            .where(Exercise.topic.in_(topic_paths))
+            .group_by(Exercise.topic)
+        )
+
+        stats_by_topic = {
+            row.topic: {
+                "practice_count": row.practice_count or 0,
+                "avg_score": row.avg_score or 0.0,
+                "correct_count": row.correct_count or 0,
+                "last_practiced": row.last_practiced,
+            }
+            for row in exercise_stats.fetchall()
+        }
+
+        # Enhance each topic state
+        enhanced_states = []
+        now = datetime.now(timezone.utc)
+
+        for state in topic_states:
+            topic_data = stats_by_topic.get(state.topic_path)
+
+            if topic_data and topic_data["practice_count"] > 0:
+                # Compute mastery from exercise scores
+                mastery_score = topic_data["avg_score"]
+                practice_count = topic_data["practice_count"]
+                success_rate = (
+                    topic_data["correct_count"] / practice_count
+                    if practice_count > 0
+                    else None
+                )
+                last_practiced = topic_data["last_practiced"]
+
+                # Calculate days since last practice
+                days_since = None
+                if last_practiced:
+                    delta = now - last_practiced
+                    days_since = delta.days
+
+                # Create enhanced state
+                enhanced_states.append(
+                    MasteryState(
+                        topic_path=state.topic_path,
+                        mastery_score=max(state.mastery_score, mastery_score),
+                        practice_count=state.practice_count + practice_count,
+                        success_rate=(
+                            success_rate
+                            if success_rate is not None
+                            else state.success_rate
+                        ),
+                        trend=state.trend,
+                        last_practiced=last_practiced or state.last_practiced,
+                        days_since_review=(
+                            days_since
+                            if days_since is not None
+                            else state.days_since_review
+                        ),
+                    )
+                )
+            else:
+                enhanced_states.append(state)
+
+        return enhanced_states
 
     async def get_learning_curve(
         self,
@@ -281,15 +438,16 @@ class MasteryService:
         """
         Get learning curve data for visualization.
 
-        Retrieves historical mastery snapshots and calculates trend direction
-        and 30-day projection using linear extrapolation.
+        Retrieves historical mastery snapshots and exercise activity data,
+        calculating trend direction and 30-day projection using linear extrapolation.
 
         Args:
             topic: Topic path to filter by, or None for all topics.
             days: Number of days of history (defaults to MASTERY_LEARNING_CURVE_DAYS).
 
         Returns:
-            LearningCurveResponse with data points, trend, and projection.
+            LearningCurveResponse with data points including card and exercise activity,
+            trend, and projection.
         """
         if days is None:
             days = settings.MASTERY_LEARNING_CURVE_DAYS
@@ -308,9 +466,64 @@ class MasteryService:
         result = await self.db.execute(query)
         snapshots = result.scalars().all()
 
-        # Convert to data points
+        # Get exercise activity data grouped by date
+        exercise_query = select(
+            func.date(ExerciseAttempt.attempted_at).label("attempt_date"),
+            func.count(ExerciseAttempt.id).label("attempt_count"),
+            func.avg(ExerciseAttempt.score).label("avg_score"),
+        ).where(ExerciseAttempt.attempted_at >= start_date)
+
+        if topic:
+            exercise_query = exercise_query.join(
+                Exercise, Exercise.id == ExerciseAttempt.exercise_id
+            ).where(Exercise.topic == topic)
+
+        exercise_query = exercise_query.group_by(
+            func.date(ExerciseAttempt.attempted_at)
+        )
+
+        exercise_result = await self.db.execute(exercise_query)
+        exercise_by_date = {
+            row.attempt_date: {
+                "count": row.attempt_count or 0,
+                "avg_score": (row.avg_score or 0) * 100,  # Convert to percentage
+            }
+            for row in exercise_result.fetchall()
+        }
+
+        # Get time logs grouped by date
+        time_query = (
+            select(
+                func.date(LearningTimeLog.started_at).label("log_date"),
+                func.sum(
+                    func.extract(
+                        "epoch", LearningTimeLog.ended_at - LearningTimeLog.started_at
+                    )
+                    / 60
+                ).label("total_minutes"),
+            )
+            .where(LearningTimeLog.started_at >= start_date)
+            .group_by(func.date(LearningTimeLog.started_at))
+        )
+
+        time_result = await self.db.execute(time_query)
+        time_by_date = {
+            row.log_date: int(row.total_minutes or 0) for row in time_result.fetchall()
+        }
+
+        # Convert to data points, combining snapshot and exercise data
         data_points = []
         for snapshot in snapshots:
+            snapshot_date = (
+                snapshot.snapshot_date.date()
+                if hasattr(snapshot.snapshot_date, "date")
+                else snapshot.snapshot_date
+            )
+            exercise_data = exercise_by_date.get(
+                snapshot_date, {"count": 0, "avg_score": None}
+            )
+            time_minutes = time_by_date.get(snapshot_date, 0)
+
             data_points.append(
                 LearningCurveDataPoint(
                     date=snapshot.snapshot_date,
@@ -319,6 +532,13 @@ class MasteryService:
                     cards_reviewed=(
                         (snapshot.mastered_cards or 0) + (snapshot.learning_cards or 0)
                     ),
+                    exercises_attempted=exercise_data["count"],
+                    exercise_score=(
+                        exercise_data["avg_score"]
+                        if exercise_data["avg_score"]
+                        else None
+                    ),
+                    time_minutes=time_minutes,
                 )
             )
 
@@ -664,9 +884,18 @@ class MasteryService:
 
         # Days since review (strip tz from timestamp if present for consistent comparison)
         grouped["days_since_review"] = grouped["last_practiced"].apply(
-            lambda x: (now_naive - (x.replace(tzinfo=None) if hasattr(x, 'tzinfo') and x.tzinfo else x)).days
-            if pd.notna(x)
-            else None
+            lambda x: (
+                (
+                    now_naive
+                    - (
+                        x.replace(tzinfo=None)
+                        if hasattr(x, "tzinfo") and x.tzinfo
+                        else x
+                    )
+                ).days
+                if pd.notna(x)
+                else None
+            )
         )
 
         return grouped
@@ -725,7 +954,9 @@ class MasteryService:
         Returns:
             Number of consecutive practice days.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(days=settings.MASTERY_STREAK_WINDOW_DAYS)
+        cutoff = datetime.now(timezone.utc) - timedelta(
+            days=settings.MASTERY_STREAK_WINDOW_DAYS
+        )
 
         result = await self.db.execute(
             select(distinct(func.date(SpacedRepCard.last_reviewed)))
@@ -874,7 +1105,9 @@ class MasteryService:
         daily_average = total_minutes / days
 
         # Get top topics
-        top_topics = sorted(topic_minutes.items(), key=lambda x: x[1], reverse=True)[:10]
+        top_topics = sorted(topic_minutes.items(), key=lambda x: x[1], reverse=True)[
+            :10
+        ]
 
         # Calculate trend
         trend = self._calculate_time_trend(periods)
@@ -938,7 +1171,9 @@ class MasteryService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def _fetch_practice_sessions(self, start_date: datetime) -> list[PracticeSession]:
+    async def _fetch_practice_sessions(
+        self, start_date: datetime
+    ) -> list[PracticeSession]:
         """
         Fetch completed practice sessions since start date.
 
@@ -1037,7 +1272,9 @@ class MasteryService:
             current = current - timedelta(days=days_since_monday)
         else:  # GroupBy.MONTH
             # Start at first day of the start_date's month
-            current = start_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            current = start_date.replace(
+                day=1, hour=0, minute=0, second=0, microsecond=0
+            )
             period_delta = None  # Handled specially for months
 
         while current < end_date:
@@ -1140,12 +1377,15 @@ class MasteryService:
         today = date.today()
 
         # Calculate streaks
-        current_streak, streak_start = self._calculate_current_streak(practice_dates, today)
+        current_streak, streak_start = self._calculate_current_streak(
+            practice_dates, today
+        )
         longest_streak = self._calculate_longest_streak(practice_dates)
 
         # Milestones
-        reached = [m for m in STREAK_MILESTONES if longest_streak >= m]
-        next_milestone = next((m for m in STREAK_MILESTONES if m > current_streak), None)
+        milestones = settings.STREAK_MILESTONES
+        reached = [m for m in milestones if longest_streak >= m]
+        next_milestone = next((m for m in milestones if m > current_streak), None)
 
         # Activity counts
         days_this_week = self._count_days_in_period(practice_dates, 7)

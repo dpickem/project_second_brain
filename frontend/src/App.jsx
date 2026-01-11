@@ -19,6 +19,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Knowledge = lazy(() => import('./pages/Knowledge'))
 const KnowledgeGraphPage = lazy(() => import('./pages/KnowledgeGraph'))
 const PracticeSession = lazy(() => import('./pages/PracticeSession'))
+const Exercises = lazy(() => import('./pages/Exercises'))
 const ReviewQueue = lazy(() => import('./pages/ReviewQueue'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const Assistant = lazy(() => import('./pages/Assistant'))
@@ -67,11 +68,12 @@ function Navigation() {
       <div className="flex flex-col gap-2">
         <NavItem to="/" icon={<HomeIcon />} title="Dashboard" shortcut="⌘1" />
         <NavItem to="/practice" icon={<PracticeIcon />} title="Practice" shortcut="⌘2" />
-        <NavItem to="/review" icon={<ReviewIcon />} title="Review" shortcut="⌘3" />
-        <NavItem to="/knowledge" icon={<KnowledgeIcon />} title="Knowledge" shortcut="⌘4" />
-        <NavItem to="/graph" icon={<GraphIcon />} title="Graph" shortcut="⌘5" />
-        <NavItem to="/analytics" icon={<AnalyticsIcon />} title="Analytics" shortcut="⌘6" />
-        <NavItem to="/assistant" icon={<AssistantIcon />} title="Assistant" shortcut="⌘7" />
+        <NavItem to="/exercises" icon={<ExercisesIcon />} title="Exercises" shortcut="⌘3" />
+        <NavItem to="/review" icon={<ReviewIcon />} title="Review" shortcut="⌘4" />
+        <NavItem to="/knowledge" icon={<KnowledgeIcon />} title="Knowledge" shortcut="⌘5" />
+        <NavItem to="/graph" icon={<GraphIcon />} title="Graph" shortcut="⌘6" />
+        <NavItem to="/analytics" icon={<AnalyticsIcon />} title="Analytics" shortcut="⌘7" />
+        <NavItem to="/assistant" icon={<AssistantIcon />} title="Assistant" shortcut="⌘8" />
       </div>
 
       {/* Spacer */}
@@ -126,6 +128,14 @@ function PracticeIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+}
+
+function ExercisesIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
     </svg>
   )
 }
@@ -214,6 +224,7 @@ function App() {
                 <Route path="/" element={<AnimatedPage><Dashboard /></AnimatedPage>} />
                 <Route path="/practice" element={<AnimatedPage><PracticeSession /></AnimatedPage>} />
                 <Route path="/practice/:topicId" element={<AnimatedPage><PracticeSession /></AnimatedPage>} />
+                <Route path="/exercises" element={<AnimatedPage><Exercises /></AnimatedPage>} />
                 <Route path="/review" element={<AnimatedPage><ReviewQueue /></AnimatedPage>} />
                 <Route path="/knowledge" element={<AnimatedPage><Knowledge /></AnimatedPage>} />
                 <Route path="/graph" element={<AnimatedPage><KnowledgeGraphPage /></AnimatedPage>} />

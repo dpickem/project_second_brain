@@ -39,8 +39,8 @@ from app.services.knowledge_graph.queries import (
     GET_CONTENT_BY_ID,
     DELETE_CONTENT_AND_RELATIONS,
     DELETE_CONTENT_OUTGOING_RELATIONSHIPS,
-    UPDATE_CONTENT_FILE_PATH,
     CREATE_RELATIONSHIP,
+    LINK_CONCEPTS_BY_NAME,
     GET_CONNECTED_NODES,
     VECTOR_SEARCH,
     VERIFY_CONNECTIVITY,
@@ -287,7 +287,7 @@ class Neo4jClient:
             return record["id"]
 
     async def create_concept_node(
-        self, concept: Concept, embedding: list[float]
+        self, concept: Concept, embedding: list[float], file_path: Optional[str] = None
     ) -> str:
         """
         Create or merge a Concept node.
@@ -298,6 +298,7 @@ class Neo4jClient:
         Args:
             concept: The extracted Concept object
             embedding: Vector embedding for similarity search
+            file_path: Optional path to Obsidian note for this concept
 
         Returns:
             The created/merged node's ID
@@ -314,6 +315,7 @@ class Neo4jClient:
                 definition=concept.definition,
                 embedding=embedding,
                 importance=concept.importance,
+                file_path=file_path,
             )
             record = await result.single()
             return record["id"]
@@ -370,6 +372,46 @@ class Neo4jClient:
             relationship_type="CONTAINS",
             properties={"importance": importance},
         )
+
+    async def link_concept_to_concept(
+        self,
+        source_name: str,
+        target_name: str,
+        relationship_type: str,
+        properties: Optional[dict] = None,
+    ) -> bool:
+        """
+        Create a relationship between two concepts by name.
+
+        Concepts are merged by name in Neo4j, so we link by name rather than ID.
+        This allows linking to concepts that may have been created by other content.
+
+        Args:
+            source_name: Name of the source concept
+            target_name: Name of the target concept
+            relationship_type: Type of relationship (EXTENDS, ENABLES, IS_TYPE_OF, etc.)
+            properties: Optional properties dict for the relationship
+
+        Returns:
+            True if relationship was created, False if either concept doesn't exist
+        """
+        await self._ensure_initialized()
+
+        # Sanitize relationship type for Cypher
+        rel_type = relationship_type.upper().replace("-", "_").replace(" ", "_")
+        query = LINK_CONCEPTS_BY_NAME.format(rel_type=rel_type)
+
+        async with self._async_driver.session(
+            database=settings.NEO4J_DATABASE
+        ) as session:
+            result = await session.run(
+                query,
+                source_name=source_name,
+                target_name=target_name,
+                properties=properties or {},
+            )
+            record = await result.single()
+            return record is not None
 
     async def get_connected_nodes(
         self,
@@ -466,33 +508,6 @@ class Neo4jClient:
             )
             record = await result.single()
             return record["deleted_count"] if record else 0
-
-    async def update_content_file_path(
-        self, content_id: str, file_path: str
-    ) -> Optional[str]:
-        """
-        Update the file_path property of an existing Content node.
-
-        Used to backfill file_path for nodes created before this property
-        was added.
-
-        Args:
-            content_id: Content UUID
-            file_path: Path to the Obsidian vault note file
-
-        Returns:
-            The node ID if updated, None if not found
-        """
-        await self._ensure_initialized()
-
-        async with self._async_driver.session(
-            database=settings.NEO4J_DATABASE
-        ) as session:
-            result = await session.run(
-                UPDATE_CONTENT_FILE_PATH, id=content_id, file_path=file_path
-            )
-            record = await result.single()
-            return record["id"] if record else None
 
     # =========================================================================
     # Obsidian Vault Sync Operations (Note nodes)

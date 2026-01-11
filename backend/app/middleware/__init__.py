@@ -17,7 +17,11 @@ Rate limiting usage:
 """
 
 from app.middleware.rate_limit import setup_rate_limiting, limiter, get_rate_limit
-from app.middleware.error_handling import ErrorHandlingMiddleware, ServiceError, LLMError
+from app.middleware.error_handling import (
+    ErrorHandlingMiddleware,
+    ServiceError,
+    LLMError,
+)
 
 __all__ = [
     "setup_rate_limiting",
@@ -27,4 +31,3 @@ __all__ = [
     "ServiceError",
     "LLMError",
 ]
-

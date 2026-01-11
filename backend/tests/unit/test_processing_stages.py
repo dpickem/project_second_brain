@@ -228,19 +228,25 @@ def sample_analysis() -> ContentAnalysis:
 @pytest.fixture
 def sample_extraction() -> ExtractionResult:
     """Create sample extraction result for testing."""
+    from app.models.processing import ConceptRelation
+
     return ExtractionResult(
         concepts=[
             Concept(
                 name="Transformer",
                 definition="Architecture based on self-attention",
                 importance=ConceptImportance.CORE.value,
-                related_concepts=["attention"],
+                related_concepts=[
+                    ConceptRelation(name="attention", relationship="uses")
+                ],
             ),
             Concept(
                 name="Self-attention",
                 definition="Mechanism relating positions",
                 importance=ConceptImportance.CORE.value,
-                related_concepts=["transformer"],
+                related_concepts=[
+                    ConceptRelation(name="transformer", relationship="is core to")
+                ],
             ),
         ],
         key_findings=[

@@ -293,7 +293,10 @@ class TestBuildTopicTree:
         [
             # Single-level topics
             pytest.param(
-                [{"path": "ml", "content_count": 5}, {"path": "web", "content_count": 3}],
+                [
+                    {"path": "ml", "content_count": 5},
+                    {"path": "web", "content_count": 3},
+                ],
                 2,  # expected_roots
                 0,  # expected_max_depth
                 "ml",  # expected_first_name

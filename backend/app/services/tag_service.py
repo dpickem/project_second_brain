@@ -97,6 +97,54 @@ class TagService:
         await self.validate_tags([topic])
         return topic
 
+    async def ensure_tags_exist(self, tags: list[str]) -> list[str]:
+        """
+        Ensure all tags exist in the database, creating missing ones.
+
+        Unlike validate_tags which raises an error for missing tags,
+        this method auto-creates any tags that don't exist. Use this
+        when working with topics from the knowledge graph or other
+        sources that may introduce new tags.
+
+        Args:
+            tags: List of tag strings to ensure exist
+
+        Returns:
+            List of tag strings (same as input)
+        """
+        if not tags:
+            return []
+
+        # Get existing tags from database
+        existing = await self._get_existing_tags(tags)
+        existing_names = {t.name for t in existing}
+
+        # Find and create missing tags
+        missing = [t for t in tags if t not in existing_names]
+
+        if missing:
+            await self._create_tags(missing)
+            await self.db.flush()
+            logger.info(f"Auto-created {len(missing)} new tags: {missing}")
+
+        return tags
+
+    async def ensure_topic_exists(self, topic: str) -> str:
+        """
+        Ensure a single topic exists in the database, creating if needed.
+
+        Convenience wrapper around ensure_tags_exist for single topic.
+        Use this when generating exercises for topics from the knowledge graph.
+
+        Args:
+            topic: Topic string to ensure exists
+
+        Returns:
+            Topic string (same as input)
+        """
+        await self.ensure_tags_exist([topic])
+        return topic
+
     async def get_tag(self, tag_name: str) -> Tag:
         """
         Get a tag by name.
@@ -194,4 +242,3 @@ async def validate_tags(db: AsyncSession, tags: list[str]) -> list[str]:
     """
     service = TagService(db)
     return await service.validate_tags(tags)
-

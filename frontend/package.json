@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "vite build",
+    "prebuild": "npm run generate:enums",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,css}\"",
@@ -15,7 +16,10 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "generate:enums": "cd .. && python scripts/generate_enums.py",
+    "generate:api-types": "node scripts/generate-api-types.js",
+    "api:check": "node scripts/generate-api-types.js && git diff --exit-code src/api/openapi.json || (echo '❌ OpenAPI schema changed! Commit the new schema or update backend.' && exit 1)"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.18",
@@ -58,6 +62,8 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "globals": "^16.2.0",
     "jsdom": "^26.1.0",
+    "openapi-fetch": "^0.9.8",
+    "openapi-typescript": "^7.0.0",
     "postcss": "^8.4.35",
     "prettier": "^3.2.5",
     "tailwindcss": "^3.4.1",

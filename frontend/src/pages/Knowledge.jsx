@@ -314,7 +314,7 @@ export function Knowledge() {
       // Switch to list view for better search UX
       setViewMode('list')
     }
-  }, [searchParams]) // Re-run when URL params change
+  }, [searchParams, selectedNote]) // Re-run when URL params change
 
   // Update URL when note selection changes
   const handleNoteSelect = (notePath) => {

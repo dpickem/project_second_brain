@@ -294,8 +294,12 @@ class TestGetReviewForecast:
     def test_forecast_new_cards_skipped(self):
         """Test that new cards are not included in forecast."""
         cards = [
-            CardState(state=State.Learning, last_review=None, due=datetime.now(timezone.utc)),
-            CardState(state=State.Learning, last_review=None, due=datetime.now(timezone.utc)),
+            CardState(
+                state=State.Learning, last_review=None, due=datetime.now(timezone.utc)
+            ),
+            CardState(
+                state=State.Learning, last_review=None, due=datetime.now(timezone.utc)
+            ),
         ]
 
         forecast = get_review_forecast(cards)
@@ -339,4 +343,3 @@ class TestCardStateDataclass:
         assert card.reps == 10
         assert card.lapses == 2
         assert not card.is_new()  # Has been reviewed
-

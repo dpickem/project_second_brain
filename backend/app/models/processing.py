@@ -89,9 +89,30 @@ class ContentAnalysis(BaseModel):
     language: str = Field(default="en", description="ISO language code")
 
 
+class ConceptExample(BaseModel):
+    """An example illustrating a concept."""
+
+    title: str = Field(default="", description="Example title")
+    content: str = Field(..., description="Example explanation")
+
+
+class ConceptMisconception(BaseModel):
+    """A common misconception about a concept."""
+
+    wrong: str = Field(..., description="The incorrect belief")
+    correct: str = Field(..., description="The correct understanding")
+
+
+class ConceptRelation(BaseModel):
+    """A relationship to another concept."""
+
+    name: str = Field(..., description="Related concept name")
+    relationship: str = Field(default="relates to", description="How they're related")
+
+
 class Concept(BaseModel):
     """
-    Extracted concept with context.
+    Extracted concept with rich context for knowledge building.
 
     Concepts are the atomic units of knowledge in the graph. They enable
     rich querying, connection discovery, and knowledge gap identification.
@@ -102,7 +123,12 @@ class Concept(BaseModel):
         definition: Clear, concise definition in 1-2 sentences
         context: How this concept is used in THIS specific content
         importance: Role in the content (core, supporting, tangential)
-        related_concepts: Other concepts this one connects to
+        why_it_matters: Explanation of why this concept is important
+        properties: Key characteristics or attributes of the concept
+        examples: Concrete examples illustrating the concept
+        misconceptions: Common misunderstandings about the concept
+        prerequisites: Concepts that should be understood first
+        related_concepts: Other concepts this one connects to with relationship type
         embedding: Vector embedding for similarity search (computed post-extraction)
     """
 
@@ -116,8 +142,23 @@ class Concept(BaseModel):
         default=ConceptImportance.SUPPORTING.value,
         description="CORE, SUPPORTING, or TANGENTIAL",
     )
-    related_concepts: list[str] = Field(
-        default_factory=list, description="Names of related concepts in this content"
+    why_it_matters: str = Field(
+        default="", description="Why this concept is important to understand"
+    )
+    properties: list[str] = Field(
+        default_factory=list, description="Key characteristics of this concept"
+    )
+    examples: list[ConceptExample] = Field(
+        default_factory=list, description="Concrete examples illustrating the concept"
+    )
+    misconceptions: list[ConceptMisconception] = Field(
+        default_factory=list, description="Common misunderstandings"
+    )
+    prerequisites: list[str] = Field(
+        default_factory=list, description="Concepts that should be understood first"
+    )
+    related_concepts: list[ConceptRelation] = Field(
+        default_factory=list, description="Related concepts with relationship type"
     )
     embedding: Optional[list[float]] = Field(
         default=None,

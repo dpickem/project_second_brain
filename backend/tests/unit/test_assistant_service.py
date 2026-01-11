@@ -67,9 +67,7 @@ def mock_mastery_service() -> MagicMock:
     """Create a mock MasteryService."""
     service = MagicMock()
     service.get_weak_spots = AsyncMock(return_value=[])
-    service.get_mastery_state = AsyncMock(
-        return_value=MagicMock(mastery_score=0.5)
-    )
+    service.get_mastery_state = AsyncMock(return_value=MagicMock(mastery_score=0.5))
     return service
 
 
@@ -77,9 +75,7 @@ def mock_mastery_service() -> MagicMock:
 def mock_spaced_rep_service() -> MagicMock:
     """Create a mock SpacedRepService."""
     service = MagicMock()
-    service.get_due_cards = AsyncMock(
-        return_value=MagicMock(total_due=0, cards=[])
-    )
+    service.get_due_cards = AsyncMock(return_value=MagicMock(total_due=0, cards=[]))
     return service
 
 
@@ -244,8 +240,18 @@ class TestChat:
         """chat() includes sources from knowledge search in response."""
         # Arrange
         search_results = [
-            {"id": "doc-1", "title": "ML Basics", "summary": "Intro to ML", "score": 0.9},
-            {"id": "doc-2", "title": "Deep Learning", "summary": "Neural nets", "score": 0.8},
+            {
+                "id": "doc-1",
+                "title": "ML Basics",
+                "summary": "Intro to ML",
+                "score": 0.9,
+            },
+            {
+                "id": "doc-2",
+                "title": "Deep Learning",
+                "summary": "Neural nets",
+                "score": 0.8,
+            },
         ]
 
         with patch(
@@ -275,7 +281,9 @@ class TestChat:
             "app.services.assistant.service.KnowledgeSearchService"
         ) as mock_search_class:
             mock_search = MagicMock()
-            mock_search.semantic_search = AsyncMock(side_effect=Exception("Search failed"))
+            mock_search.semantic_search = AsyncMock(
+                side_effect=Exception("Search failed")
+            )
             mock_search_class.return_value = mock_search
 
             # Act
@@ -437,7 +445,9 @@ class TestConversationManagement:
         """clear_conversation_messages() returns deleted message count."""
         # Arrange
         mock_get_result = MagicMock()
-        mock_get_result.scalar_one_or_none.return_value = sample_conversation_with_messages
+        mock_get_result.scalar_one_or_none.return_value = (
+            sample_conversation_with_messages
+        )
 
         mock_delete_result = MagicMock()
         mock_delete_result.rowcount = 2
@@ -513,7 +523,13 @@ class TestKnowledgeSearch:
         """search_knowledge() returns formatted search results."""
         # Arrange
         search_results = [
-            {"id": "doc-1", "title": "Result 1", "summary": "Summary 1", "score": 0.9, "node_type": "Content"},
+            {
+                "id": "doc-1",
+                "title": "Result 1",
+                "summary": "Summary 1",
+                "score": 0.9,
+                "node_type": "Content",
+            },
         ]
 
         with patch(
@@ -670,7 +686,9 @@ class TestConceptExplanation:
 
         # Assert - verify the prompt contains style-specific instruction
         call_args = mock_llm_client.complete.call_args
-        messages = call_args.kwargs.get("messages", call_args.args[1] if len(call_args.args) > 1 else [])
+        messages = call_args.kwargs.get(
+            "messages", call_args.args[1] if len(call_args.args) > 1 else []
+        )
         prompt_content = messages[0]["content"]
         assert expected_keyword.lower() in prompt_content.lower()
 

@@ -99,6 +99,7 @@ The frontend currently has:
 | React Query | ✅ Available | Dependency installed, not widely used yet |
 | Zustand | ✅ Available | Dependency installed, no stores created |
 | Framer Motion | ✅ Available | Dependency installed, minimal usage |
+| **Type-Safe API Client** | ✅ Implemented | OpenAPI types generated, typed-client.js created (Jan 2026) |
 
 ### What This Plan Covers
 
@@ -115,6 +116,7 @@ The frontend currently has:
 | Custom hooks | |
 | Design system & styling | |
 | API client layer (all endpoints) | |
+| **Type-safe API client** ✅ (OpenAPI types, typed-client) | |
 
 ### Architecture Overview
 
@@ -537,12 +539,85 @@ export const knowledgeApi = {
 ```
 
 **Deliverables:**
-- [ ] `frontend/src/api/client.js` — Base axios client
-- [ ] Update `knowledge.js` to use base client
-- [ ] Update `vault.js` to use base client
-- [ ] Create `capture.js` for quick capture endpoint
+- [x] `frontend/src/api/client.js` — Base axios client
+- [x] Update `knowledge.js` to use base client
+- [x] Update `vault.js` to use base client
+- [x] Create `capture.js` for quick capture endpoint
 
 **Estimated Time:** 3 hours
+
+---
+
+#### Task 9A.4a: Type-Safe API Client ✅ COMPLETE (January 2026)
+
+**Purpose**: Generate TypeScript types from OpenAPI schema and create a type-safe API client that catches frontend typos at dev time.
+
+**New Files:**
+- `frontend/scripts/generate-api-types.js` — Type generation script
+- `frontend/src/api/typed-client.js` — OpenAPI-typed API client
+- `frontend/src/api/schema.d.ts` — Generated TypeScript types (gitignored)
+
+**Type Generation Script** (`scripts/generate-api-types.js`):
+
+```javascript
+// Generate TypeScript types from backend OpenAPI schema
+// Run: npm run generate:api-types
+
+import { execa } from 'execa'
+const API_URL = process.env.VITE_API_URL || 'http://localhost:8000'
+const SCHEMA_PATH = `${API_URL}/openapi.json`
+
+await execa('npx', ['openapi-typescript', SCHEMA_PATH, '-o', 'src/api/schema.d.ts'])
+```
+
+**Typed API Client** (`src/api/typed-client.js`):
+
+```javascript
+import createClient from 'openapi-fetch'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+export const api = createClient({ baseUrl: API_URL })
+
+// Type-safe usage examples:
+api.knowledge = {
+  // Catches typos like "maxResults" instead of "limit" at dev time
+  search: (body) => api.POST('/api/knowledge/search', { body }),
+  getGraph: (params) => api.GET('/api/knowledge/graph', { params }),
+  getNode: (nodeId) => api.GET('/api/knowledge/node/{node_id}', {
+    params: { path: { node_id: nodeId } }
+  }),
+}
+```
+
+**NPM Scripts** (added to `package.json`):
+
+```json
+{
+  "scripts": {
+    "generate:api-types": "node scripts/generate-api-types.js",
+    "api:check": "node scripts/check-api-schema.js",
+    "prebuild": "npm run generate:enums && npm run generate:api-types"
+  }
+}
+```
+
+**Workflow**:
+
+1. **Development**: Run `npm run generate:api-types` after backend schema changes
+2. **Build**: Types auto-generated in `prebuild` step
+3. **CI**: `npm run api:check` fails if schema changed unexpectedly
+
+**Benefits**:
+- Catches parameter typos at dev time (e.g., `maxResults` vs `limit`)
+- IDE autocomplete for all API endpoints
+- Breaking changes detected in CI via schema snapshot comparison
+
+**Dependencies Added** (devDependencies):
+- `openapi-typescript@^6.7.5` — Generate TypeScript from OpenAPI
+- `execa@^9.3.0` — Run shell commands from Node.js
+
+**Status**: ✅ Complete
 
 ---
 

@@ -20,10 +20,10 @@ vi.mock('framer-motion', async () => {
   return {
     ...actual,
     motion: {
-      button: ({ children, whileHover, whileTap, variants, initial, className, ...props }) => (
+      button: ({ children, className, ...props }) => (
         <button className={className} {...props}>{children}</button>
       ),
-      div: ({ children, whileHover, whileTap, variants, initial, className, ...props }) => (
+      div: ({ children, className, ...props }) => (
         <div className={className} {...props}>{children}</div>
       ),
     },

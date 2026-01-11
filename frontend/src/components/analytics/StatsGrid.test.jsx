@@ -16,13 +16,13 @@ vi.mock('recharts', () => ({
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, animate, transition, variants, initial, whileHover, whileTap, custom, ...props }) => (
+    div: ({ children, className, ...props }) => (
       <div className={className} {...props}>
         {children}
       </div>
     ),
-    span: ({ children, animate, transition, ...props }) => <span {...props}>{children}</span>,
-    button: ({ children, className, variants, initial, whileHover, whileTap, ...props }) => (
+    span: ({ children, ...props }) => <span {...props}>{children}</span>,
+    button: ({ children, className, ...props }) => (
       <button className={className} {...props}>
         {children}
       </button>
@@ -131,7 +131,7 @@ describe('StatsGrid', () => {
   })
 
   it('highlights streak when >= 7 days', () => {
-    const { container } = render(<StatsGrid stats={{ ...mockStats, streak: 10 }} />)
+    render(<StatsGrid stats={{ ...mockStats, streak: 10 }} />)
     // Should have a celebration emoji
     expect(screen.getByText('🎉')).toBeInTheDocument()
   })

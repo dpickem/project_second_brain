@@ -243,12 +243,16 @@ class Settings(BaseSettings):
     # Mastery thresholds
     MASTERY_WEAK_SPOT_THRESHOLD: float = 0.6  # Below this is considered a weak spot
     MASTERY_NOVICE_THRESHOLD: float = 0.3  # Below this suggests scaffolded exercises
-    MASTERY_INTERMEDIATE_THRESHOLD: float = 0.6  # Below this suggests retrieval practice
+    MASTERY_INTERMEDIATE_THRESHOLD: float = (
+        0.6  # Below this suggests retrieval practice
+    )
     MASTERY_LOW_SUCCESS_RATE: float = 0.5  # Below this triggers success rate warning
 
     # Stability thresholds
     MASTERY_STABILITY_NORMALIZATION_DAYS: float = 30.0  # Days to normalize stability
-    MASTERY_MASTERED_STABILITY_DAYS: int = 21  # Cards with stability >= this are "mastered"
+    MASTERY_MASTERED_STABILITY_DAYS: int = (
+        21  # Cards with stability >= this are "mastered"
+    )
 
     # Time windows (days)
     MASTERY_SNAPSHOT_LOOKBACK_DAYS: int = 7  # Days to look back for trend comparison
@@ -269,20 +273,95 @@ class Settings(BaseSettings):
     # Trend detection
     MASTERY_TREND_THRESHOLD: float = 0.05  # Score delta to consider improving/declining
 
+    # Exercise mastery threshold
+    EXERCISE_MASTERY_SCORE_THRESHOLD: float = (
+        0.8  # Score >= this is considered mastered
+    )
+
+    # Streak milestones for gamification (in days)
+    STREAK_MILESTONES: list[int] = [7, 14, 30, 60, 90, 180, 365]
+
+    # Activity level thresholds for heatmap (ratio -> level)
+    # Higher ratios = higher activity levels (0-4 scale)
+    ACTIVITY_LEVEL_HIGH: float = 0.75  # Level 4
+    ACTIVITY_LEVEL_MEDIUM_HIGH: float = 0.50  # Level 3
+    ACTIVITY_LEVEL_MEDIUM: float = 0.25  # Level 2
+    # Below 0.25 but > 0 = Level 1, 0 = Level 0
+
+    # =========================================================================
+    # CARD GENERATION SETTINGS
+    # =========================================================================
+    # Initial FSRS difficulty values by card type (0.0-1.0, higher = harder)
+    CARD_DIFFICULTY_DEFINITION: float = 0.3  # Basic definition/application cards
+    CARD_DIFFICULTY_EXAMPLE: float = 0.4  # Example cards, properties cards
+    CARD_DIFFICULTY_MISCONCEPTION: float = 0.5  # Misconception cards (hardest)
+
+    # Difficulty mapping for on-demand generation
+    CARD_DIFFICULTY_EASY: float = 0.2
+    CARD_DIFFICULTY_MEDIUM: float = 0.4
+    CARD_DIFFICULTY_HARD: float = 0.6
+    CARD_DIFFICULTY_MIXED: float = 0.3  # Also used as default
+
+    # Limits per concept during ingestion
+    CARD_MAX_EXAMPLES_PER_CONCEPT: int = 2
+    CARD_MAX_MISCONCEPTIONS_PER_CONCEPT: int = 2
+    CARD_MIN_PROPERTIES_FOR_CARD: int = (
+        2  # Minimum properties to generate a properties card
+    )
+
+    # On-demand generation defaults
+    CARD_DEFAULT_COUNT: int = 10  # Default cards to generate for topic
+    CARD_MIN_FOR_TOPIC: int = 5  # Minimum cards to ensure per topic
+    CARD_CONTEXT_MAX_LENGTH: int = 8000  # Max context chars for LLM prompt
+    CARD_LLM_TEMPERATURE: float = 0.7
+    CARD_LLM_MAX_TOKENS: int = 2000
+
+    # Context gathering limits
+    CARD_CONTEXT_CONTENT_PER_KEYWORD: int = 3  # Content items per keyword search
+    CARD_CONTEXT_EXERCISES_LIMIT: int = 5  # Max exercises for context
+    CARD_CONTEXT_EXERCISE_PROMPT_LENGTH: int = 500  # Truncate exercise prompts
+    CARD_CONTEXT_MIN_KEYWORD_LENGTH: int = 3  # Skip short keywords
+
     # =========================================================================
     # SESSION / PRACTICE SETTINGS
     # =========================================================================
     # Time allocation ratios for practice sessions (must sum to 1.0)
+    # These are defaults that users can override in the frontend settings
     SESSION_TIME_RATIO_SPACED_REP: float = 0.4  # Due spaced rep cards (consolidation)
-    SESSION_TIME_RATIO_WEAK_SPOTS: float = 0.3  # Weak spot exercises (deliberate practice)
+    SESSION_TIME_RATIO_WEAK_SPOTS: float = (
+        0.3  # Weak spot exercises (deliberate practice)
+    )
     SESSION_TIME_RATIO_NEW_CONTENT: float = 0.3  # New/interleaved content (transfer)
 
     # Estimated time per item in minutes
     SESSION_TIME_PER_CARD: float = 2.0  # Minutes per spaced rep card
-    SESSION_TIME_PER_EXERCISE: float = 7.0  # Minutes per exercise
+    SESSION_TIME_PER_EXERCISE: float = 10.0  # Minutes per exercise (avg across types)
 
     # Session content limits
     SESSION_MAX_WEAK_SPOTS: int = 3  # Max weak spot topics to consider per session
+
+    # Default content mode: "both", "exercises_only", "cards_only"
+    SESSION_DEFAULT_CONTENT_MODE: str = "both"
+
+    # Default source preference: "prefer_existing", "generate_new", "existing_only"
+    # - prefer_existing: Use existing content when available, generate if needed
+    # - generate_new: Always generate fresh content (more LLM cost)
+    # - existing_only: Only use existing content (no LLM cost, may have empty sessions)
+    SESSION_DEFAULT_EXERCISE_SOURCE: str = "prefer_existing"
+    SESSION_DEFAULT_CARD_SOURCE: str = "prefer_existing"
+
+    # Minimum time budget thresholds (minutes)
+    SESSION_MIN_TIME_FOR_EXERCISE: float = 5.0  # Min time to add an exercise
+    SESSION_MIN_TIME_FOR_CARD: float = 1.0  # Min time to add a card
+
+    # Topic-focused session allocation (when topic_filter is set)
+    # Allocates more time to exercises for focused practice
+    SESSION_TOPIC_EXERCISE_RATIO: float = 0.8  # 80% exercises when topic selected
+    SESSION_TOPIC_CARD_RATIO: float = 0.2  # 20% cards when topic selected
+
+    # Interleaving settings
+    SESSION_INTERLEAVE_ENABLED: bool = True  # Shuffle items for interleaving benefit
+    SESSION_WORKED_EXAMPLES_FIRST: bool = True  # Place worked examples at start
 
     # =========================================================================
     # ASSISTANT SERVICE

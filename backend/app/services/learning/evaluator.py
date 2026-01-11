@@ -566,7 +566,7 @@ class ResponseEvaluator:
             )
 
             response, _usage = await self.llm.complete(
-                operation=PipelineOperation.EXTRACTION,  # Reuse extraction operation
+                operation=PipelineOperation.CONCEPT_EXTRACTION,  # Use concept extraction operation
                 messages=messages,
                 model=self.model,
                 temperature=0.3,  # More deterministic for evaluation
@@ -697,7 +697,7 @@ class ResponseEvaluator:
             )
 
             response, _usage = await self.llm.complete(
-                operation=PipelineOperation.EXTRACTION,
+                operation=PipelineOperation.CONCEPT_EXTRACTION,
                 messages=messages,
                 model=self.model,
                 temperature=0.3,

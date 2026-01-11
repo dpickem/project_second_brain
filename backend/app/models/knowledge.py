@@ -14,6 +14,10 @@ ARCHITECTURE NOTE:
 
     Data flows: API Request → Pydantic → Service → Neo4j
 
+API Contract:
+    Request models use StrictRequest (extra="forbid") to reject unknown fields.
+    This catches frontend/backend mismatches early with clear 422 errors.
+
 Usage:
     from app.models.knowledge import (
         GraphNode,
@@ -26,6 +30,8 @@ Usage:
 from typing import Optional
 
 from pydantic import BaseModel, Field
+
+from app.models.base import StrictRequest, StrictResponse
 
 
 # =============================================================================
@@ -196,7 +202,7 @@ class SearchResult(BaseModel):
     highlights: list[str] = Field(default_factory=list)
 
 
-class SearchRequest(BaseModel):
+class SearchRequest(StrictRequest):
     """
     Search query parameters.
 
@@ -209,6 +215,8 @@ class SearchRequest(BaseModel):
         limit: Maximum results to return (1-100, default: 20)
         min_score: Minimum relevance score threshold (0-1, default: 0.5)
         use_vector: Whether to use vector/embedding search when available
+
+    Note: Uses StrictRequest - unknown fields will be rejected with 422.
     """
 
     query: str = Field(..., min_length=1, max_length=500)
@@ -351,4 +359,3 @@ class TopicHierarchyResponse(BaseModel):
     roots: list[TopicNode]
     total_topics: int
     max_depth: int
-

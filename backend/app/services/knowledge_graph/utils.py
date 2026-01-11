@@ -97,4 +97,3 @@ def build_topic_tree(flat_topics: list[dict]) -> tuple[list[TopicNode], int]:
                 roots.append(node)
 
     return roots, max_depth
-

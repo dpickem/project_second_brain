@@ -58,4 +58,3 @@ class ConnectionDirection(str, Enum):
     INCOMING = "incoming"
     OUTGOING = "outgoing"
     BOTH = "both"
-

@@ -53,6 +53,7 @@ export function LearningChart({
   className,
 }) {
   const metricConfig = {
+    // Combined / Cards metrics
     cardsReviewed: {
       name: 'Cards Reviewed',
       color: '#6366f1',
@@ -72,6 +73,22 @@ export function LearningChart({
       name: 'New Cards',
       color: '#fbbf24',
       dataKey: 'newCards',
+    },
+    // Exercise-specific metrics
+    exercisesAttempted: {
+      name: 'Exercises Attempted',
+      color: '#14b8a6',
+      dataKey: 'exercisesAttempted',
+    },
+    exerciseTime: {
+      name: 'Exercise Time (min)',
+      color: '#f97316',
+      dataKey: 'exerciseTime',
+    },
+    exerciseScore: {
+      name: 'Avg Score %',
+      color: '#8b5cf6',
+      dataKey: 'exerciseScore',
     },
   }
 

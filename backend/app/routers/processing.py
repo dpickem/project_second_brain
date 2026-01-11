@@ -32,6 +32,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+
+from app.models.base import StrictRequest
 from sqlalchemy.orm import selectinload
 
 from app.db.base import async_session_maker
@@ -60,12 +62,18 @@ router = APIRouter(prefix="/api/processing", tags=["processing"])
 # =============================================================================
 
 
-class ProcessingConfigRequest(BaseModel):
-    """Configuration options for processing request."""
+class ProcessingConfigRequest(StrictRequest):
+    """
+    Configuration options for processing request.
+
+    Note: Uses StrictRequest - unknown fields will be rejected with 422.
+    """
 
     generate_summaries: bool = True
     extract_concepts: bool = True
     assign_tags: bool = True
+    generate_cards: bool = True  # Generate spaced repetition cards
+    generate_exercises: bool = True  # Generate practice exercises
     discover_connections: bool = True
     generate_followups: bool = True
     generate_questions: bool = True
@@ -74,8 +82,12 @@ class ProcessingConfigRequest(BaseModel):
     validate_output: bool = True
 
 
-class TriggerProcessingRequest(BaseModel):
-    """Request body for triggering processing."""
+class TriggerProcessingRequest(StrictRequest):
+    """
+    Request body for triggering processing.
+
+    Note: Uses StrictRequest - unknown fields will be rejected with 422.
+    """
 
     content_id: str = Field(..., description="UUID of content to process")
     config: Optional[ProcessingConfigRequest] = None
@@ -211,8 +223,9 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
                 if hasattr(config, key):
                     setattr(config, key, value)
 
-        # Run pipeline
-        processing_result = await process_content(content, config)
+        # Run pipeline with database session for card generation
+        async with async_session_maker() as db_session:
+            processing_result = await process_content(content, config, db=db_session)
 
         # Save result to database
         async with async_session_maker() as session:

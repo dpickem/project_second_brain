@@ -194,7 +194,10 @@ class RaindropSync(BasePipeline):
         # Reset usage records for this sync run
         self._usage_records = []
 
-        params: dict[str, Any] = {"perpage": self.DEFAULT_PAGE_SIZE, "page": INITIAL_PAGE_NUMBER}
+        params: dict[str, Any] = {
+            "perpage": self.DEFAULT_PAGE_SIZE,
+            "page": INITIAL_PAGE_NUMBER,
+        }
 
         if since:
             params["search"] = f"created:>{since.strftime('%Y-%m-%d')}"
@@ -285,7 +288,7 @@ class RaindropSync(BasePipeline):
         """
         url = item["link"]
         raindrop_title = item.get("title", "")
-        
+
         # Fetch full article content
         article_content = await self._fetch_article_content(url)
 
@@ -325,8 +328,7 @@ class RaindropSync(BasePipeline):
             title=title,
             authors=[item.get("creator", "Unknown")],
             created_at=created_at,
-            full_text=article_content
-            or f"[Content could not be fetched from {url}]",
+            full_text=article_content or f"[Content could not be fetched from {url}]",
             annotations=annotations,
             tags=tags,
             metadata={
@@ -391,15 +393,17 @@ class RaindropSync(BasePipeline):
         """
         # Use first N chars for title generation
         text_sample = (
-            article_content[:settings.RAINDROP_TITLE_SAMPLE_LENGTH]
+            article_content[: settings.RAINDROP_TITLE_SAMPLE_LENGTH]
             if len(article_content) > settings.RAINDROP_TITLE_SAMPLE_LENGTH
             else article_content
         )
 
         # Build prompt with existing title as context
         context_hint = ""
-        if existing_title and not existing_title.startswith(("http://", "https://", "www.")):
-            context_hint = f"\nThe current title is: \"{existing_title}\" (this may or may not be accurate)"
+        if existing_title and not existing_title.startswith(
+            ("http://", "https://", "www.")
+        ):
+            context_hint = f'\nThe current title is: "{existing_title}" (this may or may not be accurate)'
 
         prompt = f"""Generate a concise, descriptive title for this article.
 The title should:
@@ -436,7 +440,11 @@ Respond with ONLY the title, nothing else."""
         if response:
             # Clean up the response
             title = response.strip().strip('"').strip("'").strip()
-            if settings.RAINDROP_TITLE_MIN_LENGTH <= len(title) <= settings.RAINDROP_TITLE_MAX_LENGTH:
+            if (
+                settings.RAINDROP_TITLE_MIN_LENGTH
+                <= len(title)
+                <= settings.RAINDROP_TITLE_MAX_LENGTH
+            ):
                 return title
 
         return None

@@ -230,10 +230,13 @@ class SpacedRepService:
         fsrs_state = _STATE_MAP.get(db_state, FSRSState.Learning)
 
         # Create FSRS CardState from database card (both use timezone-aware UTC)
+        # For new cards (never reviewed), stability and difficulty should be None
+        # to let FSRS initialize them properly on first review
+        is_new_card = card.last_reviewed is None
         card_state = CardState(
             state=fsrs_state,
-            difficulty=card.difficulty or 0.3,
-            stability=card.stability or 0.0,
+            difficulty=None if is_new_card else (card.difficulty or 0.3),
+            stability=None if is_new_card else (card.stability or 1.0),
             due=card.due_date,
             last_review=card.last_reviewed,
             reps=card.repetitions or 0,
@@ -477,9 +480,7 @@ class SpacedRepService:
             this_week=await self._count_cards_in_date_range(
                 day_after_tomorrow, week_end, conditions
             ),
-            later=await self._count_cards_in_date_range(
-                week_end, None, conditions
-            ),
+            later=await self._count_cards_in_date_range(week_end, None, conditions),
         )
 
     def _to_response(self, card: SpacedRepCard) -> CardResponse:

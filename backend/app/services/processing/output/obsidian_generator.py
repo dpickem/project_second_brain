@@ -35,9 +35,9 @@ from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
 from app.config.settings import TEMPLATES_DIR
 from app.enums.content import AnnotationType
-from app.enums.processing import SummaryLevel
+from app.enums.processing import ConceptImportance, SummaryLevel
 from app.models.content import UnifiedContent
-from app.models.processing import ProcessingResult
+from app.models.processing import Concept, ProcessingResult
 from app.services.obsidian.vault import get_vault_manager
 
 logger = logging.getLogger(__name__)
@@ -270,7 +270,7 @@ async def generate_obsidian_note(
 
         # Return relative path from vault root (what the API expects)
         relative_path = output_path.relative_to(vault.vault_path)
-        
+
         logger.info(f"Generated Obsidian note: {output_path}")
         return str(relative_path)
 
@@ -285,3 +285,172 @@ def _escape_yaml_string(s: str) -> str:
         return ""
     # Escape quotes and ensure it's valid YAML
     return s.replace('"', '\\"').replace("\n", " ")
+
+
+async def generate_concept_note(
+    concept: Concept,
+    source_content: UnifiedContent,
+    result: ProcessingResult,
+) -> Optional[str]:
+    """
+    Generate an Obsidian-compatible markdown note for a concept.
+
+    Creates atomic concept notes that link back to their source content
+    and to related concepts. These notes enable Zettelkasten-style knowledge
+    management where concepts are first-class citizens.
+
+    Args:
+        concept: The extracted concept with all its rich data
+        source_content: The content this concept was extracted from
+        result: Processing result for context (tags, domain, etc.)
+
+    Returns:
+        Path to created note (relative to vault), or None if failed
+    """
+    try:
+        vault = get_vault_manager()
+        env = _get_template_env()
+
+        template_name = _get_template_name("concept")
+        try:
+            template = env.get_template(template_name)
+            logger.debug(f"Using template: {template_name}")
+        except TemplateNotFound:
+            raise FileNotFoundError(
+                f"No template found for concept notes. "
+                f"Expected: config/templates/{template_name}"
+            )
+
+        now = datetime.now()
+
+        # Format examples for template (list of dicts with title/content)
+        examples = [
+            {"title": ex.title or f"Example {i+1}", "content": ex.content}
+            for i, ex in enumerate(concept.examples)
+        ]
+
+        # Format misconceptions for template (list of dicts with wrong/correct)
+        misconceptions = [
+            {"wrong": mis.wrong, "correct": mis.correct}
+            for mis in concept.misconceptions
+        ]
+
+        # Format related concepts for template (list of dicts with name/relationship)
+        related_concepts = [
+            {"name": rel.name, "relationship": rel.relationship}
+            for rel in concept.related_concepts
+        ]
+
+        # Use why_it_matters from concept, or generate a contextual one
+        importance_text = concept.why_it_matters
+        if not importance_text:
+            importance_text = (
+                f"This concept is central to understanding {source_content.title}."
+            )
+
+        # Prepare template data with all rich concept fields
+        data = {
+            "title": _escape_yaml_string(concept.name),
+            "domain": result.analysis.domain or "",
+            "complexity": result.analysis.complexity or "foundational",
+            "tags": result.tags.domain_tags + ["concept"],
+            "created_date": now.strftime("%Y-%m-%d"),
+            "definition": concept.definition,
+            "importance": importance_text,
+            "properties": concept.properties,
+            "examples": examples,
+            "misconceptions": misconceptions,
+            "prerequisites": concept.prerequisites,
+            "related_concepts": related_concepts,
+            "sources": [source_content.title],
+        }
+
+        # Render the note
+        note_content = template.render(**data)
+
+        # Get concepts folder and write note
+        concept_folder = vault.get_concept_folder()
+        output_path = await vault.get_unique_path(concept_folder, concept.name)
+        await vault.write_note(output_path, note_content)
+
+        # Return relative path from vault root
+        relative_path = output_path.relative_to(vault.vault_path)
+        logger.info(f"Generated concept note: {output_path}")
+        return str(relative_path)
+
+    except Exception as e:
+        logger.error(f"Failed to generate concept note for '{concept.name}': {e}")
+        return None
+
+
+async def generate_concept_notes_for_content(
+    content: UnifiedContent,
+    result: ProcessingResult,
+    importance_filter: ConceptImportance = ConceptImportance.CORE,
+) -> list[dict]:
+    """
+    Generate Obsidian notes for all concepts extracted from content.
+
+    Creates individual markdown notes for each concept and returns
+    info needed to update their Neo4j nodes with file paths.
+
+    Args:
+        content: Source content the concepts were extracted from
+        result: Processing result containing extracted concepts
+        importance_filter: Only create notes for concepts at this importance level
+                          or higher. CORE = core only, SUPPORTING = core + supporting,
+                          TANGENTIAL = all concepts
+
+    Returns:
+        List of dicts with concept info:
+            - name: Concept name
+            - id: Concept ID
+            - file_path: Path to created note (relative to vault)
+    """
+    created_concepts = []
+
+    # Filter concepts by importance
+    if importance_filter == ConceptImportance.CORE:
+        concepts = [
+            c
+            for c in result.extraction.concepts
+            if c.importance == ConceptImportance.CORE.value
+        ]
+    elif importance_filter == ConceptImportance.SUPPORTING:
+        concepts = [
+            c
+            for c in result.extraction.concepts
+            if c.importance
+            in (ConceptImportance.CORE.value, ConceptImportance.SUPPORTING.value)
+        ]
+    else:  # TANGENTIAL = all concepts
+        concepts = result.extraction.concepts
+
+    if not concepts:
+        logger.debug(
+            f"No concepts to generate notes for (filter: {importance_filter.value})"
+        )
+        return created_concepts
+
+    for concept in concepts:
+        # Pass the full concept object with all its rich data
+        # The concept already contains related_concepts with relationship types
+        file_path = await generate_concept_note(
+            concept=concept,
+            source_content=content,
+            result=result,
+        )
+
+        if file_path:
+            created_concepts.append(
+                {
+                    "name": concept.name,
+                    "id": concept.id,
+                    "file_path": file_path,
+                }
+            )
+
+    logger.info(
+        f"Generated {len(created_concepts)} concept notes for '{content.title}'"
+    )
+    return created_concepts

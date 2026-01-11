@@ -161,10 +161,18 @@ apiClient.interceptors.response.use(
     return response
   },
   (error) => {
-    const message = error.response?.data?.detail 
+    // Extract error message, handling Pydantic validation errors
+    let message = error.response?.data?.detail 
       || error.response?.data?.message 
       || error.message 
       || 'An unexpected error occurred'
+
+    // Handle Pydantic validation errors (array of {type, loc, msg, input})
+    if (Array.isArray(message)) {
+      message = message.map(err => err.msg || err.message || JSON.stringify(err)).join('; ')
+    } else if (typeof message === 'object' && message !== null) {
+      message = message.msg || message.message || JSON.stringify(message)
+    }
 
     // Handle different error types
     if (error.response) {

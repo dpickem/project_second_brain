@@ -83,12 +83,12 @@ class ErrorResponse(BaseModel):
 class ServiceError(Exception):
     """
     Base exception for service errors.
-    
+
     Provides consistent error handling with:
     - HTTP status code
     - Error code for categorization
     - Optional details for debugging
-    
+
     Example:
         raise ServiceError("Database connection failed", status_code=503)
     """
@@ -115,7 +115,7 @@ class ServiceError(Exception):
 class LLMError(ServiceError):
     """
     LLM provider error.
-    
+
     Raised when LLM API calls fail (rate limits, timeouts, etc.)
     """
 
@@ -126,7 +126,7 @@ class LLMError(ServiceError):
 class GraphQueryError(ServiceError):
     """
     Neo4j query error.
-    
+
     Raised when graph database queries fail.
     """
 
@@ -137,7 +137,7 @@ class GraphQueryError(ServiceError):
 class ValidationError(ServiceError):
     """
     Data validation error.
-    
+
     Raised when input data fails validation.
     """
 
@@ -148,7 +148,7 @@ class ValidationError(ServiceError):
 class NotFoundError(ServiceError):
     """
     Resource not found error.
-    
+
     Raised when a requested resource doesn't exist.
     """
 
@@ -159,7 +159,7 @@ class NotFoundError(ServiceError):
 class RateLimitError(ServiceError):
     """
     Rate limit exceeded error.
-    
+
     Raised when client exceeds rate limits.
     """
 
@@ -170,7 +170,7 @@ class RateLimitError(ServiceError):
 class AuthorizationError(ServiceError):
     """
     Authorization error.
-    
+
     Raised when user lacks permission.
     """
 
@@ -196,7 +196,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, debug: bool = False):
         """
         Initialize middleware.
-        
+
         Args:
             app: FastAPI/Starlette application
             debug: Whether to include stack traces in responses
@@ -279,7 +279,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 def setup_error_handling(app: FastAPI, debug: bool = False) -> None:
     """
     Configure error handling on the FastAPI app.
-    
+
     Args:
         app: FastAPI application instance
         debug: Whether to include stack traces in responses
@@ -301,13 +301,13 @@ def create_error_response(
 ) -> JSONResponse:
     """
     Create a standardized error response.
-    
+
     Args:
         error_code: Error code for categorization
         message: Human-readable error message
         status_code: HTTP status code
         details: Optional additional details
-        
+
     Returns:
         JSONResponse with standardized error format
     """
@@ -323,4 +323,3 @@ def create_error_response(
             "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     )
-

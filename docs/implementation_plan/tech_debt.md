@@ -55,6 +55,70 @@ class MyClass:
 
 ---
 
+#### TD-002: Complete LLM/OCR/VLM usage tracking and persistence
+**Priority**: P1  
+**Status**: Open  
+**Area**: Backend services, LLM integration
+
+**Description**:  
+Ensure ALL external model calls (LLM, OCR, VLM) are consistently tracked via `LLMUsage` and persisted to the database. This enables cost monitoring, usage analytics, and debugging of model interactions.
+
+**Current State**:  
+- `LLMUsage` model exists in `app/models/llm.py`
+- Some pipeline stages return usage data but persistence is inconsistent
+- OCR calls (Mistral) may not be fully tracked
+- VLM (vision-language model) calls need audit
+- Assistant service tracks usage but may not persist all calls
+- No centralized dashboard or API for usage analytics
+
+**Required Work**:
+1. **Audit all model call sites**:
+   - [ ] `backend/app/services/llm/client.py` - Core LLM client
+   - [ ] `backend/app/services/assistant/service.py` - Chat/RAG calls
+   - [ ] `backend/app/services/processing/stages/*.py` - Pipeline stages
+   - [ ] `backend/app/services/learning/card_generator.py` - Card generation
+   - [ ] `backend/app/services/learning/exercise_generator.py` - Exercise generation
+   - [ ] `backend/app/pipelines/*.py` - Ingestion pipelines (OCR, transcription)
+   - [ ] `backend/app/services/learning/evaluator.py` - Answer evaluation
+
+2. **Ensure consistent tracking pattern**:
+   ```python
+   usage = LLMUsage(
+       model=response.model,
+       prompt_tokens=response.usage.prompt_tokens,
+       completion_tokens=response.usage.completion_tokens,
+       total_tokens=response.usage.total_tokens,
+       purpose="card_generation",  # Consistent purpose tags
+       content_id=content.id,      # Link to content when applicable
+   )
+   db.add(usage)
+   await db.commit()
+   ```
+
+3. **Add usage analytics API**:
+   - [ ] `GET /api/analytics/llm-usage` - Usage by model, purpose, time period
+   - [ ] `GET /api/analytics/llm-costs` - Estimated costs based on token counts
+
+4. **Distinguish model types**:
+   - `llm` - Text generation (GPT-4, Claude, etc.)
+   - `ocr` - Document OCR (Mistral pixtral, etc.)
+   - `vlm` - Vision-language (image understanding)
+   - `embedding` - Text embeddings
+   - `transcription` - Audio transcription (Whisper)
+
+**Acceptance Criteria**:
+- Every external model API call creates an `LLMUsage` record
+- Usage records include: model, tokens, purpose, timestamp, content_id (if applicable)
+- Analytics API exposes aggregated usage data
+- Dashboard displays usage trends and estimated costs
+
+**Related**:  
+- `backend/app/models/llm.py` - LLMUsage model
+- `backend/app/db/models_processing.py` - May need schema updates
+- `backend/app/services/llm/client.py` - Primary LLM interface
+
+---
+
 ## Completed Items
 
 _None yet._

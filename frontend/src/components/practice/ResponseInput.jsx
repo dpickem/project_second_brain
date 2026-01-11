@@ -8,17 +8,18 @@ import { useState, useRef, useEffect } from 'react'
 import { clsx } from 'clsx'
 import Editor from '@monaco-editor/react'
 import { Textarea, Button, Spinner } from '../common'
-
-const codeExerciseTypes = ['debugging', 'code_completion', 'implementation']
+import { ExerciseType, isCodeExercise } from '../../constants/enums.generated'
 
 const placeholders = {
-  free_recall: 'Write everything you can recall about this topic...',
-  self_explain: 'Explain the concept in your own words...',
-  teach_back: 'Explain this as if teaching someone new to the topic...',
-  worked_example: 'Work through this problem step by step...',
-  debugging: 'Fix the code and explain your changes...',
-  code_completion: 'Complete the code implementation...',
-  implementation: 'Write your implementation here...',
+  [ExerciseType.FREE_RECALL]: 'Write everything you can recall about this topic...',
+  [ExerciseType.SELF_EXPLAIN]: 'Explain the concept in your own words...',
+  [ExerciseType.TEACH_BACK]: 'Explain this as if teaching someone new to the topic...',
+  [ExerciseType.WORKED_EXAMPLE]: 'Work through this problem step by step...',
+  [ExerciseType.CODE_DEBUG]: 'Fix the code and explain your changes...',
+  [ExerciseType.CODE_COMPLETE]: 'Complete the code implementation...',
+  [ExerciseType.CODE_IMPLEMENT]: 'Write your implementation here...',
+  [ExerciseType.CODE_REFACTOR]: 'Refactor this code to improve it...',
+  [ExerciseType.CODE_EXPLAIN]: 'Explain what this code does...',
 }
 
 export function ResponseInput({
@@ -32,13 +33,14 @@ export function ResponseInput({
   disabled = false,
   className,
 }) {
-  const [localValue, setLocalValue] = useState(value || initialCode)
+  // Ensure we always have a string, never null/undefined
+  const [localValue, setLocalValue] = useState(value || initialCode || '')
   const textareaRef = useRef(null)
-  const isCodeExercise = codeExerciseTypes.includes(exerciseType)
+  const isCode = isCodeExercise(exerciseType)
 
   // Sync with external value
   useEffect(() => {
-    setLocalValue(value || initialCode)
+    setLocalValue(value || initialCode || '')
   }, [value, initialCode])
 
   const handleChange = (newValue) => {
@@ -48,7 +50,7 @@ export function ResponseInput({
 
   const handleKeyDown = (e) => {
     // Submit on Cmd/Ctrl + Enter
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && localValue.trim()) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && (localValue || '').trim()) {
       e.preventDefault()
       onSubmit?.(localValue)
     }
@@ -58,7 +60,7 @@ export function ResponseInput({
 
   return (
     <div className={clsx('space-y-4', className)}>
-      {isCodeExercise ? (
+      {isCode ? (
         <CodeEditor
           language={language}
           value={localValue}
@@ -83,8 +85,8 @@ export function ResponseInput({
       <div className="flex items-center justify-between">
         {/* Character count / hints */}
         <div className="flex items-center gap-4 text-sm text-text-muted">
-          {!isCodeExercise && (
-            <span>{localValue.length} characters</span>
+          {!isCode && (
+            <span>{(localValue || '').length} characters</span>
           )}
           <span className="flex items-center gap-1">
             <kbd className="px-1.5 py-0.5 bg-slate-700 rounded text-xs">
@@ -99,7 +101,7 @@ export function ResponseInput({
         {/* Submit button */}
         <Button
           onClick={() => onSubmit?.(localValue)}
-          disabled={!localValue.trim() || isSubmitting}
+          disabled={!(localValue || '').trim() || isSubmitting}
           loading={isSubmitting}
         >
           Submit Answer

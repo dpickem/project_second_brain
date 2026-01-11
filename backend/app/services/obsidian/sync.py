@@ -472,7 +472,7 @@ class VaultSyncService:
                     file_path = str(note_path.relative_to(vault.vault_path))
                 except ValueError:
                     file_path = str(note_path)
-                
+
                 await self._update_neo4j_node(
                     node_id=node_id,
                     title=title,

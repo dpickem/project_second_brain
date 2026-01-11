@@ -33,7 +33,7 @@
  * @see reviewApi - For spaced repetition of AI-suggested content
  */
 
-import { apiClient } from './client'
+import { typedApi } from './typed-client'
 
 export const assistantApi = {
   /**
@@ -43,10 +43,9 @@ export const assistantApi = {
    * @param {string} [model] - Preferred model (not currently used by backend)
    * @returns {Promise<{content: string, sources?: Array}>} Response with content and sources
    */
-  chat: async (message, messages = [], model = null) => {
-    const response = await apiClient.post('/api/assistant/chat', {
-      message,
-      // conversation_id could be tracked in state if needed
+  chat: async (message, _messages = [], _model = null) => {
+    const response = await typedApi.POST('/api/assistant/chat', {
+      body: { message }
     })
     // Transform backend response format to match frontend expectations
     return {
@@ -63,9 +62,11 @@ export const assistantApi = {
    * @returns {Promise<{conversation_id: string, response: string, sources?: Array<{id: string, title: string, relevance: number}>}>} Assistant response with optional source references
    */
   sendMessage: ({ conversationId, message }) => 
-    apiClient.post('/api/assistant/chat', {
-      conversation_id: conversationId,
-      message,
+    typedApi.POST('/api/assistant/chat', {
+      body: {
+        conversation_id: conversationId,
+        message,
+      }
     }).then(r => r.data),
 
   /**
@@ -76,8 +77,8 @@ export const assistantApi = {
    * @returns {Promise<{conversations: Array<{id: string, title: string, created_at: string, updated_at: string, message_count: number}>, total: number}>} List of conversations
    */
   getConversations: ({ limit = 20, offset = 0 } = {}) => 
-    apiClient.get('/api/assistant/conversations', { 
-      params: { limit, offset } 
+    typedApi.GET('/api/assistant/conversations', { 
+      params: { query: { limit, offset } } 
     }).then(r => r.data),
 
   /**
@@ -86,7 +87,9 @@ export const assistantApi = {
    * @returns {Promise<{id: string, title: string, created_at: string, messages: Array<{id: string, role: 'user'|'assistant', content: string, timestamp: string}>}>} Full conversation with messages
    */
   getConversation: (conversationId) => 
-    apiClient.get(`/api/assistant/conversations/${conversationId}`).then(r => r.data),
+    typedApi.GET('/api/assistant/conversations/{conversation_id}', {
+      params: { path: { conversation_id: conversationId } }
+    }).then(r => r.data),
 
   /**
    * Delete a conversation and all its messages
@@ -94,14 +97,16 @@ export const assistantApi = {
    * @returns {Promise<{success: boolean, deleted_id: string}>} Deletion confirmation
    */
   deleteConversation: (conversationId) => 
-    apiClient.delete(`/api/assistant/conversations/${conversationId}`).then(r => r.data),
+    typedApi.DELETE('/api/assistant/conversations/{conversation_id}', {
+      params: { path: { conversation_id: conversationId } }
+    }).then(r => r.data),
 
   /**
    * Get AI-generated prompt suggestions based on current knowledge base
    * @returns {Promise<{suggestions: Array<{text: string, category: string, topic_id?: string}>}>} List of suggested prompts
    */
   getSuggestions: () => 
-    apiClient.get('/api/assistant/suggestions').then(r => r.data),
+    typedApi.GET('/api/assistant/suggestions').then(r => r.data),
 
   /**
    * Search knowledge base for content relevant to a query
@@ -109,8 +114,8 @@ export const assistantApi = {
    * @returns {Promise<{results: Array<{id: string, title: string, snippet: string, score: number, type: string}>}>} Search results with relevance scores
    */
   searchKnowledge: (query) => 
-    apiClient.get('/api/assistant/search', { 
-      params: { q: query } 
+    typedApi.GET('/api/assistant/search', { 
+      params: { query: { q: query } } 
     }).then(r => r.data),
 
   /**
@@ -118,7 +123,7 @@ export const assistantApi = {
    * @returns {Promise<{recommendations: Array<{topic_id: string, topic_name: string, reason: string, priority: 'high'|'medium'|'low'}>}>} Prioritized study recommendations
    */
   getRecommendations: () => 
-    apiClient.get('/api/assistant/recommendations').then(r => r.data),
+    typedApi.GET('/api/assistant/recommendations').then(r => r.data),
 
   /**
    * Generate a quiz on a specific topic
@@ -128,9 +133,11 @@ export const assistantApi = {
    * @returns {Promise<{quiz_id: string, topic: string, questions: Array<{id: string, question: string, options?: Array<string>, type: 'multiple_choice'|'free_response'}>}>} Generated quiz
    */
   generateQuiz: ({ topicId, count = 5 }) => 
-    apiClient.post('/api/assistant/quiz', {
-      topic_id: topicId,
-      question_count: count,
+    typedApi.POST('/api/assistant/quiz', {
+      body: {
+        topic_id: topicId,
+        question_count: count,
+      }
     }).then(r => r.data),
 
   /**
@@ -140,8 +147,8 @@ export const assistantApi = {
    * @returns {Promise<{concept: string, explanation: string, examples?: Array<string>, related_concepts?: Array<{id: string, name: string}>}>} Concept explanation
    */
   explainConcept: (conceptId, style = 'detailed') => 
-    apiClient.get(`/api/assistant/explain/${conceptId}`, {
-      params: { style },
+    typedApi.GET('/api/assistant/explain/{concept_id}', {
+      params: { path: { concept_id: conceptId }, query: { style } },
     }).then(r => r.data),
 
   /**
@@ -151,9 +158,11 @@ export const assistantApi = {
    */
   clearHistory: (conversationId) => {
     if (conversationId) {
-      return apiClient.delete(`/api/assistant/conversations/${conversationId}/messages`).then(r => r.data)
+      return typedApi.DELETE('/api/assistant/conversations/{conversation_id}/messages', {
+        params: { path: { conversation_id: conversationId } }
+      }).then(r => r.data)
     }
-    return apiClient.delete('/api/assistant/conversations').then(r => r.data)
+    return typedApi.DELETE('/api/assistant/conversations').then(r => r.data)
   },
 
   /**
@@ -163,8 +172,9 @@ export const assistantApi = {
    * @returns {Promise<{id: string, title: string, updated_at: string}>} Updated conversation metadata
    */
   renameConversation: (conversationId, title) => 
-    apiClient.patch(`/api/assistant/conversations/${conversationId}`, {
-      title,
+    typedApi.PATCH('/api/assistant/conversations/{conversation_id}', {
+      params: { path: { conversation_id: conversationId } },
+      body: { title },
     }).then(r => r.data),
 }
 

@@ -11,15 +11,20 @@ import ReactMarkdown from 'react-markdown'
 import { ChevronDownIcon, LightBulbIcon } from '@heroicons/react/24/outline'
 import { Badge, DifficultyBadge, Card } from '../common'
 import { fadeInUp } from '../../utils/animations'
+import { ExerciseType } from '../../constants/enums.generated'
 
 const exerciseTypeConfig = {
-  free_recall: { label: 'Free Recall', icon: '🧠', color: 'primary' },
-  self_explain: { label: 'Self Explain', icon: '💭', color: 'info' },
-  worked_example: { label: 'Worked Example', icon: '📝', color: 'success' },
-  debugging: { label: 'Debugging', icon: '🐛', color: 'warning' },
-  code_completion: { label: 'Code Completion', icon: '⌨️', color: 'primary' },
-  implementation: { label: 'Implementation', icon: '🔧', color: 'danger' },
-  teach_back: { label: 'Teach Back', icon: '🎓', color: 'secondary' },
+  [ExerciseType.FREE_RECALL]: { label: 'Free Recall', icon: '🧠', color: 'primary' },
+  [ExerciseType.SELF_EXPLAIN]: { label: 'Self Explain', icon: '💭', color: 'info' },
+  [ExerciseType.WORKED_EXAMPLE]: { label: 'Worked Example', icon: '📝', color: 'success' },
+  [ExerciseType.CODE_DEBUG]: { label: 'Debug Code', icon: '🐛', color: 'warning' },
+  [ExerciseType.CODE_COMPLETE]: { label: 'Code Completion', icon: '⌨️', color: 'primary' },
+  [ExerciseType.CODE_IMPLEMENT]: { label: 'Implementation', icon: '🔧', color: 'danger' },
+  [ExerciseType.CODE_REFACTOR]: { label: 'Refactor Code', icon: '♻️', color: 'info' },
+  [ExerciseType.CODE_EXPLAIN]: { label: 'Explain Code', icon: '📖', color: 'info' },
+  [ExerciseType.TEACH_BACK]: { label: 'Teach Back', icon: '🎓', color: 'secondary' },
+  [ExerciseType.APPLICATION]: { label: 'Application', icon: '🎯', color: 'primary' },
+  [ExerciseType.COMPARE_CONTRAST]: { label: 'Compare & Contrast', icon: '⚖️', color: 'info' },
 }
 
 export function ExerciseCard({
@@ -38,6 +43,10 @@ export function ExerciseCard({
   }
 
   const hasContext = exercise.context || exercise.code_snippet
+  const hasWorkedExample = exercise.worked_example
+  const hasFollowUp = exercise.follow_up_problem
+  const hasStarterCode = exercise.starter_code
+  const hasBuggyCode = exercise.buggy_code
   const hasHints = showHints && exercise.hints && exercise.hints.length > 0
 
   const revealHint = () => {
@@ -63,9 +72,9 @@ export function ExerciseCard({
               <Badge variant={typeConfig.color} size="sm">
                 {typeConfig.label}
               </Badge>
-              {exercise.topic_path && (
+              {(exercise.topic_path || exercise.topic) && (
                 <p className="text-xs text-text-muted mt-1">
-                  {exercise.topic_path}
+                  {exercise.topic_path || exercise.topic}
                 </p>
               )}
             </div>
@@ -80,6 +89,68 @@ export function ExerciseCard({
         <div className="prose prose-invert prose-sm max-w-none">
           <ReactMarkdown>{exercise.prompt}</ReactMarkdown>
         </div>
+
+        {/* Worked Example (for worked_example type) */}
+        {hasWorkedExample && (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 space-y-3">
+            <h4 className="text-sm font-semibold text-emerald-400 flex items-center gap-2">
+              <span>📖</span> Worked Example
+            </h4>
+            <div className="prose prose-invert prose-sm max-w-none text-emerald-100/90">
+              <ReactMarkdown>{exercise.worked_example}</ReactMarkdown>
+            </div>
+          </div>
+        )}
+
+        {/* Follow-up Problem (for worked_example type) */}
+        {hasFollowUp && (
+          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-4 space-y-3">
+            <h4 className="text-sm font-semibold text-indigo-400 flex items-center gap-2">
+              <span>✏️</span> Now Try This
+            </h4>
+            <div className="prose prose-invert prose-sm max-w-none text-indigo-100/90">
+              <ReactMarkdown>{exercise.follow_up_problem}</ReactMarkdown>
+            </div>
+          </div>
+        )}
+
+        {/* Starter Code (for code exercises) */}
+        {hasStarterCode && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-text-secondary flex items-center gap-2">
+              <span>💻</span> Starter Code
+              {exercise.language && (
+                <span className="text-xs text-text-muted bg-slate-700 px-2 py-0.5 rounded">
+                  {exercise.language}
+                </span>
+              )}
+            </h4>
+            <pre className="bg-slate-800/80 rounded-lg p-4 overflow-x-auto text-sm">
+              <code className="text-slate-300 font-mono whitespace-pre-wrap">
+                {exercise.starter_code}
+              </code>
+            </pre>
+          </div>
+        )}
+
+        {/* Buggy Code (for debug exercises) */}
+        {hasBuggyCode && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-amber-400 flex items-center gap-2">
+              <span>🐛</span> Code to Debug
+              {exercise.language && (
+                <span className="text-xs text-text-muted bg-slate-700 px-2 py-0.5 rounded">
+                  {exercise.language}
+                </span>
+              )}
+            </h4>
+            <pre className="bg-amber-900/20 border border-amber-500/20 rounded-lg p-4 overflow-x-auto text-sm">
+              <code className="text-slate-300 font-mono whitespace-pre-wrap">
+                {exercise.buggy_code}
+              </code>
+            </pre>
+          </div>
+        )}
 
         {/* Context/Code Snippet */}
         {hasContext && (

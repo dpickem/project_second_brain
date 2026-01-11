@@ -99,7 +99,9 @@ class ProcessingRun(Base):
     status: Mapped[str] = mapped_column(
         String(20), default="pending", index=True
     )  # pending, processing, completed, failed
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     # Analysis results (stored as JSON for flexibility)
@@ -283,7 +285,9 @@ class QuestionRecord(Base):
     ease_factor: Mapped[float] = mapped_column(Float, default=2.5)
 
     # Timestamps (timezone-aware UTC)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
 
     # Relationship
     processing_run: Mapped["ProcessingRun"] = relationship(back_populates="questions")
@@ -335,7 +339,9 @@ class FollowupRecord(Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     # Timestamps (timezone-aware UTC)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
 
     # Relationship
     processing_run: Mapped["ProcessingRun"] = relationship(back_populates="followups")

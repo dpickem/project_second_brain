@@ -15,6 +15,10 @@ Usage:
         ChatResponse,
         ConversationListResponse,
     )
+
+API Contract:
+    Request models use StrictRequest (extra="forbid") to reject unknown fields.
+    This catches frontend/backend mismatches early with clear 422 errors.
 """
 
 from datetime import datetime
@@ -22,19 +26,23 @@ from typing import Optional, Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.base import StrictRequest, StrictResponse
+
 
 # =============================================================================
 # Chat Models
 # =============================================================================
 
 
-class ChatRequest(BaseModel):
+class ChatRequest(StrictRequest):
     """
     Request to send a message to the AI assistant.
 
     Attributes:
         conversation_id: Existing conversation ID (null to start new conversation)
         message: User message content
+
+    Note: Uses StrictRequest - unknown fields will be rejected with 422.
     """
 
     conversation_id: Optional[str] = Field(
@@ -144,12 +152,14 @@ class ConversationDetail(BaseModel):
     messages: list[MessageInfo]
 
 
-class ConversationUpdateRequest(BaseModel):
+class ConversationUpdateRequest(StrictRequest):
     """
     Request to update conversation metadata.
 
     Attributes:
         title: New title for the conversation
+
+    Note: Uses StrictRequest - unknown fields will be rejected with 422.
     """
 
     title: str = Field(..., min_length=1, max_length=200)
@@ -289,13 +299,15 @@ class RecommendationsResponse(BaseModel):
 # =============================================================================
 
 
-class QuizRequest(BaseModel):
+class QuizRequest(StrictRequest):
     """
     Request to generate a quiz.
 
     Attributes:
         topic_id: Topic ID to generate quiz for
         question_count: Number of questions to generate
+
+    Note: Uses StrictRequest - unknown fields will be rejected with 422.
     """
 
     topic_id: str

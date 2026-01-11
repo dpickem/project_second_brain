@@ -197,8 +197,8 @@ class TestCodeSandbox:
         sandbox = CodeSandbox(enabled=False)
         wrapper = sandbox._create_test_wrapper(
             code="def solution(x): return x",
-            test_input='[1, 2, 3]',
-            expected_output='[1, 2, 3]',
+            test_input="[1, 2, 3]",
+            expected_output="[1, 2, 3]",
             language="python",
         )
 
@@ -325,4 +325,3 @@ class TestCodeSandboxIntegration:
         assert not results[0].passed
         assert results[0].actual == "6"
         assert results[0].expected == "10"
-

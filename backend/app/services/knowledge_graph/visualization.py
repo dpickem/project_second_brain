@@ -284,13 +284,15 @@ class KnowledgeVisualizationService:
         for n in raw_nodes:
             if not n or not n.get("id"):
                 continue
-            nodes.append({
-                "id": n["id"],
-                "label": n.get("label", n["id"]),
-                "type": n.get("type", "Unknown"),
-                "content_type": n.get("content_type"),
-                "metadata": {"tags": n.get("tags", [])},
-            })
+            nodes.append(
+                {
+                    "id": n["id"],
+                    "label": n.get("label", n["id"]),
+                    "type": n.get("type", "Unknown"),
+                    "content_type": n.get("content_type"),
+                    "metadata": {"tags": n.get("tags", [])},
+                }
+            )
         return nodes
 
     def _transform_edges(
@@ -317,12 +319,14 @@ class KnowledgeVisualizationService:
             if e["source"] not in valid_node_ids or e["target"] not in valid_node_ids:
                 continue
 
-            edges.append({
-                "source": e["source"],
-                "target": e["target"],
-                "type": e.get("type", "RELATED"),
-                "strength": e.get("strength", 1.0),
-            })
+            edges.append(
+                {
+                    "source": e["source"],
+                    "target": e["target"],
+                    "type": e.get("type", "RELATED"),
+                    "strength": e.get("strength", 1.0),
+                }
+            )
         return edges
 
     # =========================================================================

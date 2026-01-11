@@ -28,7 +28,9 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), primary_key=True),
         # What was being learned
         sa.Column("topic", sa.String(200), nullable=True, index=True),
-        sa.Column("content_id", sa.Integer(), sa.ForeignKey("content.id"), nullable=True),
+        sa.Column(
+            "content_id", sa.Integer(), sa.ForeignKey("content.id"), nullable=True
+        ),
         # Activity type: review, practice, reading, exercise
         sa.Column("activity_type", sa.String(50), nullable=False, index=True),
         # Time tracking
@@ -68,4 +70,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_learning_time_logs_started_at")
     op.drop_table("learning_time_logs")
-

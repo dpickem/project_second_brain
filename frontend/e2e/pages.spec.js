@@ -67,7 +67,7 @@ test.describe('Page Navigation', () => {
     await page.waitForLoadState('networkidle')
 
     // Navigate to each page via sidebar links
-    for (const { path, name } of pages) {
+    for (const { path } of pages) {
       if (path === '/') continue // Already on dashboard
 
       const link = page.locator(`nav a[href="${path}"]`)

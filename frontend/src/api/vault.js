@@ -33,7 +33,7 @@
  * @see knowledgeApi - For graph-based queries and relationship exploration
  */
 
-import { apiClient } from './client'
+import { typedApi } from './typed-client'
 
 export const vaultApi = {
   /**
@@ -41,7 +41,7 @@ export const vaultApi = {
    * @returns {Promise<{status: 'healthy'|'unhealthy', note_count: number, folder_count: number, last_sync?: string, vault_path: string}>} Vault health status and statistics
    */
   getStatus: () => 
-    apiClient.get('/api/vault/status').then(r => r.data),
+    typedApi.GET('/api/vault/status').then(r => r.data),
 
   /**
    * List notes in the vault with filtering and pagination
@@ -77,7 +77,9 @@ export const vaultApi = {
     if (tag) params.tag = tag
     if (contentType) params.content_type = contentType
     
-    return apiClient.get('/api/vault/notes', { params }).then(r => r.data)
+    return typedApi.GET('/api/vault/notes', { 
+      params: { query: params } 
+    }).then(r => r.data)
   },
 
   /**
@@ -86,28 +88,30 @@ export const vaultApi = {
    * @returns {Promise<{path: string, title: string, content: string, frontmatter: Object, modified: string, created: string, tags: Array<string>, links: Array<{target: string, display?: string}>}>} Full note content with metadata
    */
   getNoteContent: (notePath) => 
-    apiClient.get(`/api/vault/notes/${notePath}`).then(r => r.data),
+    typedApi.GET('/api/vault/notes/{note_path}', {
+      params: { path: { note_path: notePath } }
+    }).then(r => r.data),
 
   /**
    * List content type folders in the vault
    * @returns {Promise<{folders: Array<{type: string, folder: string, exists: boolean, icon: string, note_count: number}>}>} List of vault folders with metadata
    */
   getFolders: () => 
-    apiClient.get('/api/vault/folders').then(r => r.data),
+    typedApi.GET('/api/vault/folders').then(r => r.data),
 
   /**
    * Trigger full vault sync to Neo4j knowledge graph
    * @returns {Promise<{status: 'started'|'already_running', job_id?: string, message: string}>} Sync job status
    */
   syncVault: () => 
-    apiClient.post('/api/vault/sync').then(r => r.data),
+    typedApi.POST('/api/vault/sync').then(r => r.data),
 
   /**
    * Get current vault sync status
    * @returns {Promise<{status: 'idle'|'running'|'completed'|'failed', last_sync?: string, notes_synced?: number, errors?: Array<string>, progress?: number}>} Current sync status
    */
   getSyncStatus: () => 
-    apiClient.get('/api/vault/sync/status').then(r => r.data),
+    typedApi.GET('/api/vault/sync/status').then(r => r.data),
 
   /**
    * Search notes by query (convenience wrapper around getNotes)
@@ -118,16 +122,18 @@ export const vaultApi = {
    */
   search: (query, options = {}) => {
     const { limit = 10, ...rest } = options
-    return apiClient.get('/api/vault/notes', { 
+    return typedApi.GET('/api/vault/notes', { 
       params: { 
-        search: query,
-        page_size: limit,
-        ...rest 
+        query: { 
+          search: query,
+          page_size: limit,
+          ...rest 
+        } 
       } 
     }).then(r => ({
       // Transform response to match expected format
-      results: r.data.notes || [],
-      total: r.data.total || 0,
+      results: r.data?.notes || [],
+      total: r.data?.total || 0,
     }))
   },
 
@@ -136,7 +142,7 @@ export const vaultApi = {
    * @returns {Promise<{tags: Array<{name: string, count: number}>}>} Tags with occurrence counts
    */
   getTags: () => 
-    apiClient.get('/api/vault/tags').then(r => r.data),
+    typedApi.GET('/api/vault/tags').then(r => r.data),
 }
 
 /**

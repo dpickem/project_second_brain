@@ -65,6 +65,7 @@ const colorClasses = {
 export function RatingButtons({
   onRate,
   predictedIntervals = {},
+  suggestedRating = null,
   isLoading = false,
   disabled = false,
   showShortcuts = true,
@@ -87,15 +88,18 @@ export function RatingButtons({
       className={clsx('space-y-4', className)}
     >
       {/* Label */}
-      <p className="text-sm text-text-secondary text-center">
-        How well did you remember?
-      </p>
+      {!suggestedRating && (
+        <p className="text-sm text-text-secondary text-center">
+          How well did you remember?
+        </p>
+      )}
 
       {/* Rating buttons */}
       <div className="grid grid-cols-4 gap-3">
         {ratings.map((rating, index) => {
           const colors = colorClasses[rating.color]
           const interval = predictedIntervals[rating.value]
+          const isSuggested = suggestedRating === rating.value
 
           return (
             <motion.button
@@ -107,7 +111,7 @@ export function RatingButtons({
               onClick={() => onRate?.(rating.value)}
               disabled={disabled || isLoading}
               className={clsx(
-                'flex flex-col items-center p-4 rounded-xl border transition-all',
+                'relative flex flex-col items-center p-4 rounded-xl border transition-all',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
                 'focus-visible:ring-offset-bg-primary',
                 disabled ? 'opacity-50 cursor-not-allowed' : colors.base,
@@ -115,8 +119,21 @@ export function RatingButtons({
                 rating.color === 'amber' && 'focus-visible:ring-amber-500',
                 rating.color === 'indigo' && 'focus-visible:ring-indigo-500',
                 rating.color === 'emerald' && 'focus-visible:ring-emerald-500',
+                // Highlight suggested rating
+                isSuggested && 'ring-2 ring-offset-2 ring-offset-bg-primary',
+                isSuggested && rating.color === 'red' && 'ring-red-500',
+                isSuggested && rating.color === 'amber' && 'ring-amber-500',
+                isSuggested && rating.color === 'indigo' && 'ring-indigo-500',
+                isSuggested && rating.color === 'emerald' && 'ring-emerald-500',
               )}
             >
+              {/* Suggested badge */}
+              {isSuggested && (
+                <span className="absolute -top-2 -right-2 px-2 py-0.5 text-[10px] font-medium bg-accent-primary text-white rounded-full">
+                  AI
+                </span>
+              )}
+              
               {/* Label */}
               <span className={clsx('text-sm font-medium', colors.text)}>
                 {rating.label}
@@ -142,7 +159,8 @@ export function RatingButtons({
 
       {/* Help text */}
       <p className="text-xs text-text-muted text-center">
-        Press <kbd className="px-1 bg-slate-700 rounded">1</kbd>-<kbd className="px-1 bg-slate-700 rounded">4</kbd> to rate quickly
+        Press <kbd className="px-1 bg-slate-700 rounded">1</kbd>-<kbd className="px-1 bg-slate-700 rounded">4</kbd> to rate
+        {suggestedRating && ' • You can override the AI suggestion'}
       </p>
     </motion.div>
   )

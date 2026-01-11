@@ -49,6 +49,8 @@ from app.enums.learning import (
     ExerciseDifficulty,
     MasteryTrend,
     SessionType,
+    SessionContentMode,
+    ContentSourcePreference,
     CodeLanguage,
 )
 from app.enums.knowledge import (
@@ -92,6 +94,8 @@ __all__ = [
     "ExerciseDifficulty",
     "MasteryTrend",
     "SessionType",
+    "SessionContentMode",
+    "ContentSourcePreference",
     "CodeLanguage",
     # Knowledge graph enums
     "GraphConnectionType",

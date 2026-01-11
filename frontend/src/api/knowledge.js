@@ -27,7 +27,7 @@
  * @see vaultApi - For direct Obsidian vault file operations
  */
 
-import { apiClient } from './client'
+import { typedApi } from './typed-client'
 
 export const knowledgeApi = {
   /**
@@ -40,14 +40,14 @@ export const knowledgeApi = {
    * @returns {Promise<{nodes: Array<{id: string, label: string, type: string}>, edges: Array<{source: string, target: string, type: string}>}>} Graph data with nodes and edges
    */
   getGraph: (params) => 
-    apiClient.get('/api/knowledge/graph', { params }).then(r => r.data),
+    typedApi.GET('/api/knowledge/graph', { params: { query: params } }).then(r => r.data),
 
   /**
    * Fetch graph statistics
    * @returns {Promise<{node_count: number, edge_count: number, node_types: Object<string, number>, edge_types: Object<string, number>}>} Statistics about the knowledge graph
    */
   getStats: () => 
-    apiClient.get('/api/knowledge/stats').then(r => r.data),
+    typedApi.GET('/api/knowledge/stats').then(r => r.data),
 
   /**
    * Fetch details for a specific node
@@ -55,27 +55,29 @@ export const knowledgeApi = {
    * @returns {Promise<{id: string, label: string, type: string, properties: Object, connections: Array}>} Node details with properties and connections
    */
   getNode: (nodeId) => 
-    apiClient.get(`/api/knowledge/node/${nodeId}`).then(r => r.data),
+    typedApi.GET('/api/knowledge/node/{node_id}', { 
+      params: { path: { node_id: nodeId } } 
+    }).then(r => r.data),
 
   /**
    * Check knowledge graph health
    * @returns {Promise<{status: string, connected: boolean, message?: string}>} Health status of the knowledge graph service
    */
   checkHealth: () => 
-    apiClient.get('/api/knowledge/health').then(r => r.data),
+    typedApi.GET('/api/knowledge/health').then(r => r.data),
 
   /**
-   * Search nodes by query
-   * @param {string} query - Search query string
-   * @param {Object} [options] - Search options
-   * @param {number} [options.limit] - Maximum number of results to return
-   * @param {string} [options.type] - Filter results by node type
+   * Search nodes by query (semantic search)
+   * @param {Object} body - Search parameters
+   * @param {string} body.query - Search query string
+   * @param {number} [body.limit] - Maximum number of results to return
+   * @param {string[]} [body.node_types] - Node types to search
+   * @param {number} [body.min_score] - Minimum relevance score
+   * @param {boolean} [body.use_vector] - Use vector search
    * @returns {Promise<{results: Array<{id: string, label: string, type: string, score: number}>}>} Search results with relevance scores
    */
-  search: (query, options = {}) => 
-    apiClient.get('/api/knowledge/search', { 
-      params: { q: query, ...options } 
-    }).then(r => r.data),
+  search: (body) => 
+    typedApi.POST('/api/knowledge/search', { body }).then(r => r.data),
 
   /**
    * Get related concepts for a node
@@ -84,16 +86,31 @@ export const knowledgeApi = {
    * @returns {Promise<{related: Array<{id: string, label: string, type: string, relationship: string}>}>} Related nodes with relationship types
    */
   getRelated: (nodeId, limit = 10) => 
-    apiClient.get(`/api/knowledge/node/${nodeId}/related`, { 
-      params: { limit } 
+    typedApi.GET('/api/knowledge/node/{node_id}/related', { 
+      params: { path: { node_id: nodeId }, query: { limit } } 
+    }).then(r => r.data),
+
+  /**
+   * Get connections for a node
+   * @param {string} nodeId - The node's unique identifier
+   * @param {Object} [params] - Query parameters
+   * @param {string} [params.direction] - 'incoming', 'outgoing', or 'both'
+   * @param {number} [params.limit] - Maximum connections per direction
+   * @returns {Promise<{incoming: Array, outgoing: Array, total: number}>} Node connections
+   */
+  getConnections: (nodeId, params = {}) =>
+    typedApi.GET('/api/knowledge/connections/{node_id}', {
+      params: { path: { node_id: nodeId }, query: params }
     }).then(r => r.data),
 
   /**
    * Get topic hierarchy
+   * @param {Object} [params] - Query parameters
+   * @param {number} [params.min_content] - Min content count to include
    * @returns {Promise<{topics: Array<{id: string, name: string, parent_id?: string, children?: Array}>}>} Hierarchical topic structure
    */
-  getTopics: () => 
-    apiClient.get('/api/knowledge/topics').then(r => r.data),
+  getTopics: (params = {}) => 
+    typedApi.GET('/api/knowledge/topics', { params: { query: params } }).then(r => r.data),
 
   /**
    * Get mastery data for topics
@@ -101,10 +118,12 @@ export const knowledgeApi = {
    * @returns {Promise<{mastery: number, total_cards: number, mastered_cards: number, topics?: Array<{id: string, name: string, mastery: number}>}>} Mastery statistics for topic(s)
    */
   getMastery: (topicId) => {
-    const path = topicId 
-      ? `/api/knowledge/mastery/${topicId}` 
-      : '/api/knowledge/mastery'
-    return apiClient.get(path).then(r => r.data)
+    if (topicId) {
+      return typedApi.GET('/api/knowledge/mastery/{topic_id}', {
+        params: { path: { topic_id: topicId } }
+      }).then(r => r.data)
+    }
+    return typedApi.GET('/api/knowledge/mastery').then(r => r.data)
   },
 }
 

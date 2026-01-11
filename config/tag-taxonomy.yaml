@@ -1,16 +1,38 @@
 # config/tag-taxonomy.yaml
 #
-# PURPOSE: Single source of truth for the tag taxonomy
+# PURPOSE: Curated baseline taxonomy for the Second Brain system
 #
-# This file defines all valid tags in the Second Brain system.
+# This file defines the PREDEFINED tags in the Second Brain system.
 # The meta/tag-taxonomy.md file in the vault is AUTO-GENERATED from this.
+#
+# =============================================================================
+# ARCHITECTURE: Two-Tier Tag System
+# =============================================================================
+#
+# This YAML file is the CURATED BASELINE - a versioned, hand-picked taxonomy.
+# The database Tag table is the LIVE STATE - includes YAML tags + auto-created.
+#
+# Flow:
+#   1. YAML → DB: TagService.sync_taxonomy_to_db() syncs predefined tags
+#   2. Auto-create: When exercises are generated for topics from the knowledge
+#      graph, missing tags are auto-created in the DB (not in this file)
+#   3. No DB → YAML: Auto-created tags stay in DB only, keeping this file clean
+#
+# Why this design?
+#   - This file stays curated and version-controlled
+#   - Users can add content on any topic; tags are created automatically
+#   - The knowledge graph drives topic discovery, not this static file
+#   - To see all tags (including auto-created): query the database Tag table
+#
+# =============================================================================
 #
 # TAG HIERARCHY: domain/category/topic (up to 3 levels)
 #
-# TO ADD NEW TAGS:
+# TO ADD PREDEFINED TAGS:
 # 1. Edit this file
 # 2. Run: python scripts/setup/setup_vault.py --regenerate-taxonomy
 # 3. The vault's meta/tag-taxonomy.md will be updated
+# 4. Run TagService.sync_taxonomy_to_db() to sync to database
 
 # =============================================================================
 # DOMAIN TAGS (Technical & Professional)

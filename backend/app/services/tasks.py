@@ -103,7 +103,12 @@ from app.db.models import ContentStatus
 from app.enums import ProcessingRunStatus
 from app.services.obsidian.sync import VaultSyncService
 from app.services.queue import celery_app
-from app.services.storage import load_content, save_content, update_content, update_status
+from app.services.storage import (
+    load_content,
+    save_content,
+    update_content,
+    update_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -470,7 +475,9 @@ def _sync_raindrop_impl(since_dt: datetime, limit: Optional[int] = None) -> list
 
 
 @celery_app.task(name="app.services.tasks.sync_raindrop")
-def sync_raindrop(since: Optional[str] = None, limit: Optional[int] = None) -> dict[str, Any]:
+def sync_raindrop(
+    since: Optional[str] = None, limit: Optional[int] = None
+) -> dict[str, Any]:
     """
     Sync bookmarks from Raindrop.io.
 

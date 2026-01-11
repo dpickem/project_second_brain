@@ -33,7 +33,7 @@
  * @see knowledgeApi - To explore knowledge graph connections
  */
 
-import { apiClient } from './client'
+import { typedApi } from './typed-client'
 
 export const captureApi = {
   /**
@@ -45,10 +45,12 @@ export const captureApi = {
    * @returns {Promise<{id: string, status: 'pending'|'processing'|'completed', created_at: string, content_type: string}>} Capture confirmation with processing status
    */
   captureText: ({ text, tags, contentType }) => 
-    apiClient.post('/api/capture/text', { 
-      text, 
-      tags, 
-      content_type: contentType 
+    typedApi.POST('/api/capture/text', { 
+      body: { 
+        content: text,  // Backend expects 'content' not 'text'
+        tags, 
+        content_type: contentType 
+      }
     }).then(r => r.data),
 
   /**
@@ -59,25 +61,35 @@ export const captureApi = {
    * @returns {Promise<{id: string, url: string, status: 'pending'|'processing'|'completed', title?: string, created_at: string}>} Capture confirmation with extracted metadata
    */
   captureUrl: ({ url, tags }) => 
-    apiClient.post('/api/capture/url', { url, tags }).then(r => r.data),
+    typedApi.POST('/api/capture/url', { 
+      body: { url, tags } 
+    }).then(r => r.data),
 
   /**
    * Upload and capture a file for processing
+   * Note: File uploads require FormData and cannot use the typed client directly.
+   * This method falls back to using fetch with FormData.
    * @param {File} file - File object to upload (PDF, image, audio, etc.)
    * @param {Object} [options] - Upload options
    * @param {string[]} [options.tags] - Optional tags to associate with the file
    * @param {string} [options.contentType] - Content type hint for processing
    * @returns {Promise<{id: string, filename: string, size_bytes: number, status: 'pending'|'processing'|'completed', mime_type: string, created_at: string}>} Upload confirmation with file metadata
    */
-  captureFile: (file, options = {}) => {
+  captureFile: async (file, options = {}) => {
     const formData = new FormData()
     formData.append('file', file)
     if (options.tags) formData.append('tags', JSON.stringify(options.tags))
     if (options.contentType) formData.append('content_type', options.contentType)
     
-    return apiClient.post('/api/capture/file', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then(r => r.data)
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const response = await fetch(`${API_URL}/api/capture/file`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.statusText}`)
+    }
+    return response.json()
   },
 
   /**
@@ -90,7 +102,9 @@ export const captureApi = {
    * @returns {Promise<{captures: Array<{id: string, type: string, status: string, created_at: string, title?: string}>, total: number}>} Paginated capture history
    */
   getHistory: (options = {}) => 
-    apiClient.get('/api/capture/history', { params: options }).then(r => r.data),
+    typedApi.GET('/api/capture/history', { 
+      params: { query: options } 
+    }).then(r => r.data),
 
   /**
    * Get most recent captures for quick access
@@ -98,7 +112,9 @@ export const captureApi = {
    * @returns {Promise<{captures: Array<{id: string, type: string, title?: string, status: string, created_at: string}>}>} List of recent captures
    */
   getRecent: (limit = 10) => 
-    apiClient.get('/api/capture/recent', { params: { limit } }).then(r => r.data),
+    typedApi.GET('/api/capture/recent', { 
+      params: { query: { limit } } 
+    }).then(r => r.data),
 }
 
 export default captureApi

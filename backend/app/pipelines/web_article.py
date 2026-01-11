@@ -82,24 +82,24 @@ DEFAULT_HEADERS = {
 class JinaRateLimiter:
     """
     Token bucket rate limiter for Jina Reader API.
-    
+
     Enforces requests per minute (RPM) limits globally across all
     WebArticlePipeline instances to avoid 429 errors.
-    
+
     Rate limits configured via settings.JINA_RATE_LIMIT_RPM:
     - Free tier: 20 RPM (default)
     - Paid tiers: 500-5000 RPM
-    
+
     See: https://jina.ai/api-dashboard/rate-limit
     """
-    
+
     _instance: Optional["JinaRateLimiter"] = None
     _lock: asyncio.Lock = asyncio.Lock()
-    
+
     def __init__(self, rpm: int) -> None:
         """
         Initialize rate limiter.
-        
+
         Args:
             rpm: Requests per minute limit
         """
@@ -107,7 +107,7 @@ class JinaRateLimiter:
         self.min_interval = SECONDS_PER_MINUTE / rpm
         self.last_request_time: float = 0.0
         self._async_lock = asyncio.Lock()
-    
+
     @classmethod
     async def get_instance(cls) -> "JinaRateLimiter":
         """Get or create the singleton rate limiter instance."""
@@ -115,27 +115,27 @@ class JinaRateLimiter:
             if cls._instance is None:
                 cls._instance = cls(rpm=settings.JINA_RATE_LIMIT_RPM)
             return cls._instance
-    
+
     @classmethod
     def reset(cls) -> None:
         """Reset the singleton (for testing)."""
         cls._instance = None
-    
+
     async def acquire(self) -> None:
         """
         Acquire permission to make a request, waiting if necessary.
-        
+
         This method blocks until enough time has passed since the last
         request to stay within the rate limit.
         """
         async with self._async_lock:
             now = time.monotonic()
             elapsed = now - self.last_request_time
-            
+
             if elapsed < self.min_interval:
                 wait_time = self.min_interval - elapsed
                 await asyncio.sleep(wait_time)
-            
+
             self.last_request_time = time.monotonic()
 
 
@@ -178,7 +178,9 @@ class WebArticlePipeline(BasePipeline):
             track_costs: Whether to log LLM costs to database. Defaults to True.
         """
         super().__init__()
-        self.timeout: float = timeout if timeout is not None else settings.ARTICLE_HTTP_TIMEOUT
+        self.timeout: float = (
+            timeout if timeout is not None else settings.ARTICLE_HTTP_TIMEOUT
+        )
         self.text_model: str = text_model or get_default_text_model()
         self.track_costs: bool = track_costs
         self._usage_records: list[LLMUsage] = []
@@ -403,7 +405,7 @@ Respond with ONLY the title, nothing else."""
 
         Jina Reader (r.jina.ai) is a free service that renders JavaScript
         and returns clean markdown content.
-        
+
         Rate limiting is enforced globally via settings.JINA_RATE_LIMIT_RPM.
         See: https://jina.ai/api-dashboard/rate-limit
         """
@@ -411,7 +413,7 @@ Respond with ONLY the title, nothing else."""
             # Acquire rate limit token before making request
             rate_limiter = await JinaRateLimiter.get_instance()
             await rate_limiter.acquire()
-            
+
             jina_url = f"{JINA_READER_URL}{url}"
             async with httpx.AsyncClient(
                 timeout=self.timeout,

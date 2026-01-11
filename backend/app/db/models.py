@@ -38,6 +38,7 @@ def _utc_now() -> datetime:
     """Return current UTC time as timezone-aware datetime."""
     return datetime.now(timezone.utc)
 
+
 if TYPE_CHECKING:
     from app.db.models_learning import SpacedRepCard
 
@@ -127,7 +128,9 @@ class Content(Base):
     metadata_json: Mapped[Optional[dict]] = mapped_column(JSON)
 
     # Timestamps (timezone-aware UTC)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
     processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utc_now, onupdate=_utc_now
@@ -181,7 +184,9 @@ class Annotation(Base):
     ocr_confidence: Mapped[Optional[float]] = mapped_column(Float)
 
     # Timestamps (timezone-aware UTC)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
 
     # Relationships
     content: Mapped["Content"] = relationship(back_populates="annotations")
@@ -211,7 +216,9 @@ class Tag(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
 
     # Timestamps (timezone-aware UTC)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
 
 
 class LLMUsageLog(Base):
@@ -379,7 +386,9 @@ class LLMCostSummary(Base):
     cost_by_pipeline: Mapped[Optional[dict]] = mapped_column(JSON)
 
     # Timestamps (timezone-aware UTC)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utc_now, onupdate=_utc_now
     )
@@ -415,7 +424,9 @@ class SystemMeta(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
 
     # Timestamps (timezone-aware UTC)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utc_now, onupdate=_utc_now
     )

@@ -116,6 +116,32 @@ class SessionType(str, Enum):
     WEAK_SPOTS = "weak_spots"  # Target weak areas
 
 
+class SessionContentMode(str, Enum):
+    """
+    What types of content to include in a session.
+
+    Controls whether sessions contain exercises, spaced rep cards, or both.
+    Used to customize the learning experience based on user preference.
+    """
+
+    BOTH = "both"  # Include both exercises and cards (default)
+    EXERCISES_ONLY = "exercises_only"  # Only exercises, no spaced rep cards
+    CARDS_ONLY = "cards_only"  # Only spaced rep cards, no exercises
+
+
+class ContentSourcePreference(str, Enum):
+    """
+    How to source content (exercises or cards) for a session.
+
+    Controls whether to use existing content from the database,
+    generate new content via LLM, or a combination.
+    """
+
+    PREFER_EXISTING = "prefer_existing"  # Use existing, generate if needed (default)
+    GENERATE_NEW = "generate_new"  # Always generate new content (more LLM cost)
+    EXISTING_ONLY = "existing_only"  # Only use existing (no LLM cost, may be empty)
+
+
 class CodeLanguage(str, Enum):
     """
     Supported programming languages for code exercises.

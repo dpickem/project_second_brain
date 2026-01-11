@@ -282,19 +282,16 @@ ON CREATE SET
     c.definition = $definition,
     c.embedding = $embedding,
     c.importance = $importance,
+    c.file_path = $file_path,
     c.created_at = datetime()
 ON MATCH SET
     c.definition = CASE WHEN $importance = 'core' 
                        THEN $definition ELSE c.definition END,
     c.embedding = CASE WHEN $importance = 'core'
                       THEN $embedding ELSE c.embedding END,
+    c.file_path = CASE WHEN $file_path IS NOT NULL 
+                       THEN $file_path ELSE c.file_path END,
     c.updated_at = datetime()
-RETURN c.id AS id
-"""
-
-UPDATE_CONTENT_FILE_PATH = """
-MATCH (c:Content {id: $id})
-SET c.file_path = $file_path
 RETURN c.id AS id
 """
 
@@ -313,6 +310,16 @@ MATCH (target {{id: $target_id}})
 MERGE (source)-[r:{rel_type}]->(target)
 SET r += $properties
 RETURN type(r) AS rel_type
+"""
+
+# Link concepts by name (concepts are merged by name, not ID)
+LINK_CONCEPTS_BY_NAME = """
+MATCH (source:Concept {{name: $source_name}})
+MATCH (target:Concept {{name: $target_name}})
+WHERE source <> target
+MERGE (source)-[r:{rel_type}]->(target)
+SET r += $properties
+RETURN type(r) AS rel_type, source.name AS source, target.name AS target
 """
 
 GET_CONNECTED_NODES = """
@@ -434,7 +441,7 @@ RETURN type(r) AS rel_type
 
 GET_VISUALIZATION_GRAPH = """
 MATCH (n)
-WHERE labels(n)[0] IN $node_types
+WHERE any(label IN labels(n) WHERE label IN $node_types)
 WITH n
 LIMIT $limit
 WITH collect(n) AS nodes_list
@@ -446,7 +453,7 @@ RETURN
     collect(DISTINCT {
         id: COALESCE(n.id, toString(id(n))),
         label: COALESCE(n.title, n.name, n.id, 'Unnamed'),
-        type: labels(n)[0],
+        type: [label IN labels(n) WHERE label IN $node_types][0],
         content_type: n.type,
         tags: COALESCE(n.tags, [])
     }) AS nodes,
@@ -476,7 +483,7 @@ MATCH (center {{id: $center_id}})
 CALL {{
     WITH center
     MATCH (center)-[r*1..{depth}]-(connected)
-    WHERE labels(connected)[0] IN $node_types
+    WHERE any(label IN labels(connected) WHERE label IN $node_types)
     RETURN connected AS n, 2 AS priority
     UNION
     WITH center
@@ -494,7 +501,7 @@ RETURN
     collect(DISTINCT {{
         id: COALESCE(n.id, toString(id(n))),
         label: COALESCE(n.title, n.name, n.id, 'Unnamed'),
-        type: labels(n)[0],
+        type: [label IN labels(n) WHERE label IN $node_types][0],
         content_type: n.type,
         tags: COALESCE(n.tags, [])
     }}) AS nodes,
@@ -550,7 +557,7 @@ RETURN {
 
 GET_NODE_COUNT_BY_TYPES = """
 MATCH (n)
-WHERE labels(n)[0] IN $node_types
+WHERE any(label IN labels(n) WHERE label IN $node_types)
 RETURN count(n) AS total
 """
 

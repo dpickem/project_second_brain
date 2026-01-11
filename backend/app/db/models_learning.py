@@ -28,6 +28,7 @@ def _utc_now() -> datetime:
     """Return current UTC time as timezone-aware datetime."""
     return datetime.now(timezone.utc)
 
+
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -83,7 +84,9 @@ class PracticeSession(Base):
 
     # Session details
     session_type: Mapped[str] = mapped_column(String(50))
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     # Stats
@@ -143,7 +146,9 @@ class PracticeAttempt(Base):
     time_taken_seconds: Mapped[Optional[int]] = mapped_column(Integer)
 
     # Timestamps
-    attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    attempted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
 
     # Relationships
     session: Mapped["PracticeSession"] = relationship(back_populates="attempts")
@@ -217,10 +222,14 @@ class SpacedRepCard(Base):
     state: Mapped[str] = mapped_column(String(20), default="new")
     lapses: Mapped[int] = mapped_column(Integer, default=0)
     scheduled_days: Mapped[int] = mapped_column(Integer, default=0)
-    repetitions: Mapped[int] = mapped_column(Integer, default=0)  # Consecutive successful reviews
+    repetitions: Mapped[int] = mapped_column(
+        Integer, default=0
+    )  # Consecutive successful reviews
 
     # Scheduling
-    due_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    due_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
     last_reviewed: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     # Stats
@@ -238,7 +247,9 @@ class SpacedRepCard(Base):
     concept_id: Mapped[Optional[str]] = mapped_column(String(64))
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
 
     # Relationships
     content: Mapped[Optional["Content"]] = relationship(back_populates="cards")
@@ -280,7 +291,9 @@ class MasterySnapshot(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     # Snapshot details
-    snapshot_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    snapshot_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
     tag_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tags.id"))
 
     # Topic tracking (added in migration 007)
@@ -386,7 +399,9 @@ class Exercise(Base):
     tags: Mapped[Optional[list]] = mapped_column(ARRAY(String))
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utc_now, onupdate=_utc_now
     )
@@ -476,7 +491,9 @@ class ExerciseAttempt(Base):
     time_spent_seconds: Mapped[Optional[int]] = mapped_column(Integer)
 
     # Timestamps
-    attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    attempted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
 
     # Relationships
     session: Mapped[Optional["PracticeSession"]] = relationship(
@@ -524,16 +541,22 @@ class LearningTimeLog(Base):
     activity_type: Mapped[str] = mapped_column(String(50), index=True)
 
     # Time tracking
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
     ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     duration_seconds: Mapped[int] = mapped_column(Integer)
 
     # Metadata
     items_completed: Mapped[int] = mapped_column(Integer, default=0)
-    session_id: Mapped[Optional[int]] = mapped_column(ForeignKey("practice_sessions.id"))
+    session_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("practice_sessions.id")
+    )
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
 
 
 # ===========================================
