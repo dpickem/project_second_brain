@@ -276,7 +276,7 @@ class TestPracticeAPIContract:
                 "duration_minutes": 15,
                 "topic_filter": None,
                 "session_type": "practice",
-                "reuse_exercises": True,
+                "exercise_source": "prefer_existing",
             },
         )
         # Should not fail validation

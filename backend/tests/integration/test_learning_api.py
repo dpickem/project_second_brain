@@ -397,10 +397,10 @@ class TestAnalyticsEndpoints:
 
         expected_fields = [
             "overall_mastery",
-            "total_cards",
-            "cards_mastered",
-            "cards_learning",
-            "cards_new",
+            "spaced_rep_cards_total",
+            "spaced_rep_cards_mastered",
+            "spaced_rep_cards_learning",
+            "spaced_rep_cards_new",
         ]
         assert all(field in data for field in expected_fields)
 

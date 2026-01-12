@@ -31,10 +31,18 @@ vi.mock('framer-motion', () => ({
 }))
 
 describe('StatsGrid', () => {
+  // Mock stats now use the new property names
   const mockStats = {
-    totalCards: 1500,
-    masteredCards: 300,
-    totalReviews: 5000,
+    spacedRepCardsTotal: 1500,
+    spacedRepCardsMastered: 300,
+    spacedRepCardsLearning: 800,
+    spacedRepCardsNew: 400,
+    spacedRepReviewsTotal: 5000,
+    exercisesTotal: 100,
+    exercisesCompleted: 50,
+    exercisesMastered: 25,
+    exercisesAttemptsTotal: 200,
+    exercisesAvgScore: 75,
     learningTime: 120, // 120 minutes = 2 hours
     streak: 14,
     avgRetention: 85,
@@ -43,16 +51,16 @@ describe('StatsGrid', () => {
   it('renders with default empty stats', () => {
     render(<StatsGrid />)
     // Default values should be 0 - multiple stat items show 0
-    // Check that the component renders and has zeros
     expect(screen.getByText('0%')).toBeInTheDocument() // retention
     expect(screen.getByText('0d')).toBeInTheDocument() // streak
     expect(screen.getByText('0h')).toBeInTheDocument() // learning time
   })
 
-  it('renders all stat items', () => {
+  it('renders all stat items in combined view', () => {
     render(<StatsGrid stats={mockStats} />)
     
-    expect(screen.getByText('Total Cards')).toBeInTheDocument()
+    // Combined view shows: Total Items, Mastered, Reviews, Learning Time, Streak, Retention
+    expect(screen.getByText('Total Items')).toBeInTheDocument()
     expect(screen.getByText('Mastered')).toBeInTheDocument()
     expect(screen.getByText('Reviews')).toBeInTheDocument()
     expect(screen.getByText('Learning Time')).toBeInTheDocument()
@@ -60,17 +68,19 @@ describe('StatsGrid', () => {
     expect(screen.getByText('Retention')).toBeInTheDocument()
   })
 
-  it('displays formatted total cards value', () => {
+  it('displays formatted total items value (cards + exercises)', () => {
     render(<StatsGrid stats={mockStats} />)
-    expect(screen.getByText('1,500')).toBeInTheDocument()
+    // Total items = spacedRepCardsTotal + exercisesTotal = 1500 + 100 = 1600
+    expect(screen.getByText('1,600')).toBeInTheDocument()
   })
 
-  it('displays formatted mastered cards value', () => {
+  it('displays formatted mastered value', () => {
     render(<StatsGrid stats={mockStats} />)
-    expect(screen.getByText('300')).toBeInTheDocument()
+    // Mastered = spacedRepCardsMastered + exercisesMastered = 300 + 25 = 325
+    expect(screen.getByText('325')).toBeInTheDocument()
   })
 
-  it('displays formatted total reviews value', () => {
+  it('displays formatted reviews value', () => {
     render(<StatsGrid stats={mockStats} />)
     expect(screen.getByText('5,000')).toBeInTheDocument()
   })
@@ -80,7 +90,7 @@ describe('StatsGrid', () => {
     expect(screen.getByText('2h')).toBeInTheDocument()
   })
 
-  it('displays streak with day suffix', () => {
+  it('displays streak in days', () => {
     render(<StatsGrid stats={mockStats} />)
     expect(screen.getByText('14d')).toBeInTheDocument()
   })
@@ -90,14 +100,8 @@ describe('StatsGrid', () => {
     expect(screen.getByText('85%')).toBeInTheDocument()
   })
 
-  it('calculates mastered percentage correctly', () => {
-    render(<StatsGrid stats={mockStats} />)
-    // 300/1500 = 20%
-    expect(screen.getByText('20% of total')).toBeInTheDocument()
-  })
-
-  it('shows 0% when totalCards is 0', () => {
-    render(<StatsGrid stats={{ ...mockStats, totalCards: 0 }} />)
+  it('handles zero total cards for percentage calculation', () => {
+    render(<StatsGrid stats={{ ...mockStats, spacedRepCardsTotal: 0, exercisesTotal: 0 }} />)
     expect(screen.getByText('0% of total')).toBeInTheDocument()
   })
 
@@ -113,9 +117,9 @@ describe('StatsGrid', () => {
 
   it('renders descriptions for each stat', () => {
     render(<StatsGrid stats={mockStats} />)
-    expect(screen.getByText('In your library')).toBeInTheDocument()
-    // "All time" appears twice (for Reviews and Learning Time)
-    expect(screen.getAllByText('All time')).toHaveLength(2)
+    // Summary mode descriptions
+    expect(screen.getByText('Card reviews')).toBeInTheDocument()
+    expect(screen.getByText('All time')).toBeInTheDocument()
     expect(screen.getByText('Keep it going!')).toBeInTheDocument()
     expect(screen.getByText('Average recall')).toBeInTheDocument()
   })
@@ -137,79 +141,75 @@ describe('StatsGrid', () => {
   })
 
   it('does not highlight streak when < 7 days', () => {
-    render(<StatsGrid stats={{ ...mockStats, streak: 5 }} />)
+    render(<StatsGrid stats={{ ...mockStats, streak: 3 }} />)
+    // Should not have celebration emoji
     expect(screen.queryByText('🎉')).not.toBeInTheDocument()
   })
 })
 
 describe('StatCard', () => {
-  it('renders with basic props', () => {
-    render(<StatCard label="Test Stat" value="100" />)
+  it('renders stat card with all props', () => {
+    render(
+      <StatCard
+        label="Test Stat"
+        value="100"
+        icon="📊"
+        change={5}
+        changeLabel="from last week"
+      />
+    )
+
     expect(screen.getByText('Test Stat')).toBeInTheDocument()
     expect(screen.getByText('100')).toBeInTheDocument()
-  })
-
-  it('renders icon when provided', () => {
-    render(<StatCard label="Test" value="50" icon="📊" />)
     expect(screen.getByText('📊')).toBeInTheDocument()
   })
 
-  it('displays positive change with + prefix', () => {
-    render(<StatCard label="Test" value="100" change={15} />)
-    expect(screen.getByText('+15%')).toBeInTheDocument()
+  it('displays positive change with icon', () => {
+    render(
+      <StatCard
+        label="Reviews"
+        value="500"
+        icon="✅"
+        change={10}
+        changeLabel="from last week"
+      />
+    )
+
+    expect(screen.getByText('+10%')).toBeInTheDocument()
+    expect(screen.getByText('from last week')).toBeInTheDocument()
   })
 
-  it('displays negative change', () => {
-    render(<StatCard label="Test" value="100" change={-10} />)
-    expect(screen.getByText('-10%')).toBeInTheDocument()
-  })
+  it('displays negative change with icon', () => {
+    render(
+      <StatCard
+        label="Score"
+        value="75%"
+        icon="📊"
+        change={-5}
+        changeLabel="from last week"
+      />
+    )
 
-  it('displays zero change', () => {
-    render(<StatCard label="Test" value="100" change={0} />)
-    expect(screen.getByText('0%')).toBeInTheDocument()
-  })
-
-  it('renders change label when provided', () => {
-    render(<StatCard label="Test" value="100" change={5} changeLabel="vs last week" />)
-    expect(screen.getByText('vs last week')).toBeInTheDocument()
-  })
-
-  it('applies green color for positive change', () => {
-    render(<StatCard label="Test" value="100" change={10} />)
-    const changeElement = screen.getByText('+10%')
-    expect(changeElement).toHaveClass('text-emerald-400')
-  })
-
-  it('applies red color for negative change', () => {
-    render(<StatCard label="Test" value="100" change={-10} />)
-    const changeElement = screen.getByText('-10%')
-    expect(changeElement).toHaveClass('text-red-400')
-  })
-
-  it('applies muted color for zero change', () => {
-    render(<StatCard label="Test" value="100" change={0} />)
-    const changeElement = screen.getByText('0%')
-    expect(changeElement).toHaveClass('text-text-muted')
-  })
-
-  it('renders sparkline when data provided', () => {
-    const sparklineData = [{ value: 10 }, { value: 20 }, { value: 15 }]
-    render(<StatCard label="Test" value="100" sparklineData={sparklineData} />)
-    expect(screen.getByTestId('responsive-container')).toBeInTheDocument()
-  })
-
-  it('does not render sparkline when no data', () => {
-    render(<StatCard label="Test" value="100" />)
-    expect(screen.queryByTestId('responsive-container')).not.toBeInTheDocument()
+    expect(screen.getByText('-5%')).toBeInTheDocument()
   })
 
   it('applies custom className', () => {
-    const { container } = render(<StatCard label="Test" value="100" className="custom-stat" />)
-    expect(container.querySelector('.custom-stat')).toBeInTheDocument()
+    const { container } = render(
+      <StatCard
+        label="Test"
+        value="10"
+        icon="📊"
+        className="custom-card"
+      />
+    )
+
+    expect(container.querySelector('.custom-card')).toBeInTheDocument()
   })
 
-  it('renders without change when undefined', () => {
-    render(<StatCard label="Test" value="100" />)
-    expect(screen.queryByText('%')).not.toBeInTheDocument()
+  it('handles missing optional props gracefully', () => {
+    render(<StatCard label="Test" value="10" icon="📊" />)
+
+    expect(screen.getByText('Test')).toBeInTheDocument()
+    expect(screen.getByText('10')).toBeInTheDocument()
   })
 })

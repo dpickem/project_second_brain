@@ -616,7 +616,8 @@ class TestQuizGeneration:
         )
 
         mock_generator = AsyncMock()
-        mock_generator.generate_exercise = AsyncMock(return_value=mock_exercise)
+        # generate_exercise returns (exercise, usages) tuple
+        mock_generator.generate_exercise = AsyncMock(return_value=(mock_exercise, []))
         service._exercise_generator = mock_generator
 
         # Act
