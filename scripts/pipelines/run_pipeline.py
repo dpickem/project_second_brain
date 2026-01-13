@@ -37,12 +37,24 @@ Usage:
     python run_pipeline.py raindrop --collection 0 --limit 10
     python run_pipeline.py raindrop --since 7d
 
+Database Storage:
+    By default, ingested content is saved to PostgreSQL. Use --no-save to skip.
+
+    # Save to database (default)
+    python run_pipeline.py article https://example.com/post
+
+    # Skip database storage (just process and display)
+    python run_pipeline.py article https://example.com/post --no-save
+
 Environment Variables (set in .env or environment):
     Required (depending on pipeline):
     - OPENAI_API_KEY: For Whisper transcription and text models
     - MISTRAL_API_KEY: For OCR models (default)
     - GITHUB_ACCESS_TOKEN: For GitHub import
     - RAINDROP_ACCESS_TOKEN: For Raindrop sync
+
+    Database (required for --save, which is the default):
+    - POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
 
     Optional (defaults in backend/app/config/settings.py):
     - OCR_MODEL: Vision model for OCR (default: mistral/mistral-ocr-latest)
@@ -76,6 +88,7 @@ else:
 
 # App imports (after sys.path setup and env loading)
 from app.config import settings
+from app.models.content import UnifiedContent
 from app.pipelines import (
     BookOCRPipeline,
     GitHubImporter,
@@ -86,6 +99,7 @@ from app.pipelines import (
 )
 from app.pipelines.base import PipelineContentType, PipelineInput
 from app.pipelines.book_ocr import BookMetadata
+from app.services.storage import save_content
 
 
 def setup_logging(debug: bool = False) -> None:
@@ -145,6 +159,30 @@ def print_result(
         output = format_summary(data)
 
     print(output)
+
+
+async def save_to_database(content: UnifiedContent, skip_save: bool = False) -> Optional[str]:
+    """
+    Save content to PostgreSQL database.
+
+    Args:
+        content: UnifiedContent to save
+        skip_save: If True, skip saving (for --no-save flag)
+
+    Returns:
+        content_id (UUID string) if saved, None if skipped
+    """
+    if skip_save:
+        return None
+
+    try:
+        content_id = await save_content(content)
+        print(f"\n💾 Saved to database: content_id={content_id}")
+        return content_id
+    except Exception as e:
+        print(f"\n⚠️  Failed to save to database: {e}")
+        print("   (Use --no-save to skip database storage)")
+        return None
 
 
 def format_summary(data: dict[str, Any]) -> str:
@@ -229,6 +267,9 @@ async def run_pdf(args: argparse.Namespace) -> None:
     input_data = PipelineInput(path=pdf_path, content_type=PipelineContentType.PDF)
     content = await processor.process(input_data)
 
+    # Save to database
+    await save_to_database(content, skip_save=args.no_save)
+
     print_result(content, args.output_format, args.output_file)
 
 
@@ -300,6 +341,9 @@ async def run_book_ocr(args: argparse.Namespace) -> None:
 
     print("\n" + "=" * 60)
 
+    # Save to database
+    await save_to_database(content, skip_save=args.no_save)
+
     print_result(content, args.output_format, args.output_file)
 
 
@@ -325,6 +369,9 @@ async def run_voice(args: argparse.Namespace) -> None:
     print(f"Transcribing: {audio_path}")
     content = await transcriber.process_path(audio_path, expand=not args.no_expand)
 
+    # Save to database
+    await save_to_database(content, skip_save=args.no_save)
+
     print_result(content, args.output_format, args.output_file)
 
 
@@ -348,6 +395,9 @@ async def run_article(args: argparse.Namespace) -> None:
         md_path.write_text(markdown_content)
         print(f"Markdown saved to: {md_path}")
 
+    # Save to database
+    await save_to_database(content, skip_save=args.no_save)
+
     print_result(content, args.output_format, args.output_file)
 
 
@@ -368,6 +418,13 @@ async def run_github(args: argparse.Namespace) -> None:
             print(f"Importing starred repos (limit: {args.limit})")
             contents = await importer.import_starred_repos(limit=args.limit)
 
+            # Save all items to database
+            saved_count = 0
+            for content in contents:
+                content_id = await save_to_database(content, skip_save=args.no_save)
+                if content_id:
+                    saved_count += 1
+
             # Save all items to file if output_file specified
             if args.output_file:
                 all_data = [content_to_dict(c) for c in contents]
@@ -380,12 +437,18 @@ async def run_github(args: argparse.Namespace) -> None:
                 print("\n" + "=" * 60 + "\n")
 
             print(f"Imported {len(contents)} repos")
+            if saved_count > 0:
+                print(f"💾 Saved {saved_count} repos to database")
         else:
             if not args.url:
                 print("Error: Provide a GitHub URL or use --starred")
                 sys.exit(1)
             print(f"Importing repo: {args.url}")
             content = await importer.import_repo(args.url)
+
+            # Save to database
+            await save_to_database(content, skip_save=args.no_save)
+
             print_result(content, args.output_format, args.output_file)
     finally:
         await importer.close()
@@ -440,6 +503,13 @@ async def run_raindrop(args: argparse.Namespace) -> None:
                 limit=args.limit,
             )
 
+            # Save all items to database
+            saved_count = 0
+            for content in contents:
+                content_id = await save_to_database(content, skip_save=args.no_save)
+                if content_id:
+                    saved_count += 1
+
             # Save all items to file if output_file specified
             if args.output_file:
                 all_data = [content_to_dict(c) for c in contents]
@@ -452,6 +522,8 @@ async def run_raindrop(args: argparse.Namespace) -> None:
                 print("\n" + "-" * 60 + "\n")
 
             print(f"\nSynced {len(contents)} items")
+            if saved_count > 0:
+                print(f"💾 Saved {saved_count} items to database")
     finally:
         await sync.close()
 
@@ -486,6 +558,11 @@ def create_parser() -> argparse.ArgumentParser:
             "--output-file",
             "-o",
             help="Save output to file instead of stdout",
+        )
+        p.add_argument(
+            "--no-save",
+            action="store_true",
+            help="Skip saving to database (default: save to PostgreSQL)",
         )
         p.add_argument(
             "--track-costs",

@@ -974,6 +974,154 @@ docker-compose down -v
 
 ---
 
+## 🖼️ Application Screenshots
+
+The Second Brain web application provides a comprehensive interface for knowledge management, spaced repetition learning, and analytics. Below are screenshots and detailed descriptions of each page.
+
+### Dashboard
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+The **Dashboard** is your home screen that answers "What should I do today?" at a glance. It features:
+
+- **Stats Header**: Displays your current streak, cards due for review, and daily progress toward your learning goal
+- **Continue Learning Section**: Quick action cards for starting practice sessions and reviewing due flashcards
+- **Due Cards Preview**: Shows upcoming flashcards that need review with their topics
+- **Focus Areas (Weak Spots)**: Identifies topics where you have low mastery and need more practice
+- **Streak Calendar**: GitHub-style activity heatmap showing your practice consistency over the past 26 weeks
+- **Quick Capture**: Allows rapid note-taking for fleeting ideas without leaving the dashboard
+- **Quick Links**: One-click access to Knowledge Graph, Vault, Analytics, and Assistant
+
+### Practice Session
+
+![Practice Session](docs/screenshots/practice.png)
+
+The **Practice Session** page is where deep learning happens through structured exercises. Key features:
+
+- **Topic Selection**: Browse your knowledge base topics organized hierarchically with mastery indicators
+- **Search & Sort**: Find topics quickly with search, sort by name or mastery level (lowest first to prioritize weak areas)
+- **Session Configuration**: Choose session duration (5, 10, 15, or 30 minutes) 
+- **Exercise Source Toggle**: Option to reuse existing exercises (fast, no API cost) or generate fresh AI-created exercises
+- **Mastery Indicators**: Color-coded dots showing your proficiency in each topic (red → amber → indigo → emerald)
+- **Exercise Types**: Free recall, self-explanation, worked examples, code debugging, implementation challenges, teach-back prompts, and more
+- **LLM Evaluation**: AI-powered feedback on your responses explaining what you got right and areas for improvement
+
+### Exercises Catalogue
+
+![Exercises Catalogue](docs/screenshots/exercises.png)
+
+The **Exercises Catalogue** lets you browse and filter all available exercises in your system:
+
+- **Search**: Full-text search across exercise prompts, topics, and types
+- **Filters**: Filter by exercise type (Free Recall, Code Debug, Teach Back, etc.) and difficulty level (Foundational, Intermediate, Advanced)
+- **Grouped by Topic**: Exercises organized under their respective topics for easy navigation
+- **Exercise Cards**: Each exercise shows its type icon, difficulty badge, programming language (if applicable), prompt preview, hints count, and estimated completion time
+- **Direct Practice**: Click any exercise to jump directly into practicing it
+
+### Review Queue (Spaced Repetition)
+
+![Review Queue](docs/screenshots/review.png)
+
+The **Review Queue** implements evidence-based spaced repetition for long-term memory retention:
+
+- **FSRS Algorithm**: Uses the Free Spaced Repetition Scheduler for optimal review timing
+- **Active Recall Mode**: Type your answer before seeing the correct response (not just flip-and-rate)
+- **AI Evaluation**: Your typed answer is evaluated by an LLM to determine correctness
+- **Rating System**: After seeing feedback, rate your confidence (Again, Hard, Good, Easy) to adjust future scheduling
+- **Session Stats**: Track cards reviewed, remaining, and average response time
+- **Card Generation**: When no cards are due, generate new flashcards from any topic using AI
+- **Info Tooltips**: Expandable explanations about how flashcards differ from exercises
+
+### Knowledge Explorer
+
+![Knowledge Explorer](docs/screenshots/knowledge.png)
+
+The **Knowledge Explorer** provides a unified interface for browsing your entire knowledge base:
+
+- **Dual View Modes**: 
+  - **Tree View**: Collapsible folder hierarchy showing content types (articles, papers, books, ideas, etc.)
+  - **List View**: Flat list of all notes with type badges and folder labels
+- **Real-time Search**: Debounced search across all note titles and content
+- **Command Palette Integration**: Press `⌘K` for quick navigation to any note
+- **Inline Note Viewer**: Full-width markdown rendering with:
+  - Rich formatting (headers, code blocks, lists, tables)
+  - Syntax highlighting for code snippets
+  - Tag badges and metadata display
+  - Source links and creation dates
+- **Deep Linking**: URL parameters support direct links to specific notes (?note=path/to/note.md)
+- **Stats Footer**: Shows total topics and notes count
+
+### Knowledge Graph
+
+![Knowledge Graph](docs/screenshots/graph.png)
+
+The **Knowledge Graph** visualizes your interconnected knowledge using Neo4j:
+
+- **Force-Directed Layout**: Interactive D3.js graph with physics simulation
+- **Node Types**: Different colors and icons for Content (📄), Concepts (💡), and Notes (📝)
+- **Relationship Edges**: Visual connections showing RELATES_TO, CITES, EXTENDS, and other relationship types
+- **Interactive Controls**:
+  - Click nodes to view details
+  - Drag nodes to rearrange
+  - Scroll to zoom in/out
+  - "Focus on Node" to center and explore connections from a specific node
+- **Statistics Sidebar**: Live counts of content, concepts, notes, and relationships
+- **Content Type Breakdown**: See how your knowledge is distributed across types
+- **Node Details Panel**: Expandable panel showing node summary, tags, connection count, and quick actions (Open Source, View Note)
+
+### Analytics Dashboard
+
+![Analytics Dashboard](docs/screenshots/analytics.png)
+
+The **Analytics Dashboard** provides comprehensive insights into your learning progress:
+
+- **Stats Grid**: At-a-glance metrics including:
+  - Total learning time
+  - Current streak
+  - Cards mastered vs. learning vs. new
+  - Exercises completed and average score
+- **View Mode Toggle**: Switch between combined view, cards-only, or exercises-only metrics
+- **Activity Chart**: Time-series visualization of cards reviewed, exercises attempted, and practice time over configurable periods (Week, Month, 3 Months, Year)
+- **Topic Mastery Radar**: Radar chart showing relative mastery across your top topics
+- **Progress by Topic**: Detailed breakdown of every topic with mastery percentage bars
+- **Weak Spots Analysis**: Identifies topics with declining performance or low confidence, with direct "Practice Now" buttons
+- **Insights Panel**: Calculated metrics like card progress percentage, exercise mastery rate, and overall retention score
+
+### Learning Assistant
+
+![Learning Assistant](docs/screenshots/assistant.png)
+
+The **Learning Assistant** is an AI-powered chat interface for knowledge exploration:
+
+- **Conversational Interface**: Natural language questions about your knowledge base
+- **Quick Prompts**: Pre-built suggestions like "What did I learn about React hooks?" or "Quiz me on Python concepts"
+- **Source Citations**: Responses include links to relevant notes from your vault
+- **Model Selection**: Configure your preferred LLM (shown in header badge)
+- **Streaming Responses**: Real-time typing animation as the AI generates answers
+- **Context-Aware**: The assistant has access to your entire knowledge graph and can make connections across topics
+- **Markdown Rendering**: Rich formatting in responses including code blocks, lists, and emphasis
+
+### Settings
+
+![Settings](docs/screenshots/settings.png)
+
+The **Settings** page lets you customize your learning experience:
+
+- **Appearance**: Toggle compact mode, animations, and sidebar collapse state
+- **Learning Preferences**: 
+  - Default session length (5-30 minutes)
+  - Daily review goal (number of cards)
+  - Show/hide hints during practice
+- **Keyboard Shortcuts**: Enable/disable and view all available shortcuts:
+  - `⌘K` - Command Palette
+  - `⌘N` - Quick Capture
+  - `⌘1-6` - Navigate between pages
+- **Notifications**: Control reminders and sound effects
+- **Data & Privacy**: Export data (coming soon) and reset to defaults
+- **About**: Version information and credits
+
+---
+
 ## 📋 Implementation Roadmap
 
 > 📁 **Full Details**: See [`implementation_plan/OVERVIEW.md`](./implementation_plan/OVERVIEW.md) for the complete implementation roadmap with task checklists.

@@ -883,71 +883,19 @@ def run_migrations() -> bool:
 # =============================================================================
 
 
-def show_quick_start() -> None:
-    """Show quick start guide after setup."""
-    print_header("🎉 Setup Complete!")
+def show_help(header: str = "Help & Documentation") -> None:
+    """Show comprehensive help with all available commands."""
+    print_header(header)
 
-    print("""
-{bold}Quick Start Commands:{end}
+    print(f"""
+{Colors.BOLD}Quick Start:{Colors.END}
 
-  {cyan}Start the system:{end}
-    docker compose up -d              # Start all services
-    docker compose logs -f            # View logs
-
-  {cyan}Access the application:{end}
+  {Colors.CYAN}Access the application:{Colors.END}
     http://localhost:3000             # Frontend (React app)
     http://localhost:8000             # Backend API
     http://localhost:8000/docs        # API documentation (Swagger)
     http://localhost:7474             # Neo4j Browser
 
-  {cyan}Run tests:{end}
-    python scripts/run_all_tests.py   # Run all tests
-    python scripts/run_all_tests.py --backend-unit  # Backend unit tests only
-
-  {cyan}Process content:{end}
-    python scripts/pipelines/run_pipeline.py article <URL>   # Import article
-    python scripts/pipelines/run_pipeline.py pdf <file>      # Process PDF
-    python scripts/pipelines/run_pipeline.py raindrop --list-collections  # Raindrop sync
-
-  {cyan}Reset system:{end}
-    python scripts/setup/reset_all.py --dry-run   # Preview reset
-    python scripts/setup/reset_all.py             # Reset all data
-
-{bold}Documentation:{end}
-
-  README.md                 - Project overview and architecture
-  TESTING.md                - Testing guide
-  LEARNING_THEORY.md        - Learning science foundations
-  docs/design_docs/         - Detailed design documents
-  docs/implementation_plan/ - Implementation roadmap
-
-{bold}Development:{end}
-
-  {cyan}Local development (without Docker):{end}
-    cd backend && pip install -r requirements.txt
-    uvicorn app.main:app --reload     # Start backend
-
-    cd frontend && npm install
-    npm run dev                       # Start frontend
-
-  {cyan}Rebuild after code changes:{end}
-    docker compose up -d --build
-
-  {cyan}View logs:{end}
-    docker compose logs -f backend    # Backend logs
-    docker compose logs -f celery-worker  # Celery worker logs
-""".format(
-        bold=Colors.BOLD,
-        end=Colors.END,
-        cyan=Colors.CYAN,
-    ))
-
-
-def show_help_menu() -> None:
-    """Show help menu with all available commands."""
-    print_header("Help & Documentation")
-
-    print(f"""
 {Colors.BOLD}Available Scripts:{Colors.END}
 
   {Colors.CYAN}Setup & Configuration:{Colors.END}
@@ -970,26 +918,15 @@ def show_help_menu() -> None:
     python scripts/pipelines/run_pipeline.py github <repo>   # Import GitHub repo
     python scripts/pipelines/run_pipeline.py raindrop        # Sync Raindrop bookmarks
 
-{Colors.BOLD}Documentation Files:{Colors.END}
+  {Colors.CYAN}Content Processing (LLM analysis):{Colors.END}
+    python scripts/run_processing.py list                    # List all ingested content
+    python scripts/run_processing.py list --status pending   # List pending content
+    python scripts/run_processing.py process-pending         # Process all pending content
+    python scripts/run_processing.py process <UUID>          # Process specific content
 
-  {Colors.CYAN}Project Documentation:{Colors.END}
-    README.md                           - Project overview, architecture
-    TESTING.md                          - Testing guide
-    LEARNING_THEORY.md                  - Learning science foundations
+{Colors.BOLD}Docker Commands:{Colors.END}
 
-  {Colors.CYAN}Design Documents:{Colors.END}
-    docs/design_docs/00_system_overview.md      - System architecture
-    docs/design_docs/01_ingestion_layer.md      - Content ingestion
-    docs/design_docs/02_llm_processing_layer.md - LLM processing
-    docs/design_docs/05_learning_system.md      - Learning system design
-    docs/design_docs/06_backend_api.md          - API documentation
-
-  {Colors.CYAN}Implementation Plans:{Colors.END}
-    docs/implementation_plan/OVERVIEW.md        - Roadmap overview
-
-{Colors.BOLD}Useful Commands:{Colors.END}
-
-  {Colors.CYAN}Docker:{Colors.END}
+  {Colors.CYAN}Services:{Colors.END}
     docker compose up -d                # Start all services
     docker compose down                 # Stop all services
     docker compose logs -f              # View all logs
@@ -1005,6 +942,33 @@ def show_help_menu() -> None:
 
     # Redis CLI
     docker exec -it project_second_brain-redis-1 redis-cli
+
+{Colors.BOLD}Local Development (without Docker):{Colors.END}
+
+  {Colors.CYAN}Backend:{Colors.END}
+    cd backend && pip install -r requirements.txt
+    uvicorn app.main:app --reload
+
+  {Colors.CYAN}Frontend:{Colors.END}
+    cd frontend && npm install
+    npm run dev
+
+{Colors.BOLD}Documentation:{Colors.END}
+
+  {Colors.CYAN}Project Documentation:{Colors.END}
+    README.md                           - Project overview, architecture
+    TESTING.md                          - Testing guide
+    LEARNING_THEORY.md                  - Learning science foundations
+
+  {Colors.CYAN}Design Documents:{Colors.END}
+    docs/design_docs/00_system_overview.md      - System architecture
+    docs/design_docs/01_ingestion_layer.md      - Content ingestion
+    docs/design_docs/02_llm_processing_layer.md - LLM processing
+    docs/design_docs/05_learning_system.md      - Learning system design
+    docs/design_docs/06_backend_api.md          - API documentation
+
+  {Colors.CYAN}Implementation Plans:{Colors.END}
+    docs/implementation_plan/OVERVIEW.md        - Roadmap overview
 
 {Colors.BOLD}Support:{Colors.END}
 
@@ -1105,7 +1069,7 @@ def main() -> int:
         return 0
 
     if args.help_only:
-        show_help_menu()
+        show_help("Help & Documentation")
         return 0
 
     print_header("🧠 Second Brain - Project Setup")
@@ -1150,8 +1114,8 @@ def main() -> int:
                 if not run_migrations():
                     print_warning("Migrations failed (you may need to run manually)")
 
-        # Show quick start guide
-        show_quick_start()
+        # Show help guide
+        show_help("🎉 Setup Complete!")
 
         return 0 if success else 1
 
