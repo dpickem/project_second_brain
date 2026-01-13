@@ -7,6 +7,47 @@ A comprehensive system for ingesting, organizing, connecting, and actively learn
 
 ---
 
+## 📑 Table of Contents
+
+- [Vision](#-vision)
+- [Core Philosophy](#-core-philosophy)
+  - [The Two-Fold Challenge](#the-two-fold-challenge)
+  - [Key Insight](#key-insight)
+- [System Architecture](#-system-architecture)
+- [Ingestion Pipelines](#-ingestion-pipelines)
+  - [Academic Papers (PDF)](#1-academic-papers-pdf)
+  - [Web Content](#2-web-content-articles-blog-posts)
+  - [Physical Books](#3-physical-books)
+  - [Code & Repositories](#4-code--repositories)
+  - [Ideas & Fleeting Notes](#5-ideas--fleeting-notes)
+- [Organization Strategy](#️-organization-strategy)
+- [Learning & Deliberate Practice](#-learning--deliberate-practice-system)
+  - [Learning Science Foundation](#learning-science-foundation)
+  - [Core Principles](#core-principles)
+  - [Exercise Types](#exercise-types)
+  - [Spaced Repetition Integration](#spaced-repetition-integration)
+- [Technical Stack](#️-technical-stack)
+- [Web Application](#️-web-application)
+  - [Architecture](#architecture)
+  - [Screenshots](#screenshots)
+- [Getting Started](#-getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Quick Start](#quick-start)
+  - [Setup Options](#setup-options)
+  - [Access Points](#access-points)
+- [Implementation Status](#-implementation-status)
+- [Documentation](#-documentation)
+  - [Design Documents](#design-documents)
+  - [Implementation Plans](#implementation-plans)
+- [Open Research Questions](#-open-research-questions)
+- [Future Extensions](#-future-extensions)
+  - [Tool Calling for Learning Assistant](#tool-calling-for-learning-assistant)
+  - [MCP Integration](#mcp-integration-model-context-protocol)
+  - [Mobile Capture (PWA)](#-mobile-capture-pwa)
+- [References](#-references)
+
+---
+
 ## 🎯 Vision
 
 Transform passive information consumption into **active knowledge acquisition** through:
@@ -109,39 +150,31 @@ These challenges can be addressed independently, but solving extraction *in serv
 ### 1. Academic Papers (PDF)
 **Source**: MacOS Books app, Zotero, direct PDF uploads
 
-Papers may contain two types of annotations that need extraction:
-1. **Digital annotations** – Highlights and typed notes added via PDF readers
-2. **Handwritten annotations** – Margin notes, drawings, diagrams written on printed/tablet PDFs
+The PDF pipeline uses a hybrid approach:
+- **Mistral OCR** – Single API call that extracts full document text (markdown-formatted with tables & figures) AND detects handwritten notes/diagrams via image annotations
+- **PyMuPDF** – Separate pass to extract PDF annotation objects (highlights, underlines, comments, sticky notes) from the PDF structure
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         PDF INPUT                                │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
-                              ▼
-              ┌───────────────────────────────┐
-              │      Annotation Detection      │
-              │   (analyze each page/region)   │
-              └───────────────┬───────────────┘
-                              │
-            ┌─────────────────┼─────────────────┐
-            ▼                 ▼                 ▼
-   ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-   │  Printed Text   │ │    Digital      │ │   Handwritten   │
-   │  (PyMuPDF)      │ │   Highlights    │ │   Annotations   │
-   │                 │ │  (pdfplumber)   │ │  (Vision LLM)   │
-   └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-            │                   │                   │
-            │                   │                   ▼
-            │                   │          ┌─────────────────┐
-            │                   │          │  Mistral/GPT-4  │
-            │                   │          │  Vision OCR     │
-            │                   │          │  + Handwriting  │
-            │                   │          │  Recognition    │
-            │                   │          └────────┬────────┘
-            │                   │                   │
-            └───────────────────┴───────────────────┘
-                              │
+           ┌──────────────────┴──────────────────┐
+           ▼                                     ▼
+┌─────────────────────────┐           ┌─────────────────────────┐
+│      Mistral OCR        │           │       PyMuPDF           │
+│   (single API call)     │           │  (PDF structure parse)  │
+├─────────────────────────┤           └────────────┬────────────┘
+│ • Full text (markdown)  │                        │
+│ • Tables & figures      │                        ▼
+│ • Handwritten notes     │           ┌─────────────────────────┐
+│   (via image analysis)  │           │   Digital Annotations   │
+│ • Diagrams detected     │           │  • Highlights           │
+└────────────┬────────────┘           │  • Underlines           │
+             │                        │  • Comments/sticky notes│
+             │                        └────────────┬────────────┘
+             │                                     │
+             └──────────────────┬──────────────────┘
                               ▼
               ┌───────────────────────────────┐
               │     Unified Content Merge      │
@@ -160,66 +193,7 @@ Papers may contain two types of annotations that need extraction:
               └───────────────────────────────┘
 ```
 
-**Handwritten Annotation Handling**:
-- Render each PDF page as an image (300+ DPI for clarity)
-- Use vision model to detect regions containing handwriting
-- Extract and transcribe handwritten text, including:
-  - Margin notes and comments
-  - Underlines with associated text
-  - Arrows/connections between concepts
-  - Mathematical notation and diagrams (describe semantically)
-- Associate handwritten notes with nearby printed content for context
-- Preserve original page images in `assets/` folder for reference
-
-**Output Template**:
-```markdown
----
-type: paper
-title: "{{title}}"
-authors: [{{authors}}]
-year: {{year}}
-venue: "{{venue}}"
-doi: "{{doi}}"
-tags: [{{auto_generated_tags}}]
-has_handwritten_notes: true | false
-status: unread | reading | read | reviewed
-created: {{date}}
----
-
-## Summary
-{{llm_generated_summary}}
-
-## Key Findings
-{{extracted_key_points}}
-
-## My Highlights (Digital)
-{{digital_highlights_and_annotations}}
-
-## My Handwritten Notes
-> [!note] Page {{page_num}}
-> {{transcribed_handwritten_note}}
-> *Context: "{{surrounding_printed_text}}"*
-
-{{#each handwritten_notes}}
-> [!note] Page {{this.page}}
-> {{this.transcription}}
-> *Context: "{{this.context}}"*
-{{/each}}
-
-## Diagrams & Sketches
-{{#if has_diagrams}}
-![[{{paper_slug}}-diagram-{{n}}.png]]
-*Description: {{diagram_description}}*
-{{/if}}
-
-## Questions & Follow-ups
-- [ ] {{generated_question_1}}
-- [ ] {{generated_question_2}}
-
-## Connections
-- [[related_note_1]]
-- [[related_note_2]]
-```
+**Output**: Structured markdown with summary, key findings, highlights, handwritten notes with context, and auto-generated follow-up questions.
 
 ### 2. Web Content (Articles, Blog Posts)
 **Source**: Raindrop.io API
@@ -274,45 +248,25 @@ Quick capture → Inbox folder → Daily processing →
 Elaboration or linking to existing notes
 ```
 
+Quick capture sends items to an inbox folder for daily processing, elaboration, and linking to existing notes.
+
 ---
 
 ## 🏷️ Organization Strategy
 
-### Primary Hierarchy: Content Type
-Organize raw storage by the *nature* of the source:
-
+### Primary: Content Type Hierarchy
 ```
 sources/
-├── papers/        # Academic papers, research
-├── articles/      # Blog posts, news, essays
-├── books/         # Book notes and highlights
-├── code/          # Repository analyses
-├── ideas/         # Fleeting notes, thoughts
-└── work/          # Work-specific content
-    ├── meetings/
-    ├── proposals/
-    └── slack/
+├── papers/      # Academic papers, research
+├── articles/    # Blog posts, news, essays
+├── books/       # Book notes and highlights
+├── code/        # Repository analyses
+├── ideas/       # Fleeting notes, thoughts
+└── work/        # Meetings, proposals, slack
 ```
 
-### Secondary Organization: Semantic Tags
-Use a controlled vocabulary of tags for cross-cutting concerns:
-
-```yaml
-# Topic Tags (hierarchical)
-- ml/transformers
-- ml/reinforcement-learning
-- systems/distributed
-- systems/databases
-- leadership/management
-- productivity/habits
-
-# Meta Tags
-- status/actionable
-- status/reference
-- status/archive
-- quality/foundational
-- quality/deep-dive
-```
+### Secondary: Semantic Tags
+Hierarchical topic tags (`ml/transformers`, `systems/distributed`) and meta tags (`status/actionable`, `quality/foundational`).
 
 ### Tertiary: Bidirectional Links
 Leverage Obsidian's `[[wikilinks]]` extensively:
@@ -324,9 +278,9 @@ Leverage Obsidian's `[[wikilinks]]` extensively:
 
 ## 🎓 Learning & Deliberate Practice System
 
-> 📖 **Full details**: See **[LEARNING_THEORY.md](./LEARNING_THEORY.md)** for comprehensive research foundations and citations.
+> 📖 **Full details**: See **[LEARNING_THEORY.md](./LEARNING_THEORY.md)** for research foundations and citations.
 
-### Learning Science Foundation (Summary)
+### Learning Science Foundation
 
 This system is grounded in research on human memory and learning. Key insights:
 
@@ -345,7 +299,7 @@ This system is grounded in research on human memory and learning. Key insights:
 3. **Desirable Difficulties**: Spacing, interleaving, testing, and variation slow immediate performance but enhance retention
 4. **Adaptive Scaffolding**: Novices get worked examples; intermediates get retrieval practice
 
-### The Learning Loop
+### Exercise Types
 
 ```
               ┌─────────────────────────────┐
@@ -388,23 +342,6 @@ This system is grounded in research on human memory and learning. Key insights:
 - Track confidence levels per concept
 - Surface weak areas for targeted practice
 
----
-
-## 🔌 Obsidian Plugin Stack
-
-| Plugin | Purpose |
-|--------|---------|
-| **Neo4j Graph View** | Export knowledge graph to Neo4j for advanced querying |
-| **Dataview** | SQL-like queries over notes for dynamic dashboards |
-| **Smart Connections** | AI-powered related note suggestions |
-| **Tag Wrangler** | Bulk tag management and refactoring |
-| **Linter** | Enforce consistent formatting |
-| **Waypoint / Folder Note** | Auto-generate folder index notes |
-| **Templater** | Advanced templates for different note types |
-| **Tasks** | Track follow-up tasks across all notes |
-| **Periodic Notes** | Daily/weekly review automation |
-
----
 
 ## 🛠️ Technical Stack
 
@@ -412,46 +349,40 @@ This system is grounded in research on human memory and learning. Key insights:
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| **Knowledge Hub** | Obsidian | Markdown-based, local-first, extensive plugin ecosystem |
-| **Graph Database** | Neo4j | Native graph storage, powerful Cypher queries |
-| **LLM Backbone** | [aisuite](https://github.com/andrewyng/aisuite) | Unified interface to OpenAI, Anthropic, Gemini, etc. |
-| **Vision / OCR** | GPT-4V / Gemini Vision / Mistral Vision | Handwriting recognition, diagram understanding, book photo OCR |
-| **PDF Processing** | PyMuPDF + pdfplumber + pdf2image | Text extraction, highlight detection, page rendering for vision |
-| **API Integrations** | Python + httpx | Raindrop, GitHub, various services |
-| **Automation** | Python scripts + cron | Scheduled ingestion runs |
+| **Frontend** | React + Vite + TailwindCSS | Modern, fast, great DX |
+| **Backend** | FastAPI + Python | Async, type-safe, OpenAPI docs |
+| **Knowledge Hub** | Obsidian | Markdown-based, local-first, extensible |
+| **Graph Database** | Neo4j | Native graph storage, Cypher queries |
+| **Relational DB** | PostgreSQL | Learning records, user data |
+| **Cache** | Redis | Session state, rate limiting |
+| **LLM Backbone** | aisuite | Unified interface to OpenAI, Anthropic, Gemini, Mistral |
+| **Vision/OCR** | Mistral OCR (default for PDFs), Gemini 3 Flash | Document processing, handwriting recognition |
 
 ### APIs & Services
 
-| Service | Purpose | API Docs |
-|---------|---------|----------|
-| Raindrop.io | Web bookmark sync | [raindrop.io/dev](https://developer.raindrop.io/) |
-| GitHub | Repository analysis | [docs.github.com](https://docs.github.com/en/rest) |
-| Mistral | Vision OCR, handwriting recognition | [docs.mistral.ai](https://docs.mistral.ai/) |
-| OpenAI | Summarization, exercises, GPT-4V for handwriting | [platform.openai.com](https://platform.openai.com/docs) |
-| Google | Gemini Vision for complex diagrams | [ai.google.dev](https://ai.google.dev/docs) |
+| Service | Purpose |
+|---------|---------|
+| Raindrop.io | Web bookmark sync |
+| GitHub | Repository analysis |
+| Mistral | Primary OCR for PDF/document processing |
+| Google (Gemini) | Default text LLM for summarization, exercises |
 
 ---
 
-## 🖥️ Web Application: Learning Interface
+## 🖥️ Web Application
 
-The existing frontend/backend provides a foundation for the **active learning** and **analytics** components of the system.
+The Second Brain web application provides a full-featured interface for knowledge management, spaced repetition learning, and analytics.
 
-### Current Architecture
+### Architecture
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│    Frontend     │────▶│     Backend     │────▶│      Neo4j      │
-│  (React/Vite)   │     │    (FastAPI)    │     │  Knowledge Graph│
+│    Frontend     │────▶│     Backend     │────▶│   Data Layer    │
+│  (React/Vite)   │     │   (FastAPI)     │     │ Neo4j/PG/Redis  │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
-                               │
-                               ▼
-                        ┌─────────────────┐
-                        │     OpenAI      │
-                        │   Embeddings    │
-                        └─────────────────┘
 ```
 
-### Extended Architecture for Learning System
+**Frontend Pages**: Dashboard, Practice Session, Exercises Catalogue, Review Queue, Knowledge Explorer, Knowledge Graph, Analytics, Assistant, Settings
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -498,429 +429,93 @@ The existing frontend/backend provides a foundation for the **active learning** 
 │ • Semantic embeddings   │ • Time tracking         │                          │
 └─────────────────────────┴─────────────────────────┴──────────────────────────┘
 ```
+**Backend APIs**: `/api/practice/*`, `/api/review/*`, `/api/analytics/*`, `/api/knowledge/*`, `/api/ingest/*`, `/api/assistant/*`
 
-### Frontend Components
+### Screenshots
 
-#### 1. Practice Session View
-The core learning interface, implementing research-backed techniques:
+#### Dashboard
+![Dashboard](docs/screenshots/dashboard.png)
 
-| Component | Learning Principle | Implementation |
-|-----------|-------------------|----------------|
-| **Free Recall Prompt** | Generation effect (Bjork) | "Explain [concept] without looking at notes" |
-| **Self-Explanation Box** | Self-explanation (Chi) | "How does this connect to what you know?" |
-| **Worked Example Viewer** | Cognitive load (Van Gog) | Step-by-step solutions for novice topics |
-| **Interleaved Question Set** | Interleaving (Dunlosky) | Mix questions from different topics |
-| **Confidence Slider** | Metacognition | Rate certainty after each response |
+Your home screen answering "What should I do today?" with stats header (streak, due cards, daily progress), quick action cards, due cards preview, weak spots identification, streak calendar, and quick capture.
 
-```jsx
-// Example: Practice Session Flow
-<PracticeSession>
-  <QuestionCard 
-    type="free-recall" 
-    topic="distributed-systems/consensus"
-    prompt="Explain the Raft consensus algorithm from memory"
-  />
-  <ResponseArea 
-    onSubmit={checkAndProvideFeeback}
-    timer={true}
-  />
-  <SelfExplainPrompt 
-    questions={[
-      "How does this relate to Paxos?",
-      "When would you choose Raft over other algorithms?"
-    ]}
-  />
-  <ConfidenceRating onRate={updateSpacedRepSchedule} />
-  <FeedbackPanel showAfterSubmit={true} />
-</PracticeSession>
-```
+#### Practice Session
+![Practice Session](docs/screenshots/practice.png)
 
-#### 2. Review Queue (Spaced Repetition)
-Implements distributed practice with SM-2 or FSRS algorithm:
+Deep learning through structured exercises. Select topics hierarchically with mastery indicators, configure session duration (5-30 min), choose to reuse existing or generate new AI exercises. Exercise types include free recall, self-explanation, worked examples, code debugging, and teach-back prompts with LLM-powered feedback.
 
-```jsx
-<ReviewQueue>
-  <DueItemsList 
-    sortBy="urgency" 
-    showTopicDistribution={true}
-  />
-  <ReviewCard>
-    <Question />
-    <RevealButton />
-    <RatingButtons values={["Again", "Hard", "Good", "Easy"]} />
-  </ReviewCard>
-  <SessionProgress 
-    completed={15} 
-    remaining={8} 
-    streakDays={12}
-  />
-</ReviewQueue>
-```
+#### Exercises Catalogue
+![Exercises Catalogue](docs/screenshots/exercises.png)
 
-#### 3. Analytics Dashboard
-Track learning progress and identify weak spots:
+Browse and filter all available exercises with full-text search, type/difficulty filters, topic grouping, and direct practice access.
 
-| Metric | Visualization | Purpose |
-|--------|---------------|---------|
-| **Learning Curve** | Line chart over time | Track knowledge retention |
-| **Topic Mastery Heatmap** | Treemap by topic | Identify strong/weak areas |
-| **Retrieval Success Rate** | Bar chart per topic | Measure testing effect |
-| **Time Investment** | Stacked area chart | See where time goes |
-| **Forgetting Curve** | Decay curves by topic | Predict review timing |
-| **Connection Density** | Network metrics | Measure knowledge integration |
+#### Review Queue (Spaced Repetition)
+![Review Queue](docs/screenshots/review.png)
 
-```jsx
-<AnalyticsDashboard>
-  <MasteryHeatmap topics={allTopics} />
-  <LearningCurve 
-    timeRange="30d" 
-    metrics={["accuracy", "confidence", "speed"]}
-  />
-  <WeakSpotsList 
-    criteria="low-confidence-high-importance"
-    actionButton="Start Practice"
-  />
-  <StreakCalendar />
-  <TimeInvestmentChart groupBy="topic" />
-</AnalyticsDashboard>
-```
+Evidence-based spaced repetition using the FSRS algorithm. Features active recall (type answers before seeing correct response), LLM evaluation of answers, confidence rating (Again/Hard/Good/Easy), and AI-powered card generation.
 
-#### 4. Knowledge Explorer
-Visual navigation of the knowledge graph:
+#### Knowledge Explorer
+![Knowledge Explorer](docs/screenshots/knowledge.png)
 
-```jsx
-<KnowledgeExplorer>
-  <GraphVisualization 
-    engine="d3-force" 
-    nodeColor="by-mastery"
-    edgeWidth="by-strength"
-  />
-  <TopicTree expandable={true} showMastery={true} />
-  <SearchBar semantic={true} />
-  <ConnectionSuggestions 
-    prompt="Have you considered how X relates to Y?"
-  />
-</KnowledgeExplorer>
-```
+Unified interface for browsing your knowledge base with tree and list views, real-time search, command palette (`⌘K`), inline markdown rendering with syntax highlighting, and deep linking support.
 
-### LLM Client (aisuite)
+#### Knowledge Graph
+![Knowledge Graph](docs/screenshots/graph.png)
 
-The backend uses [aisuite](https://github.com/andrewyng/aisuite) for a unified interface to multiple LLM providers:
+Interactive D3.js force-directed graph visualization of your Neo4j knowledge graph. Different node types (Content, Concepts, Notes) with relationship edges. Click to view details, drag to rearrange, scroll to zoom. Statistics sidebar shows content breakdown.
 
-```python
-# backend/app/services/llm_client.py
-import aisuite as ai
+#### Analytics Dashboard
+![Analytics Dashboard](docs/screenshots/analytics.png)
 
-client = ai.Client()
+Comprehensive learning insights: stats grid (time, streak, mastery), activity charts over configurable periods, topic mastery radar, progress breakdown by topic, weak spots analysis with "Practice Now" buttons, and calculated insights.
 
-# Switch providers with a single string change
-MODELS = {
-    "summarization": "anthropic/claude-4-5-sonnet-202509",
-    "exercise_generation": "openai/gpt-5.1-chat-latest",
-    "vision_ocr": "mistral/mistral-ocr-latest",
-    "embeddings": "openai/text-embedding-3-large",
-}
+#### Learning Assistant
+![Learning Assistant](docs/screenshots/assistant.png)
 
-async def generate_exercise(topic: str, difficulty: str, mastery_level: float):
-    """Generate a practice exercise using the configured model."""
-    response = client.chat.completions.create(
-        model=MODELS["exercise_generation"],
-        messages=[
-            {"role": "system", "content": EXERCISE_SYSTEM_PROMPT},
-            {"role": "user", "content": f"Generate a {difficulty} exercise for: {topic}"}
-        ],
-        temperature=0.7
-    )
-    return response.choices[0].message.content
+AI-powered chat interface for knowledge exploration. Ask natural language questions, get source citations from your vault, configurable LLM model, streaming responses with markdown rendering.
 
-async def summarize_content(text: str, content_type: str):
-    """Summarize ingested content."""
-    response = client.chat.completions.create(
-        model=MODELS["summarization"],
-        messages=[
-            {"role": "system", "content": SUMMARIZATION_PROMPTS[content_type]},
-            {"role": "user", "content": text}
-        ]
-    )
-    return response.choices[0].message.content
-```
+#### Settings
+![Settings](docs/screenshots/settings.png)
 
-**Tool Calling for Learning Assistant**:
-
-```python
-# Automatic tool execution for the learning assistant agent
-def search_knowledge_graph(query: str) -> str:
-    """Search the knowledge graph for relevant concepts."""
-    # Neo4j query logic here
-    return results
-
-def get_related_concepts(concept_id: str) -> list:
-    """Get concepts related to the given concept."""
-    # Graph traversal logic
-    return related
-
-response = client.chat.completions.create(
-    model="openai/gpt-5.1-chat-latest",
-    messages=[{"role": "user", "content": "How does Raft relate to Paxos?"}],
-    tools=[search_knowledge_graph, get_related_concepts],
-    max_turns=3  # Automatic tool execution
-)
-```
-
-**MCP Integration** (for Obsidian vault access):
-
-```python
-from aisuite.mcp import MCPClient
-
-# Connect to Obsidian vault via MCP filesystem server
-obsidian_mcp = MCPClient(
-    command="npx",
-    args=["-y", "@modelcontextprotocol/server-filesystem", "/path/to/obsidian/vault"]
-)
-
-response = client.chat.completions.create(
-    model="anthropic/claude-4-5-sonnet-202509",
-    messages=[{"role": "user", "content": "Find all notes about distributed systems"}],
-    tools=obsidian_mcp.get_callable_tools(),
-    max_turns=3
-)
-```
-
-### Backend API Extensions
-
-```python
-# New endpoints for learning system
-
-# Practice endpoints
-@app.post("/api/practice/generate")
-async def generate_exercise(topic: str, difficulty: str, type: ExerciseType):
-    """Generate exercise using LLM based on topic mastery level"""
-    
-@app.post("/api/practice/submit")
-async def submit_response(exercise_id: str, response: str, time_spent: int):
-    """Evaluate response, provide feedback, update mastery"""
-
-@app.post("/api/practice/self-explain")
-async def record_self_explanation(exercise_id: str, explanation: str):
-    """Store self-explanation, analyze for mental model quality"""
-
-# Spaced repetition endpoints
-@app.get("/api/review/due")
-async def get_due_items(limit: int = 20):
-    """Get items due for review based on FSRS algorithm"""
-
-@app.post("/api/review/update")
-async def update_review(item_id: str, rating: int, response_time: int):
-    """Update spaced rep schedule based on rating"""
-
-# Analytics endpoints
-@app.get("/api/analytics/mastery")
-async def get_mastery_by_topic():
-    """Calculate mastery scores per topic from practice history"""
-
-@app.get("/api/analytics/weak-spots")
-async def get_weak_spots(threshold: float = 0.6):
-    """Identify topics with low mastery or declining performance"""
-
-@app.get("/api/analytics/learning-curve")
-async def get_learning_curve(topic: str = None, days: int = 30):
-    """Return time-series of accuracy/confidence metrics"""
-```
-
-### Database Schema Extensions
-
-```sql
--- PostgreSQL schema for learning records
-
-CREATE TABLE practice_sessions (
-    id UUID PRIMARY KEY,
-    user_id UUID,
-    started_at TIMESTAMP,
-    ended_at TIMESTAMP,
-    topics JSONB,
-    exercise_count INT
-);
-
-CREATE TABLE practice_attempts (
-    id UUID PRIMARY KEY,
-    session_id UUID REFERENCES practice_sessions(id),
-    concept_id UUID,  -- links to Neo4j node
-    exercise_type VARCHAR(50),  -- free-recall, self-explain, worked-example
-    prompt TEXT,
-    response TEXT,
-    is_correct BOOLEAN,
-    confidence_before FLOAT,
-    confidence_after FLOAT,
-    time_spent_seconds INT,
-    feedback TEXT,
-    created_at TIMESTAMP
-);
-
-CREATE TABLE spaced_rep_cards (
-    id UUID PRIMARY KEY,
-    concept_id UUID,
-    front TEXT,
-    back TEXT,
-    -- FSRS algorithm fields
-    difficulty FLOAT DEFAULT 0.3,
-    stability FLOAT DEFAULT 1.0,
-    due_date DATE,
-    last_review TIMESTAMP,
-    review_count INT DEFAULT 0,
-    lapses INT DEFAULT 0
-);
-
-CREATE TABLE mastery_snapshots (
-    id UUID PRIMARY KEY,
-    concept_id UUID,
-    topic_path VARCHAR(255),
-    mastery_score FLOAT,
-    confidence_avg FLOAT,
-    practice_count INT,
-    last_practiced TIMESTAMP,
-    snapshot_date DATE
-);
-```
-
----
-
-## 📁 Repository Structure
-
-```
-dpickem_project_second_brain/
-├── README.md                    # This file
-├── docker-compose.yml           # Container orchestration
-│
-├── backend/                     # FastAPI backend (existing)
-│   ├── app/
-│   │   ├── main.py              # API entry point
-│   │   ├── routers/             # API route modules (to add)
-│   │   │   ├── practice.py      # Practice session endpoints
-│   │   │   ├── review.py        # Spaced repetition endpoints
-│   │   │   ├── analytics.py     # Learning analytics endpoints
-│   │   │   ├── knowledge.py     # Knowledge graph endpoints
-│   │   │   └── ingest.py        # Content ingestion endpoints
-│   │   ├── services/            # Business logic
-│   │   │   ├── exercise_generator.py
-│   │   │   ├── spaced_rep.py    # FSRS algorithm
-│   │   │   ├── mastery_tracker.py
-│   │   │   └── llm_client.py
-│   │   ├── models/              # Pydantic models
-│   │   └── db/                  # Database connections
-│   ├── Dockerfile
-│   └── requirements.txt
-│
-├── frontend/                    # React frontend (existing)
-│   ├── src/
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   ├── components/          # UI components (to add)
-│   │   │   ├── PracticeSession/
-│   │   │   ├── ReviewQueue/
-│   │   │   ├── AnalyticsDashboard/
-│   │   │   └── KnowledgeExplorer/
-│   │   ├── hooks/               # Custom React hooks
-│   │   ├── services/            # API client
-│   │   └── stores/              # State management
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   └── Dockerfile
-│
-├── pipelines/                   # Data ingestion pipelines (to add)
-│   ├── raindrop.py
-│   ├── pdf_processor.py
-│   ├── handwriting_ocr.py
-│   ├── book_ocr_pipeline.py
-│   └── github_importer.py
-│
-├── templates/                   # Obsidian note templates
-│   ├── paper.md
-│   ├── article.md
-│   ├── book.md
-│   └── code.md
-│
-├── scripts/                     # Automation scripts
-│   ├── daily_sync.py
-│   └── weekly_review.py
-│
-├── config/                      # Configuration files
-│   ├── config.yaml
-│   └── prompts.yaml
-│
-└── tests/                       # Test suite
-```
-
----
-
-## 🔬 Open Research Questions
-
-1. **Human vs. Machine Connection-Making**: To what extent should we outsource relationship discovery to AI vs. keeping it as a human cognitive exercise? *(Bjork's research suggests that effortful retrieval and generation by humans is crucial for storage strength—AI may help prompt connections, but the human must generate them.)*
-
-2. ~~**Active Learning Optimization**: What does learning science research say about maximizing retention?~~ ✅ **Addressed** – See [LEARNING_THEORY.md](./LEARNING_THEORY.md). Key answer: Prioritize *desirable difficulties*—spacing, interleaving, generation, and testing over passive re-reading.
-
-3. **Information Overload**: How do we prevent the knowledge base from becoming overwhelming? What pruning and archival strategies work best?
-
-4. **Exercise Quality**: Can current LLMs generate exercises that genuinely challenge and teach, or do they tend toward superficial quizzes? *(Exercises should force generation/retrieval, not recognition. Need to validate LLM outputs against Bjork's criteria.)*
-
-5. **Graph Utility**: Is a formal graph database necessary, or are Obsidian's native links sufficient for most connection discovery?
-
----
-
-## 📚 References & Inspiration
-
-### Learning Science
-> 📖 See **[LEARNING_THEORY.md](./LEARNING_THEORY.md)** for detailed research summaries, findings, and system implications.
-
-Key sources: Ericsson (2008) on Deliberate Practice, Bjork & Bjork (2011) on Desirable Difficulties, Dunlosky et al. (2013) on Effective Learning Techniques, Chi et al. (1994) on Self-Explanation, Van Gog et al. (2011) on Cognitive Load Theory.
-
-### Knowledge Management
-- [Building a Second Brain](https://www.buildingasecondbrain.com/) – Tiago Forte
-- [How to Take Smart Notes](https://takesmartnotes.com/) – Sönke Ahrens (Zettelkasten method)
-
-### AI-Assisted Learning
-- [ChatGPT Study Mode](https://openai.com/index/chatgpt-study-mode/)
-- [Gemini Guided Learning](https://blog.google/outreach-initiatives/education/guided-learning/)
-
-### Tools & Plugins
-- [Google Code Wiki](https://developers.googleblog.com/introducing-code-wiki-accelerating-your-code-understanding/)
-- [Obsidian Neo4j Graph View](https://www.obsidianstats.com/plugins/neo4j-graph-view)
+Customize appearance (compact mode, animations), learning preferences (session length, daily goal), keyboard shortcuts (`⌘K` command palette, `⌘1-6` navigation), notifications, and data export.
 
 ---
 
 ## 🚀 Getting Started
 
-### Quick Start with Docker (Recommended)
+### Prerequisites
 
-The easiest way to run the entire system is with Docker Compose:
+- Python 3.11+
+- Docker Desktop installed and running
+- At least one LLM API key (Gemini, Mistral, OpenAI, or Anthropic)
+
+### Quick Start
 
 ```bash
 # Clone the repository
 git clone https://github.com/dpickem/dpickem_project_second_brain.git
 cd dpickem_project_second_brain
 
-# Create environment file from template
-cp .env.example .env
+# Run the interactive setup script
+python scripts/setup_project.py
+```
 
-# Edit .env with your configuration:
-# - DATA_DIR: Path for persistent data (required)
-# - POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB: Database credentials
-# - NEO4J_PASSWORD: Neo4j password
-# - OPENAI_API_KEY, MISTRAL_API_KEY, etc.: LLM API keys
+The setup script guides you through:
+1. **Environment configuration** — API keys, database credentials, data directory
+2. **Vault setup** — Obsidian folder structure, templates, meta notes
+3. **Docker services** — Start PostgreSQL, Neo4j, Redis, backend, frontend
+4. **Database migrations** — Initialize schema
 
-# Start all services
-docker-compose up -d
+### Setup Options
 
-# Check service status
-docker-compose ps
-
-# View logs
-docker-compose logs -f
+```bash
+python scripts/setup_project.py                    # Full interactive setup
+python scripts/setup_project.py --non-interactive # Use defaults
+python scripts/setup_project.py --env-only        # Only configure .env
+python scripts/setup_project.py --help-only       # Show all available commands
+python scripts/setup_project.py --help-env        # Show env variable reference
 ```
 
 ### Access Points
-
-Once running, access the system at:
 
 | Service | URL | Description |
 |---------|-----|-------------|
@@ -930,260 +525,180 @@ Once running, access the system at:
 | **API Documentation** | http://localhost:8000/docs | Swagger/OpenAPI docs |
 | **Neo4j Browser** | http://localhost:7474 | Graph database UI |
 
-### Development Setup
+### Local Development (without Docker)
 
-For local development without Docker:
+**Backend**: `cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload`
 
-```bash
-# Set up Python environment
-python -m venv venv
-source venv/bin/activate
-pip install -r backend/requirements.txt
+**Frontend**: `cd frontend && npm install && npm run dev`
 
-# Start backend
-cd backend
-uvicorn app.main:app --reload
+### Useful Commands
 
-# In a new terminal, start frontend
-cd frontend
-npm install
-npm run dev
-```
-
-### Useful Docker Commands
-
-```bash
-# Rebuild after code changes
-docker-compose up -d --build
-
-# Run database migrations
-docker-compose exec backend alembic upgrade head
-
-# View frontend logs
-docker-compose logs -f frontend
-
-# View backend logs
-docker-compose logs -f backend
-
-# Stop all services
-docker-compose down
-
-# Stop and remove all data (fresh start)
-docker-compose down -v
-```
+| Command | Purpose |
+|---------|---------|
+| `python scripts/pipelines/run_pipeline.py article <URL>` | Import web article |
+| `python scripts/pipelines/run_pipeline.py pdf <file>` | Process PDF document |
+| `python scripts/pipelines/run_pipeline.py book <file>` | OCR book photos |
+| `python scripts/run_processing.py process-pending` | Process all pending content |
+| `python scripts/run_all_tests.py` | Run all tests |
+| `docker compose logs -f backend` | View backend logs |
+| `docker compose down -v` | Stop and remove all data |
 
 ---
 
-## 🖼️ Application Screenshots
+## 📋 Implementation Status
 
-The Second Brain web application provides a comprehensive interface for knowledge management, spaced repetition learning, and analytics. Below are screenshots and detailed descriptions of each page.
+> 📁 **Full Details**: See [`implementation_plan/OVERVIEW.md`](docs/implementation_plan/OVERVIEW.md) for the complete implementation roadmap with task checklists.
 
-### Dashboard
-
-![Dashboard](docs/screenshots/dashboard.png)
-
-The **Dashboard** is your home screen that answers "What should I do today?" at a glance. It features:
-
-- **Stats Header**: Displays your current streak, cards due for review, and daily progress toward your learning goal
-- **Continue Learning Section**: Quick action cards for starting practice sessions and reviewing due flashcards
-- **Due Cards Preview**: Shows upcoming flashcards that need review with their topics
-- **Focus Areas (Weak Spots)**: Identifies topics where you have low mastery and need more practice
-- **Streak Calendar**: GitHub-style activity heatmap showing your practice consistency over the past 26 weeks
-- **Quick Capture**: Allows rapid note-taking for fleeting ideas without leaving the dashboard
-- **Quick Links**: One-click access to Knowledge Graph, Vault, Analytics, and Assistant
-
-### Practice Session
-
-![Practice Session](docs/screenshots/practice.png)
-
-The **Practice Session** page is where deep learning happens through structured exercises. Key features:
-
-- **Topic Selection**: Browse your knowledge base topics organized hierarchically with mastery indicators
-- **Search & Sort**: Find topics quickly with search, sort by name or mastery level (lowest first to prioritize weak areas)
-- **Session Configuration**: Choose session duration (5, 10, 15, or 30 minutes) 
-- **Exercise Source Toggle**: Option to reuse existing exercises (fast, no API cost) or generate fresh AI-created exercises
-- **Mastery Indicators**: Color-coded dots showing your proficiency in each topic (red → amber → indigo → emerald)
-- **Exercise Types**: Free recall, self-explanation, worked examples, code debugging, implementation challenges, teach-back prompts, and more
-- **LLM Evaluation**: AI-powered feedback on your responses explaining what you got right and areas for improvement
-
-### Exercises Catalogue
-
-![Exercises Catalogue](docs/screenshots/exercises.png)
-
-The **Exercises Catalogue** lets you browse and filter all available exercises in your system:
-
-- **Search**: Full-text search across exercise prompts, topics, and types
-- **Filters**: Filter by exercise type (Free Recall, Code Debug, Teach Back, etc.) and difficulty level (Foundational, Intermediate, Advanced)
-- **Grouped by Topic**: Exercises organized under their respective topics for easy navigation
-- **Exercise Cards**: Each exercise shows its type icon, difficulty badge, programming language (if applicable), prompt preview, hints count, and estimated completion time
-- **Direct Practice**: Click any exercise to jump directly into practicing it
-
-### Review Queue (Spaced Repetition)
-
-![Review Queue](docs/screenshots/review.png)
-
-The **Review Queue** implements evidence-based spaced repetition for long-term memory retention:
-
-- **FSRS Algorithm**: Uses the Free Spaced Repetition Scheduler for optimal review timing
-- **Active Recall Mode**: Type your answer before seeing the correct response (not just flip-and-rate)
-- **AI Evaluation**: Your typed answer is evaluated by an LLM to determine correctness
-- **Rating System**: After seeing feedback, rate your confidence (Again, Hard, Good, Easy) to adjust future scheduling
-- **Session Stats**: Track cards reviewed, remaining, and average response time
-- **Card Generation**: When no cards are due, generate new flashcards from any topic using AI
-- **Info Tooltips**: Expandable explanations about how flashcards differ from exercises
-
-### Knowledge Explorer
-
-![Knowledge Explorer](docs/screenshots/knowledge.png)
-
-The **Knowledge Explorer** provides a unified interface for browsing your entire knowledge base:
-
-- **Dual View Modes**: 
-  - **Tree View**: Collapsible folder hierarchy showing content types (articles, papers, books, ideas, etc.)
-  - **List View**: Flat list of all notes with type badges and folder labels
-- **Real-time Search**: Debounced search across all note titles and content
-- **Command Palette Integration**: Press `⌘K` for quick navigation to any note
-- **Inline Note Viewer**: Full-width markdown rendering with:
-  - Rich formatting (headers, code blocks, lists, tables)
-  - Syntax highlighting for code snippets
-  - Tag badges and metadata display
-  - Source links and creation dates
-- **Deep Linking**: URL parameters support direct links to specific notes (?note=path/to/note.md)
-- **Stats Footer**: Shows total topics and notes count
-
-### Knowledge Graph
-
-![Knowledge Graph](docs/screenshots/graph.png)
-
-The **Knowledge Graph** visualizes your interconnected knowledge using Neo4j:
-
-- **Force-Directed Layout**: Interactive D3.js graph with physics simulation
-- **Node Types**: Different colors and icons for Content (📄), Concepts (💡), and Notes (📝)
-- **Relationship Edges**: Visual connections showing RELATES_TO, CITES, EXTENDS, and other relationship types
-- **Interactive Controls**:
-  - Click nodes to view details
-  - Drag nodes to rearrange
-  - Scroll to zoom in/out
-  - "Focus on Node" to center and explore connections from a specific node
-- **Statistics Sidebar**: Live counts of content, concepts, notes, and relationships
-- **Content Type Breakdown**: See how your knowledge is distributed across types
-- **Node Details Panel**: Expandable panel showing node summary, tags, connection count, and quick actions (Open Source, View Note)
-
-### Analytics Dashboard
-
-![Analytics Dashboard](docs/screenshots/analytics.png)
-
-The **Analytics Dashboard** provides comprehensive insights into your learning progress:
-
-- **Stats Grid**: At-a-glance metrics including:
-  - Total learning time
-  - Current streak
-  - Cards mastered vs. learning vs. new
-  - Exercises completed and average score
-- **View Mode Toggle**: Switch between combined view, cards-only, or exercises-only metrics
-- **Activity Chart**: Time-series visualization of cards reviewed, exercises attempted, and practice time over configurable periods (Week, Month, 3 Months, Year)
-- **Topic Mastery Radar**: Radar chart showing relative mastery across your top topics
-- **Progress by Topic**: Detailed breakdown of every topic with mastery percentage bars
-- **Weak Spots Analysis**: Identifies topics with declining performance or low confidence, with direct "Practice Now" buttons
-- **Insights Panel**: Calculated metrics like card progress percentage, exercise mastery rate, and overall retention score
-
-### Learning Assistant
-
-![Learning Assistant](docs/screenshots/assistant.png)
-
-The **Learning Assistant** is an AI-powered chat interface for knowledge exploration:
-
-- **Conversational Interface**: Natural language questions about your knowledge base
-- **Quick Prompts**: Pre-built suggestions like "What did I learn about React hooks?" or "Quiz me on Python concepts"
-- **Source Citations**: Responses include links to relevant notes from your vault
-- **Model Selection**: Configure your preferred LLM (shown in header badge)
-- **Streaming Responses**: Real-time typing animation as the AI generates answers
-- **Context-Aware**: The assistant has access to your entire knowledge graph and can make connections across topics
-- **Markdown Rendering**: Rich formatting in responses including code blocks, lists, and emphasis
-
-### Settings
-
-![Settings](docs/screenshots/settings.png)
-
-The **Settings** page lets you customize your learning experience:
-
-- **Appearance**: Toggle compact mode, animations, and sidebar collapse state
-- **Learning Preferences**: 
-  - Default session length (5-30 minutes)
-  - Daily review goal (number of cards)
-  - Show/hide hints during practice
-- **Keyboard Shortcuts**: Enable/disable and view all available shortcuts:
-  - `⌘K` - Command Palette
-  - `⌘N` - Quick Capture
-  - `⌘1-6` - Navigate between pages
-- **Notifications**: Control reminders and sound effects
-- **Data & Privacy**: Export data (coming soon) and reset to defaults
-- **About**: Version information and credits
+| Phase | Focus | Status |
+|-------|-------|--------|
+| 1 | Foundation & Infrastructure | ✅ Complete |
+| 2 | Ingestion Pipelines | ✅ Complete |
+| 3 | LLM Processing | ✅ Complete |
+| 4 | Knowledge Graph (Neo4j) | ✅ Complete |
+| 5 | Backend API | ✅ Complete |
+| 6 | Frontend Application | ✅ Complete |
+| 7 | Learning System (Exercises + FSRS) | ✅ Complete |
+| 8 | Analytics Dashboard | ✅ Complete |
+| 9 | Mobile Capture | ⬜ Not Started |
+| 10 | Polish & Production | 🟡 In Progress |
 
 ---
 
-## 📋 Implementation Roadmap
+## 📚 Documentation
 
-> 📁 **Full Details**: See [`implementation_plan/OVERVIEW.md`](./implementation_plan/OVERVIEW.md) for the complete implementation roadmap with task checklists.
+### Design Documents
 
-### Phase Summary
+Detailed technical specifications for each system component:
 
-| Phase | Focus | Duration | Status |
-|-------|-------|----------|--------|
-| 1 | Foundation & Infrastructure | Weeks 1-2 | 🟡 In Progress |
-| 2 | Ingestion Pipelines | Weeks 3-6 | ⬜ Not Started |
-| 3 | LLM Processing | Weeks 7-10 | ⬜ Not Started |
-| 4 | Knowledge Explorer UI | Weeks 11-13 | ⬜ Not Started |
-| 5 | Practice Session UI | Weeks 14-17 | ⬜ Not Started |
-| 6 | Spaced Repetition | Weeks 18-20 | ⬜ Not Started |
-| 7 | Analytics Dashboard | Weeks 21-23 | ⬜ Not Started |
-| 8 | Learning Assistant | Weeks 24-26 | ⬜ Not Started |
-| 9 | Polish & Production | Ongoing | ⬜ Not Started |
+| Document | Description |
+|----------|-------------|
+| [00_system_overview.md](docs/design_docs/00_system_overview.md) | High-level architecture and component interactions |
+| [01_ingestion_layer.md](docs/design_docs/01_ingestion_layer.md) | Content ingestion pipelines and formats |
+| [02_llm_processing_layer.md](docs/design_docs/02_llm_processing_layer.md) | LLM integration, prompts, and processing stages |
+| [03_knowledge_hub_obsidian.md](docs/design_docs/03_knowledge_hub_obsidian.md) | Obsidian vault structure and templates |
+| [04_knowledge_graph_neo4j.md](docs/design_docs/04_knowledge_graph_neo4j.md) | Neo4j schema, queries, and graph operations |
+| [05_learning_system.md](docs/design_docs/05_learning_system.md) | Exercises, FSRS algorithm, mastery tracking |
+| [06_backend_api.md](docs/design_docs/06_backend_api.md) | FastAPI endpoints and data models |
+| [07_frontend_application.md](docs/design_docs/07_frontend_application.md) | React components and state management |
+| [08_mobile_capture.md](docs/design_docs/08_mobile_capture.md) | PWA mobile capture workflow |
+| [09_data_models.md](docs/design_docs/09_data_models.md) | Database schemas and relationships |
+| [10_assistant_tool_calling.md](docs/design_docs/10_assistant_tool_calling.md) | LLM agent with tool calling |
+| [11_observability.md](docs/design_docs/11_observability.md) | Logging, metrics, and monitoring |
 
 ### Implementation Plans
 
-Detailed implementation plans for each phase:
+Step-by-step implementation guides with task checklists:
 
-- [`implementation_plan/OVERVIEW.md`](./implementation_plan/OVERVIEW.md) — Master roadmap with all phases
-- [`implementation_plan/01_ingestion_layer_implementation.md`](./implementation_plan/01_ingestion_layer_implementation.md) — Phase 2: Ingestion pipelines
+| Document | Description |
+|----------|-------------|
+| [OVERVIEW.md](docs/implementation_plan/OVERVIEW.md) | Master roadmap with all phases |
+| [00_foundation_implementation.md](docs/implementation_plan/00_foundation_implementation.md) | Infrastructure setup |
+| [01_ingestion_layer_implementation.md](docs/implementation_plan/01_ingestion_layer_implementation.md) | Content ingestion |
+| [02_llm_processing_implementation.md](docs/implementation_plan/02_llm_processing_implementation.md) | LLM processing stages |
+| [03_knowledge_hub_obsidian_implementation.md](docs/implementation_plan/03_knowledge_hub_obsidian_implementation.md) | Obsidian integration |
+| [04_knowledge_graph_neo4j_implementation.md](docs/implementation_plan/04_knowledge_graph_neo4j_implementation.md) | Neo4j setup and queries |
+| [05_learning_system_implementation.md](docs/implementation_plan/05_learning_system_implementation.md) | Learning system |
+| [06_backend_api_implementation.md](docs/implementation_plan/06_backend_api_implementation.md) | API development |
+| [07_frontend_application_implementation.md](docs/implementation_plan/07_frontend_application_implementation.md) | Frontend development |
+| [08_mobile_capture_implementation.md](docs/implementation_plan/08_mobile_capture_implementation.md) | Mobile PWA |
+| [tech_debt.md](docs/implementation_plan/tech_debt.md) | Technical debt tracking |
+
+### Other Documentation
+
+| Document | Description |
+|----------|-------------|
+| [LEARNING_THEORY.md](LEARNING_THEORY.md) | Learning science research foundations |
+| [TESTING.md](TESTING.md) | Testing guide and best practices |
 
 ---
 
-## 📱 Mobile Capture Workflow
+## 🔬 Open Research Questions
 
-A critical bottleneck in any knowledge management system is **capture friction**—the effort required to get information from the real world into the system. The mobile capture workflow minimizes this friction for on-the-go knowledge capture.
+1. **Human vs. Machine Connection-Making**: To what extent should we outsource relationship discovery to AI vs. keeping it as a human cognitive exercise?
 
-### Use Cases
+2. **Information Overload**: How do we prevent the knowledge base from becoming overwhelming? What pruning and archival strategies work best?
 
+3. **Exercise Quality**: Can current LLMs generate exercises that genuinely challenge and teach, or do they tend toward superficial quizzes?
+
+---
+
+## 🔮 Future Extensions
+
+### Tool Calling for Learning Assistant
+
+Enable the assistant to take actions through natural language requests:
+
+```
+User: "Generate an exercise about attention mechanisms"
+      → Assistant calls generate_exercise tool
+      → Returns interactive exercise card
+```
+
+**Planned Tools:**
+| Tool | Description |
+|------|-------------|
+| `generate_exercise` | Generate adaptive exercise for a topic |
+| `create_flashcard` | Create a spaced repetition card |
+| `search_knowledge` | Search the knowledge graph |
+| `get_mastery` | Get mastery state for a topic |
+| `get_weak_spots` | Get topics needing review |
+
+See [10_assistant_tool_calling.md](docs/design_docs/10_assistant_tool_calling.md) for full design.
+
+### MCP Integration (Model Context Protocol)
+
+Enable LLMs to directly access the Obsidian vault and knowledge graph via MCP servers:
+
+```python
+from aisuite.mcp import MCPClient
+
+# Connect to Obsidian vault via MCP filesystem server
+obsidian_mcp = MCPClient(
+    command="npx",
+    args=["-y", "@modelcontextprotocol/server-filesystem", "/path/to/vault"]
+)
+
+response = client.chat.completions.create(
+    model="anthropic/claude-sonnet-4",
+    messages=[{"role": "user", "content": "Find all notes about distributed systems"}],
+    tools=obsidian_mcp.get_callable_tools(),
+    max_turns=3  # Automatic tool execution
+)
+```
+
+**Potential MCP Servers:**
+- **Filesystem server**: Direct Obsidian vault access (read/write notes)
+- **Neo4j server**: Knowledge graph queries and traversal
+- **Custom Second Brain server**: Exercise generation, spaced rep scheduling
+
+### 📱 Mobile Capture (PWA)
+
+A critical bottleneck in knowledge management is **capture friction**—the effort required to get information into the system. A Progressive Web App minimizes this for on-the-go capture.
+
+**Use Cases:**
 | Scenario | Capture Method | Processing |
 |----------|----------------|------------|
-| **Physical book highlight** | Photo of page | Vision OCR → extract text → identify highlights → ingest |
-| **Fleeting idea** | Voice memo or quick text | Transcription → LLM expansion → save to inbox |
-| **Interesting article** | Share sheet / URL paste | Fetch content → summarize → save with tags |
-| **Whiteboard / diagram** | Photo | Vision LLM → describe diagram → save with image |
-| **Conference talk notes** | Voice recording | Transcribe → structure → extract key points |
+| Physical book highlight | Photo of page | Vision OCR → highlight extraction → ingest |
+| Fleeting idea | Voice memo or text | Transcription → LLM expansion → inbox |
+| Interesting article | Share sheet / URL | Content fetch → summarize → save |
+| Whiteboard / diagram | Photo | Vision LLM → describe → save with image |
 
-### Architecture
+**Architecture:**
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     MOBILE DEVICE                                │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
 │   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
 │   │   📷 Camera   │  │   🎤 Voice   │  │   📎 Share   │          │
 │   │  (book pages, │  │   (ideas,    │  │   (URLs,     │          │
 │   │  whiteboards) │  │   memos)     │  │   articles)  │          │
 │   └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
-│          │                 │                 │                   │
 │          └─────────────────┼─────────────────┘                   │
-│                            │                                     │
 │                   ┌────────▼────────┐                            │
 │                   │   PWA / Mobile   │                            │
 │                   │   Quick Capture  │                            │
-│                   │      UI          │                            │
 │                   └────────┬────────┘                            │
-│                            │                                     │
 └────────────────────────────┼─────────────────────────────────────┘
                              │ Upload (queue if offline)
                              ▼
@@ -1205,148 +720,46 @@ A critical bottleneck in any knowledge management system is **capture friction**
 │              ▼              ▼              ▼                     │
 │         Neo4j          Obsidian        PostgreSQL                │
 │      (concepts)         (notes)       (metadata)                 │
-│                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Mobile UI Components
+**PWA Benefits:**
+| Feature | Benefit |
+|---------|---------|
+| Installable | "Add to Home Screen" — launches like native app |
+| Offline capable | Service workers cache assets and queue API calls |
+| Background sync | Uploads queued captures when connection restored |
+| Push notifications | Remind user of spaced repetition reviews |
 
-```jsx
-// Quick capture modal - minimal friction, maximum speed
-<QuickCapture>
-  {/* Large touch targets for quick access */}
-  <CaptureButton icon="📷" label="Photo" onPress={openCamera} />
-  <CaptureButton icon="🎤" label="Voice" onPress={startRecording} />
-  <CaptureButton icon="✏️" label="Note" onPress={openTextInput} />
-  <CaptureButton icon="🔗" label="URL" onPress={pasteUrl} />
-  
-  {/* Recent captures for quick review */}
-  <RecentCaptures limit={5} />
-  
-  {/* Offline indicator */}
-  {isOffline && <OfflineBanner pendingCount={pendingUploads} />}
-</QuickCapture>
-```
-
-### Backend Endpoints
-
-```python
-@app.post("/api/capture/photo")
-async def capture_photo(
-    file: UploadFile,
-    capture_type: str = "book_page"  # book_page | whiteboard | diagram | handwritten
-):
-    """
-    Process uploaded photo through vision pipeline.
-    - Book pages: OCR + highlight detection
-    - Whiteboards: OCR + structure extraction
-    - Diagrams: Semantic description
-    - Handwritten: Handwriting recognition
-    """
-    image_bytes = await file.read()
-    
-    if capture_type == "book_page":
-        result = await vision_ocr_pipeline(image_bytes, detect_highlights=True)
-    elif capture_type == "whiteboard":
-        result = await vision_ocr_pipeline(image_bytes, extract_structure=True)
-    else:
-        result = await vision_describe(image_bytes)
-    
-    # Save to inbox for review
-    await save_to_inbox(result, source="mobile_capture")
-    return {"status": "queued", "preview": result.summary}
-
-
-@app.post("/api/capture/voice")
-async def capture_voice(file: UploadFile):
-    """
-    Transcribe voice memo and optionally expand with LLM.
-    """
-    audio_bytes = await file.read()
-    
-    # Whisper transcription
-    transcript = await transcribe_audio(audio_bytes)
-    
-    # LLM expansion (turn fragments into coherent notes)
-    expanded = await expand_fleeting_note(transcript)
-    
-    await save_to_inbox(expanded, source="voice_memo")
-    return {"transcript": transcript, "expanded": expanded}
-
-
-@app.post("/api/capture/url")
-async def capture_url(url: str, highlights: list[str] = None):
-    """
-    Fetch URL content, extract main text, summarize.
-    """
-    content = await fetch_and_extract(url)
-    summary = await summarize_content(content.text, content_type="article")
-    
-    await save_to_inbox({
-        "url": url,
-        "title": content.title,
-        "summary": summary,
-        "highlights": highlights,
-        "full_text": content.text
-    }, source="url_capture")
-    
-    return {"title": content.title, "summary": summary}
-```
-
-### Offline Support via PWA (Progressive Web App)
-
-A **Progressive Web App (PWA)** is a web application that can be installed on a device and behaves like a native app. Key benefits for the Second Brain:
-
-| PWA Feature | Benefit |
-|-------------|---------|
-| **Installable** | "Add to Home Screen" — launches like a native app |
-| **Offline capable** | Service workers cache assets and queue API calls |
-| **Background sync** | Uploads queued captures when connection restored |
-| **Push notifications** | Remind user of spaced repetition reviews |
-| **No app store** | Direct install from browser, instant updates |
-
-This means the mobile capture interface works even without internet—captures are queued locally and synced when back online.
-
-```javascript
-// Service worker for offline queuing
-self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('/api/capture/')) {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        // Queue for later sync when offline
-        return saveToOfflineQueue(event.request);
-      })
-    );
-  }
-});
-
-// Background sync when connection restored
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'capture-sync') {
-    event.waitUntil(uploadQueuedCaptures());
-  }
-});
-```
-
-### Integration with Existing Tools
-
-| Tool | Integration Method |
-|------|-------------------|
-| **iOS Share Sheet** | PWA "Add to Home Screen" + Web Share Target API |
-| **Android Share** | PWA manifest with share_target |
-| **Raindrop.io** | Use mobile app → sync via API (already planned) |
-| **Apple Notes** | Export + batch import |
-| **Voice Memos** | Direct upload or watch folder sync |
-
-### Key Design Principles
-
+**Design Principles:**
 1. **< 3 seconds to capture** — Any longer and ideas are lost
 2. **Offline-first** — Queue uploads, sync when connected
 3. **Minimal categorization at capture** — Let LLM tag later
 4. **Visual feedback** — Confirm capture succeeded immediately
 5. **Inbox review** — All captures go to inbox for daily processing
 
+See [08_mobile_capture.md](docs/design_docs/08_mobile_capture.md) for full design.
+
+---
+
+## 📚 References
+
+### Learning Science
+> 📖 See **[LEARNING_THEORY.md](./LEARNING_THEORY.md)** for detailed research summaries.
+
+Key sources: Ericsson (2008) on Deliberate Practice, Bjork & Bjork (2011) on Desirable Difficulties, Dunlosky et al. (2013) on Effective Learning Techniques.
+
+### Knowledge Management
+- [How to Take Smart Notes](https://takesmartnotes.com/) – Sönke Ahrens (Zettelkasten method)
+
+### AI-Assisted Learning
+- [ChatGPT Study Mode](https://openai.com/index/chatgpt-study-mode/)
+- [Gemini Guided Learning](https://blog.google/outreach-initiatives/education/guided-learning/)
+
+### Tools & Plugins
+- [Google Code Wiki](https://developers.googleblog.com/introducing-code-wiki-accelerating-your-code-understanding/)
+- [Obsidian Neo4j Graph View](https://www.obsidianstats.com/plugins/neo4j-graph-view)
+
 ---
 
 *This is a living document. As the system evolves, so will this design.*
-
