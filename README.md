@@ -355,7 +355,7 @@ This system is grounded in research on human memory and learning. Key insights:
 | **Graph Database** | Neo4j | Native graph storage, Cypher queries |
 | **Relational DB** | PostgreSQL | Learning records, user data |
 | **Cache** | Redis | Session state, rate limiting |
-| **LLM Backbone** | aisuite | Unified interface to OpenAI, Anthropic, Gemini, Mistral |
+| **LLM Backbone** | [LiteLLM](https://www.litellm.ai/) ([GitHub](https://github.com/BerriAI/litellm)) | Unified interface to 100+ LLMs (OpenAI, Anthropic, Gemini, Mistral) |
 | **Vision/OCR** | Mistral OCR (default for PDFs), Gemini 3 Flash | Document processing, handwriting recognition |
 
 ### APIs & Services
@@ -647,23 +647,13 @@ See [10_assistant_tool_calling.md](docs/design_docs/10_assistant_tool_calling.md
 
 ### MCP Integration (Model Context Protocol)
 
-Enable LLMs to directly access the Obsidian vault and knowledge graph via MCP servers:
+Enable LLMs to directly access the Obsidian vault and knowledge graph via [MCP servers](https://modelcontextprotocol.io/):
 
-```python
-from aisuite.mcp import MCPClient
-
-# Connect to Obsidian vault via MCP filesystem server
-obsidian_mcp = MCPClient(
-    command="npx",
-    args=["-y", "@modelcontextprotocol/server-filesystem", "/path/to/vault"]
-)
-
-response = client.chat.completions.create(
-    model="anthropic/claude-sonnet-4",
-    messages=[{"role": "user", "content": "Find all notes about distributed systems"}],
-    tools=obsidian_mcp.get_callable_tools(),
-    max_turns=3  # Automatic tool execution
-)
+```
+User: "Find all my notes about distributed systems"
+      → LLM queries MCP filesystem server
+      → Returns matching notes from Obsidian vault
+      → LLM synthesizes answer with citations
 ```
 
 **Potential MCP Servers:**
