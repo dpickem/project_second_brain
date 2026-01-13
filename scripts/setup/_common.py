@@ -76,13 +76,22 @@ def _get_settings_vault_path() -> Optional[Path]:
     """
     Try to get OBSIDIAN_VAULT_PATH from backend settings.
 
-    Returns None if backend settings are not available.
+    Returns None if:
+    - Backend settings are not available
+    - Path is the Docker default "/vault" (skip for local scripts)
+    - Path doesn't exist on the filesystem
     """
     try:
         from app.config.settings import settings
 
         if settings.OBSIDIAN_VAULT_PATH:
-            return Path(settings.OBSIDIAN_VAULT_PATH).expanduser().resolve()
+            # Skip Docker default path for local scripts
+            if settings.OBSIDIAN_VAULT_PATH == "/vault":
+                return None
+            path = Path(settings.OBSIDIAN_VAULT_PATH).expanduser().resolve()
+            # Only return if path exists (user explicitly configured it)
+            if path.exists():
+                return path
     except ImportError:
         pass
     return None

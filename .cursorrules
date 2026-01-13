@@ -1,0 +1,49 @@
+# Project Second Brain - Cursor Rules
+
+## Database Credentials
+
+When connecting to any database service (PostgreSQL, Neo4j, Redis), always get credentials from the `.env` file at the project root.
+
+### PostgreSQL
+```bash
+# Source .env and use variables
+source .env
+docker exec project_second_brain-postgres-1 psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "YOUR_QUERY"
+
+# Or directly with psql (if postgres client installed locally)
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "YOUR_QUERY"
+```
+
+Required variables from `.env`:
+- `POSTGRES_USER` - PostgreSQL username
+- `POSTGRES_PASSWORD` - PostgreSQL password
+- `POSTGRES_DB` - PostgreSQL database name
+
+### Neo4j
+```bash
+source .env
+# Use $NEO4J_PASSWORD with user 'neo4j'
+# Browser: http://localhost:7474
+# Bolt: bolt://localhost:7687
+```
+
+### Redis
+```bash
+# No auth by default
+docker exec project_second_brain-redis-1 redis-cli
+# Or locally: redis-cli -h localhost -p 6379
+```
+
+### Container Names
+The Docker containers follow the naming convention `project_second_brain-<service>-1`:
+- `project_second_brain-postgres-1` - PostgreSQL
+- `project_second_brain-neo4j-1` - Neo4j
+- `project_second_brain-redis-1` - Redis
+- `project_second_brain-backend-1` - FastAPI backend
+- `project_second_brain-celery-worker-1` - Celery worker
+- `project_second_brain-frontend-1` - React frontend
+
+### Important Notes
+1. Never hardcode database credentials in commands
+2. Always use `docker exec` without `-it` flags when running non-interactively (e.g., in scripts or CI)
+3. The `.env` file is gitignored - never commit credentials

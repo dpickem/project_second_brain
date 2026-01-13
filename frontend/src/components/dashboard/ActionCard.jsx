@@ -90,7 +90,7 @@ export function ActionCard({
     return (
       <button 
         onClick={onClick}
-        className="w-full text-left group"
+        className="w-full h-full text-left group"
       >
         {content}
       </button>
@@ -98,7 +98,7 @@ export function ActionCard({
   }
 
   return (
-    <Link to={to} className="group">
+    <Link to={to} className="group block h-full">
       {content}
     </Link>
   )

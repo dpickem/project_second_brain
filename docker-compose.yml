@@ -106,11 +106,6 @@ x-common-env: &common-env
   # ----- External API Tokens -----
   RAINDROP_ACCESS_TOKEN: ${RAINDROP_ACCESS_TOKEN:-}
   GITHUB_ACCESS_TOKEN: ${GITHUB_ACCESS_TOKEN:-}
-  # ----- Observability -----
-  LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-false}
-  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
-  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
-  LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
   # ----- App Settings -----
   APP_NAME: ${APP_NAME:-Second Brain}
   DEBUG: ${DEBUG:-false}

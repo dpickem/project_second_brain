@@ -2111,6 +2111,8 @@ export interface components {
          *     Captures the learner's revised self-assessment after seeing the evaluation.
          *     Comparing confidence_before and confidence_after reveals calibration accuracy—
          *     well-calibrated learners show smaller deltas between pre and post confidence.
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         AttemptConfidenceUpdate: {
             /** Confidence After */
@@ -2173,6 +2175,8 @@ export interface components {
          *     Supports both text responses (for conceptual exercises) and code responses
          *     (for programming exercises). The confidence_before field captures the learner's
          *     self-assessment prior to receiving feedback, enabling calibration tracking.
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         AttemptSubmitRequest: {
             /**
@@ -2398,6 +2402,12 @@ export interface components {
         /**
          * CardEvaluateRequest
          * @description Request to evaluate a typed answer for a card.
+         *
+         *     Enables "active recall" mode where users type their answer instead of just
+         *     flipping the card. The LLM evaluates the answer semantically and returns
+         *     an appropriate FSRS rating based on answer quality.
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         CardEvaluateRequest: {
             /**
@@ -2414,6 +2424,12 @@ export interface components {
         /**
          * CardEvaluateResponse
          * @description Response from card answer evaluation.
+         *
+         *     Contains the LLM's assessment of the user's typed answer including an FSRS
+         *     rating (1-4), detailed feedback explaining what was correct/incorrect, and
+         *     lists of key points covered and missed. The expected_answer is included for
+         *     comparison to help the learner understand the gap between their response
+         *     and the ideal answer.
          */
         CardEvaluateResponse: {
             /** Card Id */
@@ -2446,6 +2462,12 @@ export interface components {
         /**
          * CardGenerationRequest
          * @description Request to generate cards for a topic.
+         *
+         *     Uses existing content and LLM to generate flashcards for the specified topic.
+         *     The difficulty parameter controls the mix of generated cards, while count
+         *     determines how many cards to create in a single generation batch.
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         CardGenerationRequest: {
             /**
@@ -2469,6 +2491,10 @@ export interface components {
         /**
          * CardGenerationResponse
          * @description Response from card generation.
+         *
+         *     Returns the number of cards generated along with the total card count for the
+         *     topic after generation. Useful for understanding how many new cards were added
+         *     and the current size of the topic's card pool.
          */
         CardGenerationResponse: {
             /** Generated Count */
@@ -2569,6 +2595,8 @@ export interface components {
          *     The rating follows FSRS conventions: Again (1) for forgotten, Hard (2) for difficult
          *     recall, Good (3) for successful recall with effort, Easy (4) for effortless recall.
          *     Time spent is tracked for analytics and can inform future difficulty adjustments.
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         CardReviewRequest: {
             /**
@@ -2679,6 +2707,8 @@ export interface components {
          *     Attributes:
          *         conversation_id: Existing conversation ID (null to start new conversation)
          *         message: User message content
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         ChatRequest: {
             /**
@@ -3027,6 +3057,15 @@ export interface components {
             language: string;
         };
         /**
+         * ContentSourcePreference
+         * @description How to source content (exercises or cards) for a session.
+         *
+         *     Controls whether to use existing content from the database,
+         *     generate new content via LLM, or a combination.
+         * @enum {string}
+         */
+        ContentSourcePreference: "prefer_existing" | "generate_new" | "existing_only";
+        /**
          * ConversationDetail
          * @description Full conversation with all messages.
          *
@@ -3098,6 +3137,8 @@ export interface components {
          *
          *     Attributes:
          *         title: New title for the conversation
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         ConversationUpdateRequest: {
             /** Title */
@@ -3235,6 +3276,8 @@ export interface components {
          *     The LLM exercise generator uses the topic and optional source content to create
          *     a contextually relevant exercise. If type/difficulty are not specified, they are
          *     automatically selected based on the learner's current mastery level for the topic.
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         ExerciseGenerateRequest: {
             /**
@@ -3722,6 +3765,8 @@ export interface components {
          *     Represents a daily snapshot of mastery metrics for time-series visualization.
          *     The retention_estimate shows predicted recall probability, while cards_reviewed
          *     indicates study activity level for that day.
+         *
+         *     Now includes exercise activity for comprehensive progress tracking.
          */
         LearningCurveDataPoint: {
             /**
@@ -3735,9 +3780,27 @@ export interface components {
             retention_estimate?: number | null;
             /**
              * Cards Reviewed
+             * @description Number of cards reviewed on this day
              * @default 0
              */
             cards_reviewed: number;
+            /**
+             * Exercises Attempted
+             * @description Number of exercise attempts on this day
+             * @default 0
+             */
+            exercises_attempted: number;
+            /**
+             * Exercise Score
+             * @description Average exercise score for this day (0-100)
+             */
+            exercise_score?: number | null;
+            /**
+             * Time Minutes
+             * @description Total practice time in minutes
+             * @default 0
+             */
+            time_minutes: number;
         };
         /**
          * LearningCurveResponse
@@ -3766,6 +3829,8 @@ export interface components {
          *     Captures time spent on learning activities for analytics. Supports various
          *     activity types (review, practice, reading, exercise) and can be linked to
          *     specific content, topics, or practice sessions for detailed tracking.
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         LogTimeRequest: {
             /**
@@ -3818,23 +3883,75 @@ export interface components {
          *     Provides a dashboard view of learning progress across all topics. Card counts
          *     show distribution across learning states (new, learning, mastered). The streak
          *     counter motivates consistent daily practice through gamification.
+         *
+         *     Includes separate stats for spaced repetition cards and exercises to give
+         *     users clear visibility into both learning modalities.
          */
         MasteryOverview: {
             /** Overall Mastery */
             overall_mastery: number;
             /** Topics */
             topics: components["schemas"]["MasteryState"][];
-            /** Total Cards */
-            total_cards: number;
             /**
-             * Cards Mastered
-             * @description Cards with stability >= 21 days
+             * Spaced Rep Cards Total
+             * @description Total spaced repetition cards
+             * @default 0
              */
-            cards_mastered: number;
-            /** Cards Learning */
-            cards_learning: number;
-            /** Cards New */
-            cards_new: number;
+            spaced_rep_cards_total: number;
+            /**
+             * Spaced Rep Cards Mastered
+             * @description Cards with stability >= 21 days
+             * @default 0
+             */
+            spaced_rep_cards_mastered: number;
+            /**
+             * Spaced Rep Cards Learning
+             * @description Cards in learning/relearning/review state
+             * @default 0
+             */
+            spaced_rep_cards_learning: number;
+            /**
+             * Spaced Rep Cards New
+             * @description Cards never reviewed
+             * @default 0
+             */
+            spaced_rep_cards_new: number;
+            /**
+             * Spaced Rep Reviews Total
+             * @description Total card reviews completed
+             * @default 0
+             */
+            spaced_rep_reviews_total: number;
+            /**
+             * Exercises Total
+             * @description Total exercises available
+             * @default 0
+             */
+            exercises_total: number;
+            /**
+             * Exercises Completed
+             * @description Exercises with at least one attempt
+             * @default 0
+             */
+            exercises_completed: number;
+            /**
+             * Exercises Mastered
+             * @description Exercises with avg score >= 80%
+             * @default 0
+             */
+            exercises_mastered: number;
+            /**
+             * Exercises Attempts Total
+             * @description Total exercise attempts
+             * @default 0
+             */
+            exercises_attempts_total: number;
+            /**
+             * Exercises Avg Score
+             * @description Average score across all attempts
+             * @default 0
+             */
+            exercises_avg_score: number;
             /**
              * Streak Days
              * @description Consecutive practice days
@@ -4245,6 +4362,8 @@ export interface components {
         /**
          * ProcessingConfigRequest
          * @description Configuration options for processing request.
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         ProcessingConfigRequest: {
             /**
@@ -4267,6 +4386,11 @@ export interface components {
              * @default true
              */
             generate_cards: boolean;
+            /**
+             * Generate Exercises
+             * @default true
+             */
+            generate_exercises: boolean;
             /**
              * Discover Connections
              * @default true
@@ -4400,6 +4524,8 @@ export interface components {
          *     Attributes:
          *         topic_id: Topic ID to generate quiz for
          *         question_count: Number of questions to generate
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         QuizRequest: {
             /** Topic Id */
@@ -4527,6 +4653,8 @@ export interface components {
          *         limit: Maximum results to return (1-100, default: 20)
          *         min_score: Minimum relevance score threshold (0-1, default: 0.5)
          *         use_vector: Whether to use vector/embedding search when available
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         SearchRequest: {
             /** Query */
@@ -4609,15 +4737,28 @@ export interface components {
             highlights?: string[];
         };
         /**
+         * SessionContentMode
+         * @description What types of content to include in a session.
+         *
+         *     Controls whether sessions contain exercises, spaced rep cards, or both.
+         *     Used to customize the learning experience based on user preference.
+         * @enum {string}
+         */
+        SessionContentMode: "both" | "exercises_only" | "cards_only";
+        /**
          * SessionCreateRequest
-         * @description Request to create a practice session.
+         * @description Request to create a practice session with configurable content mix.
          *
-         *     Creates a balanced session mixing due spaced rep cards (40%), weak spot exercises
-         *     (30%), and new content (30%). The topic_filter focuses the session on a specific
-         *     area, otherwise content is drawn from across all learned topics.
+         *     Session composition is controlled by:
+         *     - content_mode: What to include (exercises, cards, or both)
+         *     - exercise_source: How to source exercises (existing, generate, or both)
+         *     - card_source: How to source cards (due cards, generate new, or both)
+         *     - Time allocation ratios for exercises vs cards
          *
-         *     When reuse_exercises=True, existing exercises for the topic are used instead of
-         *     generating new ones via LLM. This is faster and free (no API calls).
+         *     Defaults are configured in settings but can be overridden per-request.
+         *     The topic_filter focuses the session on a specific area.
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         SessionCreateRequest: {
             /**
@@ -4633,12 +4774,17 @@ export interface components {
             topic_filter?: string | null;
             /** @default practice */
             session_type: components["schemas"]["SessionType"];
+            /** @description What to include: 'both', 'exercises_only', 'cards_only'. Uses SESSION_DEFAULT_CONTENT_MODE if not specified. */
+            content_mode?: components["schemas"]["SessionContentMode"] | null;
+            /** @description How to source exercises: 'prefer_existing', 'generate_new', 'existing_only'. Uses SESSION_DEFAULT_EXERCISE_SOURCE if not specified. */
+            exercise_source?: components["schemas"]["ContentSourcePreference"] | null;
+            /** @description How to source cards: 'prefer_existing', 'generate_new', 'existing_only'. Uses SESSION_DEFAULT_CARD_SOURCE if not specified. */
+            card_source?: components["schemas"]["ContentSourcePreference"] | null;
             /**
-             * Reuse Exercises
-             * @description Reuse existing exercises instead of generating new ones. Set to False to always generate fresh exercises via LLM.
-             * @default true
+             * Exercise Ratio
+             * @description Ratio of time for exercises (0-1). Card ratio is 1 - this value. Uses settings defaults if not specified.
              */
-            reuse_exercises: boolean;
+            exercise_ratio?: number | null;
         };
         /**
          * SessionItem
@@ -4941,6 +5087,8 @@ export interface components {
         /**
          * TriggerProcessingRequest
          * @description Request body for triggering processing.
+         *
+         *     Note: Uses StrictRequest - unknown fields will be rejected with 422.
          */
         TriggerProcessingRequest: {
             /**

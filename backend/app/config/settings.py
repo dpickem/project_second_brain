@@ -226,14 +226,6 @@ class Settings(BaseSettings):
     RAINDROP_TITLE_MAX_LENGTH: int = 200  # Maximum valid title length
 
     # =========================================================================
-    # OBSERVABILITY
-    # =========================================================================
-    LANGFUSE_ENABLED: bool = False
-    LANGFUSE_PUBLIC_KEY: str = ""
-    LANGFUSE_SECRET_KEY: str = ""
-    LANGFUSE_HOST: str = "https://cloud.langfuse.com"
-
-    # =========================================================================
     # LEARNING SYSTEM
     # =========================================================================
     # Mastery calculation weights (must sum to 1.0)
@@ -433,7 +425,7 @@ class Settings(BaseSettings):
         return rate_limit_map.get(rate_limit_type, self.RATE_LIMIT_DEFAULT)
 
     class Config:
-        env_file = ".env"
+        env_file = str(PROJECT_ROOT / ".env")
         env_file_encoding = "utf-8"
         # Allow extra fields to be ignored (forward compatibility)
         extra = "ignore"

@@ -179,6 +179,7 @@ def _process_content_impl(
         path=Path(source_path) if source_path else None,
         url=source_url,
         text=source_text,
+        content_id=content_id,
     )
 
     async def run_pipeline_and_update():

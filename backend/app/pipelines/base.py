@@ -67,6 +67,7 @@ class PipelineInput:
         url: URL for web-based content (GitHub, articles)
         text: Text content for direct text input
         content_type: Hint for pipeline routing
+        content_id: UUID of the content item (for cost tracking)
 
     Usage:
         # File input
@@ -86,6 +87,7 @@ class PipelineInput:
     path: Optional[Path] = None
     url: Optional[str] = None
     text: Optional[str] = None
+    content_id: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Validate that at least one input source is provided."""

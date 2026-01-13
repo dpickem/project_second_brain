@@ -85,39 +85,37 @@ export function Dashboard() {
             />
           </motion.div>
 
-          {/* Main Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Actions */}
-            <motion.div variants={fadeInUp} className="space-y-4">
-              <h2 className="text-sm font-medium text-text-muted uppercase tracking-wide">
-                Continue Learning
-              </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
-                <PracticeActionCard />
-                <ReviewActionCard dueCount={totalDue} />
-              </div>
-            </motion.div>
+          {/* Main Grid - Learning Section */}
+          <motion.div variants={fadeInUp} className="space-y-4">
+            <h2 className="text-sm font-medium text-text-muted uppercase tracking-wide">
+              Continue Learning
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Practice Action */}
+              <PracticeActionCard />
 
-            {/* Center Column - Due Cards */}
-            <motion.div variants={fadeInUp}>
+              {/* Due Cards Preview */}
               <DueCardsPreview
                 cards={dueCards}
                 totalDue={totalDue}
                 isLoading={dueLoading}
               />
-            </motion.div>
 
-            {/* Right Column - Focus Areas */}
-            <motion.div variants={fadeInUp}>
+              {/* Focus Areas */}
               <WeakSpotsList
                 topics={topics}
                 isLoading={weakSpotsLoading}
               />
-            </motion.div>
-          </div>
+            </div>
+          </motion.div>
 
-          {/* Bottom Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Secondary Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Review Action */}
+            <motion.div variants={fadeInUp}>
+              <ReviewActionCard dueCount={totalDue} />
+            </motion.div>
+
             {/* Quick Capture */}
             <motion.div variants={fadeInUp}>
               <QuickCapture />

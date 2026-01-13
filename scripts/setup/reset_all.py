@@ -124,7 +124,7 @@ from app.config.settings import settings
 
 def reset_postgresql(dry_run: bool = False) -> bool:
     """
-    Reset PostgreSQL database by dropping all tables.
+    Reset PostgreSQL database by dropping all tables and ENUM types.
 
     Returns True on success, False on failure.
     """
@@ -132,7 +132,7 @@ def reset_postgresql(dry_run: bool = False) -> bool:
 
     if dry_run:
         print(f"   Would connect to: {settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}")
-        print(f"   Would drop all tables in database: {settings.POSTGRES_DB}")
+        print(f"   Would drop all tables and ENUM types in database: {settings.POSTGRES_DB}")
         return True
 
     try:
@@ -164,11 +164,28 @@ def reset_postgresql(dry_run: bool = False) -> bool:
                 # Also drop alembic version table if exists
                 conn.execute(text("DROP TABLE IF EXISTS alembic_version CASCADE"))
 
+            # Get and drop all custom ENUM types
+            result = conn.execute(
+                text(
+                    """
+                SELECT typname FROM pg_type
+                WHERE typtype = 'e'
+                AND typnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+            """
+                )
+            )
+            enums = [row[0] for row in result]
+
+            for enum in enums:
+                conn.execute(text(f"DROP TYPE IF EXISTS {enum} CASCADE"))
+                print(f"   🗑️  Dropped ENUM: {enum}")
+
             # Re-enable foreign key checks
             conn.execute(text("SET session_replication_role = 'origin';"))
             conn.commit()
 
-        print(f"   ✅ PostgreSQL reset complete ({len(tables)} tables dropped)")
+        enum_msg = f", {len(enums)} ENUMs" if enums else ""
+        print(f"   ✅ PostgreSQL reset complete ({len(tables)} tables{enum_msg} dropped)")
         return True
 
     except Exception as e:

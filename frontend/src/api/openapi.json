@@ -3321,12 +3321,13 @@
             "title": "Confidence After"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "confidence_after"
         ],
         "title": "AttemptConfidenceUpdate",
-        "description": "Update confidence after viewing feedback.\n\nCaptures the learner's revised self-assessment after seeing the evaluation.\nComparing confidence_before and confidence_after reveals calibration accuracy—\nwell-calibrated learners show smaller deltas between pre and post confidence."
+        "description": "Update confidence after viewing feedback.\n\nCaptures the learner's revised self-assessment after seeing the evaluation.\nComparing confidence_before and confidence_after reveals calibration accuracy—\nwell-calibrated learners show smaller deltas between pre and post confidence.\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "AttemptEvaluationResponse": {
         "properties": {
@@ -3505,12 +3506,13 @@
             "title": "Time Spent Seconds"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "exercise_id"
         ],
         "title": "AttemptSubmitRequest",
-        "description": "Request to submit an exercise attempt.\n\nSupports both text responses (for conceptual exercises) and code responses\n(for programming exercises). The confidence_before field captures the learner's\nself-assessment prior to receiving feedback, enabling calibration tracking."
+        "description": "Request to submit an exercise attempt.\n\nSupports both text responses (for conceptual exercises) and code responses\n(for programming exercises). The confidence_before field captures the learner's\nself-assessment prior to receiving feedback, enabling calibration tracking.\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "Body_capture_book_api_capture_book_post": {
         "properties": {
@@ -3891,13 +3893,14 @@
             "description": "User's typed answer"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "card_id",
           "user_answer"
         ],
         "title": "CardEvaluateRequest",
-        "description": "Request to evaluate a typed answer for a card."
+        "description": "Request to evaluate a typed answer for a card.\n\nEnables \"active recall\" mode where users type their answer instead of just\nflipping the card. The LLM evaluates the answer semantically and returns\nan appropriate FSRS rating based on answer quality.\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "CardEvaluateResponse": {
         "properties": {
@@ -3951,7 +3954,7 @@
           "expected_answer"
         ],
         "title": "CardEvaluateResponse",
-        "description": "Response from card answer evaluation."
+        "description": "Response from card answer evaluation.\n\nContains the LLM's assessment of the user's typed answer including an FSRS\nrating (1-4), detailed feedback explaining what was correct/incorrect, and\nlists of key points covered and missed. The expected_answer is included for\ncomparison to help the learner understand the gap between their response\nand the ideal answer."
       },
       "CardGenerationRequest": {
         "properties": {
@@ -3975,12 +3978,13 @@
             "default": "mixed"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "topic"
         ],
         "title": "CardGenerationRequest",
-        "description": "Request to generate cards for a topic."
+        "description": "Request to generate cards for a topic.\n\nUses existing content and LLM to generate flashcards for the specified topic.\nThe difficulty parameter controls the mix of generated cards, while count\ndetermines how many cards to create in a single generation batch.\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "CardGenerationResponse": {
         "properties": {
@@ -4004,7 +4008,7 @@
           "topic"
         ],
         "title": "CardGenerationResponse",
-        "description": "Response from card generation."
+        "description": "Response from card generation.\n\nReturns the number of cards generated along with the total card count for the\ntopic after generation. Useful for understanding how many new cards were added\nand the current size of the topic's card pool."
       },
       "CardResponse": {
         "properties": {
@@ -4179,13 +4183,14 @@
             "description": "Time spent on review"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "card_id",
           "rating"
         ],
         "title": "CardReviewRequest",
-        "description": "Request to submit a card review rating.\n\nThe rating follows FSRS conventions: Again (1) for forgotten, Hard (2) for difficult\nrecall, Good (3) for successful recall with effort, Easy (4) for effortless recall.\nTime spent is tracked for analytics and can inform future difficulty adjustments."
+        "description": "Request to submit a card review rating.\n\nThe rating follows FSRS conventions: Again (1) for forgotten, Hard (2) for difficult\nrecall, Good (3) for successful recall with effort, Easy (4) for effortless recall.\nTime spent is tracked for analytics and can inform future difficulty adjustments.\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "CardReviewResponse": {
         "properties": {
@@ -4307,12 +4312,13 @@
             "title": "Message"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "message"
         ],
         "title": "ChatRequest",
-        "description": "Request to send a message to the AI assistant.\n\nAttributes:\n    conversation_id: Existing conversation ID (null to start new conversation)\n    message: User message content"
+        "description": "Request to send a message to the AI assistant.\n\nAttributes:\n    conversation_id: Existing conversation ID (null to start new conversation)\n    message: User message content\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "ChatResponse": {
         "properties": {
@@ -4734,6 +4740,16 @@
         "title": "ContentAnalysis",
         "description": "Result of initial content analysis.\n\nThis is the first processing stage output that determines how subsequent\nstages behave. Identifying content type, domain, complexity, and key topics\nallows the pipeline to use appropriate prompts and model configurations.\n\nAttributes:\n    content_type: Type of content (paper, article, book, code, idea, voice_memo)\n    domain: Primary domain (ml, systems, leadership, productivity, etc.)\n    complexity: Difficulty level (foundational, intermediate, advanced)\n    estimated_length: Content length category (short, medium, long)\n    has_code: Whether content contains code snippets\n    has_math: Whether content contains mathematical notation\n    has_diagrams: Whether content contains diagrams or figures\n    key_topics: Main topics covered (up to 10)\n    language: ISO language code (default: en)"
       },
+      "ContentSourcePreference": {
+        "type": "string",
+        "enum": [
+          "prefer_existing",
+          "generate_new",
+          "existing_only"
+        ],
+        "title": "ContentSourcePreference",
+        "description": "How to source content (exercises or cards) for a session.\n\nControls whether to use existing content from the database,\ngenerate new content via LLM, or a combination."
+      },
       "ConversationDetail": {
         "properties": {
           "id": {
@@ -4834,12 +4850,13 @@
             "title": "Title"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "title"
         ],
         "title": "ConversationUpdateRequest",
-        "description": "Request to update conversation metadata.\n\nAttributes:\n    title: New title for the conversation"
+        "description": "Request to update conversation metadata.\n\nAttributes:\n    title: New title for the conversation\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "ConversationUpdateResponse": {
         "properties": {
@@ -5069,12 +5086,13 @@
             "description": "Optional content IDs to base exercise on"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "topic"
         ],
         "title": "ExerciseGenerateRequest",
-        "description": "Request to generate an exercise.\n\nThe LLM exercise generator uses the topic and optional source content to create\na contextually relevant exercise. If type/difficulty are not specified, they are\nautomatically selected based on the learner's current mastery level for the topic."
+        "description": "Request to generate an exercise.\n\nThe LLM exercise generator uses the topic and optional source content to create\na contextually relevant exercise. If type/difficulty are not specified, they are\nautomatically selected based on the learner's current mastery level for the topic.\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "ExerciseResponse": {
         "properties": {
@@ -5831,6 +5849,31 @@
           "cards_reviewed": {
             "type": "integer",
             "title": "Cards Reviewed",
+            "description": "Number of cards reviewed on this day",
+            "default": 0
+          },
+          "exercises_attempted": {
+            "type": "integer",
+            "title": "Exercises Attempted",
+            "description": "Number of exercise attempts on this day",
+            "default": 0
+          },
+          "exercise_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exercise Score",
+            "description": "Average exercise score for this day (0-100)"
+          },
+          "time_minutes": {
+            "type": "integer",
+            "title": "Time Minutes",
+            "description": "Total practice time in minutes",
             "default": 0
           }
         },
@@ -5840,7 +5883,7 @@
           "mastery_score"
         ],
         "title": "LearningCurveDataPoint",
-        "description": "Single data point for learning curve.\n\nRepresents a daily snapshot of mastery metrics for time-series visualization.\nThe retention_estimate shows predicted recall probability, while cards_reviewed\nindicates study activity level for that day."
+        "description": "Single data point for learning curve.\n\nRepresents a daily snapshot of mastery metrics for time-series visualization.\nThe retention_estimate shows predicted recall probability, while cards_reviewed\nindicates study activity level for that day.\n\nNow includes exercise activity for comprehensive progress tracking."
       },
       "LearningCurveResponse": {
         "properties": {
@@ -5943,6 +5986,7 @@
             "default": 0
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "activity_type",
@@ -5950,7 +5994,7 @@
           "ended_at"
         ],
         "title": "LogTimeRequest",
-        "description": "Request to log learning time.\n\nCaptures time spent on learning activities for analytics. Supports various\nactivity types (review, practice, reading, exercise) and can be linked to\nspecific content, topics, or practice sessions for detailed tracking."
+        "description": "Request to log learning time.\n\nCaptures time spent on learning activities for analytics. Supports various\nactivity types (review, practice, reading, exercise) and can be linked to\nspecific content, topics, or practice sessions for detailed tracking.\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "LogTimeResponse": {
         "properties": {
@@ -5991,22 +6035,65 @@
             "type": "array",
             "title": "Topics"
           },
-          "total_cards": {
+          "spaced_rep_cards_total": {
             "type": "integer",
-            "title": "Total Cards"
+            "title": "Spaced Rep Cards Total",
+            "description": "Total spaced repetition cards",
+            "default": 0
           },
-          "cards_mastered": {
+          "spaced_rep_cards_mastered": {
             "type": "integer",
-            "title": "Cards Mastered",
-            "description": "Cards with stability >= 21 days"
+            "title": "Spaced Rep Cards Mastered",
+            "description": "Cards with stability >= 21 days",
+            "default": 0
           },
-          "cards_learning": {
+          "spaced_rep_cards_learning": {
             "type": "integer",
-            "title": "Cards Learning"
+            "title": "Spaced Rep Cards Learning",
+            "description": "Cards in learning/relearning/review state",
+            "default": 0
           },
-          "cards_new": {
+          "spaced_rep_cards_new": {
             "type": "integer",
-            "title": "Cards New"
+            "title": "Spaced Rep Cards New",
+            "description": "Cards never reviewed",
+            "default": 0
+          },
+          "spaced_rep_reviews_total": {
+            "type": "integer",
+            "title": "Spaced Rep Reviews Total",
+            "description": "Total card reviews completed",
+            "default": 0
+          },
+          "exercises_total": {
+            "type": "integer",
+            "title": "Exercises Total",
+            "description": "Total exercises available",
+            "default": 0
+          },
+          "exercises_completed": {
+            "type": "integer",
+            "title": "Exercises Completed",
+            "description": "Exercises with at least one attempt",
+            "default": 0
+          },
+          "exercises_mastered": {
+            "type": "integer",
+            "title": "Exercises Mastered",
+            "description": "Exercises with avg score >= 80%",
+            "default": 0
+          },
+          "exercises_attempts_total": {
+            "type": "integer",
+            "title": "Exercises Attempts Total",
+            "description": "Total exercise attempts",
+            "default": 0
+          },
+          "exercises_avg_score": {
+            "type": "number",
+            "title": "Exercises Avg Score",
+            "description": "Average score across all attempts",
+            "default": 0
           },
           "streak_days": {
             "type": "integer",
@@ -6023,14 +6110,10 @@
         "type": "object",
         "required": [
           "overall_mastery",
-          "topics",
-          "total_cards",
-          "cards_mastered",
-          "cards_learning",
-          "cards_new"
+          "topics"
         ],
         "title": "MasteryOverview",
-        "description": "Overall mastery statistics.\n\nProvides a dashboard view of learning progress across all topics. Card counts\nshow distribution across learning states (new, learning, mastered). The streak\ncounter motivates consistent daily practice through gamification."
+        "description": "Overall mastery statistics.\n\nProvides a dashboard view of learning progress across all topics. Card counts\nshow distribution across learning states (new, learning, mastered). The streak\ncounter motivates consistent daily practice through gamification.\n\nIncludes separate stats for spaced repetition cards and exercises to give\nusers clear visibility into both learning modalities."
       },
       "MasteryQuestion": {
         "properties": {
@@ -6693,6 +6776,11 @@
             "title": "Generate Cards",
             "default": true
           },
+          "generate_exercises": {
+            "type": "boolean",
+            "title": "Generate Exercises",
+            "default": true
+          },
           "discover_connections": {
             "type": "boolean",
             "title": "Discover Connections",
@@ -6724,9 +6812,10 @@
             "default": true
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "ProcessingConfigRequest",
-        "description": "Configuration options for processing request."
+        "description": "Configuration options for processing request.\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "ProcessingResultResponse": {
         "properties": {
@@ -6992,12 +7081,13 @@
             "default": 5
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "topic_id"
         ],
         "title": "QuizRequest",
-        "description": "Request to generate a quiz.\n\nAttributes:\n    topic_id: Topic ID to generate quiz for\n    question_count: Number of questions to generate"
+        "description": "Request to generate a quiz.\n\nAttributes:\n    topic_id: Topic ID to generate quiz for\n    question_count: Number of questions to generate\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "QuizResponse": {
         "properties": {
@@ -7180,12 +7270,13 @@
             "default": true
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "query"
         ],
         "title": "SearchRequest",
-        "description": "Search query parameters.\n\nConfigures semantic search across the knowledge graph\nwith filtering and scoring options.\n\nAttributes:\n    query: Search query text (1-500 characters)\n    node_types: Types to search (default: Content, Concept)\n    limit: Maximum results to return (1-100, default: 20)\n    min_score: Minimum relevance score threshold (0-1, default: 0.5)\n    use_vector: Whether to use vector/embedding search when available"
+        "description": "Search query parameters.\n\nConfigures semantic search across the knowledge graph\nwith filtering and scoring options.\n\nAttributes:\n    query: Search query text (1-500 characters)\n    node_types: Types to search (default: Content, Concept)\n    limit: Maximum results to return (1-100, default: 20)\n    min_score: Minimum relevance score threshold (0-1, default: 0.5)\n    use_vector: Whether to use vector/embedding search when available\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "SearchResponse": {
         "properties": {
@@ -7268,6 +7359,16 @@
         "title": "SearchResult",
         "description": "Single search result with relevance score.\n\nRepresents a matched node from semantic or keyword search\nwith scoring and optional highlight snippets.\n\nAttributes:\n    id: Node identifier\n    node_type: Type of matched node (Content, Concept, Note)\n    title: Display title\n    summary: Brief summary or excerpt\n    score: Relevance score from 0.0 to 1.0\n    highlights: Matching text snippets (for keyword search)"
       },
+      "SessionContentMode": {
+        "type": "string",
+        "enum": [
+          "both",
+          "exercises_only",
+          "cards_only"
+        ],
+        "title": "SessionContentMode",
+        "description": "What types of content to include in a session.\n\nControls whether sessions contain exercises, spaced rep cards, or both.\nUsed to customize the learning experience based on user preference."
+      },
       "SessionCreateRequest": {
         "properties": {
           "duration_minutes": {
@@ -7294,16 +7395,58 @@
             "$ref": "#/components/schemas/SessionType",
             "default": "practice"
           },
-          "reuse_exercises": {
-            "type": "boolean",
-            "title": "Reuse Exercises",
-            "description": "Reuse existing exercises instead of generating new ones. Set to False to always generate fresh exercises via LLM.",
-            "default": true
+          "content_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionContentMode"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What to include: 'both', 'exercises_only', 'cards_only'. Uses SESSION_DEFAULT_CONTENT_MODE if not specified."
+          },
+          "exercise_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContentSourcePreference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How to source exercises: 'prefer_existing', 'generate_new', 'existing_only'. Uses SESSION_DEFAULT_EXERCISE_SOURCE if not specified."
+          },
+          "card_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContentSourcePreference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How to source cards: 'prefer_existing', 'generate_new', 'existing_only'. Uses SESSION_DEFAULT_CARD_SOURCE if not specified."
+          },
+          "exercise_ratio": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1,
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exercise Ratio",
+            "description": "Ratio of time for exercises (0-1). Card ratio is 1 - this value. Uses settings defaults if not specified."
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "SessionCreateRequest",
-        "description": "Request to create a practice session.\n\nCreates a balanced session mixing due spaced rep cards (40%), weak spot exercises\n(30%), and new content (30%). The topic_filter focuses the session on a specific\narea, otherwise content is drawn from across all learned topics.\n\nWhen reuse_exercises=True, existing exercises for the topic are used instead of\ngenerating new ones via LLM. This is faster and free (no API calls)."
+        "description": "Request to create a practice session with configurable content mix.\n\nSession composition is controlled by:\n- content_mode: What to include (exercises, cards, or both)\n- exercise_source: How to source exercises (existing, generate, or both)\n- card_source: How to source cards (due cards, generate new, or both)\n- Time allocation ratios for exercises vs cards\n\nDefaults are configured in settings but can be overridden per-request.\nThe topic_filter focuses the session on a specific area.\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "SessionItem": {
         "properties": {
@@ -7829,12 +7972,13 @@
             ]
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "content_id"
         ],
         "title": "TriggerProcessingRequest",
-        "description": "Request body for triggering processing."
+        "description": "Request body for triggering processing.\n\nNote: Uses StrictRequest - unknown fields will be rejected with 422."
       },
       "TriggerProcessingResponse": {
         "properties": {
