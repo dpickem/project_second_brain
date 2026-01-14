@@ -1,11 +1,12 @@
 """
 Celery Queue Configuration
 
-Provides async task processing for content ingestion. Tasks are routed to
+Provides async task processing for content ingestion + downstream LLM processing. Tasks are routed to
 different queues based on priority:
-- high_priority: Voice memos (user waiting)
-- default: Normal content processing, book OCR
-- low_priority: Batch imports, background syncs
+- ingestion_high: Voice memos (user waiting)
+- ingestion_default: Normal ingestion + book OCR
+- ingestion_low: Batch imports, background syncs
+- llm_processing: LLM processing pipeline (cards/exercises/summaries/etc.)
 
 Why Celery?
 - Async processing: User uploads → immediate response → background processing
@@ -16,14 +17,14 @@ Why Celery?
 
 Task Time Limits:
 - Default tasks: 10 minutes
-- Book OCR (process_book): 60 minutes (parallel processing of many pages)
+- Book OCR (ingest_book): 60 minutes (parallel processing of many pages)
 
 Usage:
     from app.services.queue import celery_app
-    from app.services.tasks import process_content
+    from app.services.tasks import ingest_content
 
     # Queue a task
-    process_content.delay(content_id, {"priority": "high"})
+    ingest_content.delay(content_id=content_id, content_type="pdf", source_path="/path/to/file.pdf")
 
     # Run worker: celery -A app.services.queue worker -l info
 """
@@ -56,18 +57,24 @@ celery_app.conf.update(
     enable_utc=True,
     # Task routing
     task_routes={
-        "app.services.tasks.process_content": {"queue": "default"},
-        "app.services.tasks.process_content_high": {"queue": "high_priority"},
-        "app.services.tasks.process_content_low": {"queue": "low_priority"},
-        "app.services.tasks.process_book": {"queue": "default"},
-        "app.services.tasks.sync_raindrop": {"queue": "low_priority"},
-        "app.services.tasks.sync_github": {"queue": "low_priority"},
+        # New task names (preferred)
+        "app.services.tasks.ingest_content": {"queue": "ingestion_default"},
+        "app.services.tasks.ingest_content_high": {"queue": "ingestion_high"},
+        "app.services.tasks.ingest_content_low": {"queue": "ingestion_low"},
+        "app.services.tasks.ingest_book": {"queue": "ingestion_default"},
+        "app.services.tasks.process_content": {"queue": "llm_processing"},
+        "app.services.tasks.sync_raindrop": {"queue": "ingestion_low"},
+        "app.services.tasks.sync_github": {"queue": "ingestion_low"},
     },
     # Task-specific time limits (override defaults for long-running tasks)
     task_annotations={
-        "app.services.tasks.process_book": {
+        "app.services.tasks.ingest_book": {
             "soft_time_limit": 1800,  # 30 minutes soft limit
             "time_limit": 3600,  # 60 minutes hard limit
+        },
+        "app.services.tasks.process_content": {
+            "soft_time_limit": 600,  # 10 minutes soft limit
+            "time_limit": 900,  # 15 minutes hard limit
         },
     },
     # Retry configuration

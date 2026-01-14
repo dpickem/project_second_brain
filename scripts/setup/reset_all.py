@@ -132,7 +132,9 @@ def reset_postgresql(dry_run: bool = False) -> bool:
 
     if dry_run:
         print(f"   Would connect to: {settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}")
-        print(f"   Would drop all tables and ENUM types in database: {settings.POSTGRES_DB}")
+        print(
+            f"   Would drop all tables and ENUM types in database: {settings.POSTGRES_DB}"
+        )
         return True
 
     try:
@@ -185,7 +187,9 @@ def reset_postgresql(dry_run: bool = False) -> bool:
             conn.commit()
 
         enum_msg = f", {len(enums)} ENUMs" if enums else ""
-        print(f"   ✅ PostgreSQL reset complete ({len(tables)} tables{enum_msg} dropped)")
+        print(
+            f"   ✅ PostgreSQL reset complete ({len(tables)} tables{enum_msg} dropped)"
+        )
         return True
 
     except Exception as e:

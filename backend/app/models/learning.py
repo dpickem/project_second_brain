@@ -68,7 +68,9 @@ class CardCreate(CardBase):
     that enable automated evaluation in the code sandbox.
     """
 
-    content_id: Optional[int] = Field(None, description="Source content ID")
+    # NOTE: In this project, `content_id` refers to the Content UUID string (not an integer PK).
+    # The DB model `SpacedRepCard.content_id` is stored as String(36).
+    content_id: Optional[str] = Field(None, description="Source content UUID")
     concept_id: Optional[str] = Field(None, description="Related concept ID in Neo4j")
     # Code-specific fields
     language: Optional[str] = Field(None, description="Programming language")
@@ -89,7 +91,8 @@ class CardResponse(CardBase):
     """
 
     id: int
-    content_id: Optional[int] = None
+    # NOTE: In this project, `content_id` refers to the Content UUID string (not an integer PK).
+    content_id: Optional[str] = None
     concept_id: Optional[str] = None
 
     # FSRS state

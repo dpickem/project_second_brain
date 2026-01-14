@@ -435,6 +435,42 @@ RETURN type(r) AS rel_type
 
 
 # =============================================================================
+# Content-Note Linking Queries (bridge processed content with vault notes)
+# =============================================================================
+# Content nodes (from LLM processing) and Note nodes (from vault sync) can
+# represent the same file. These queries create REPRESENTS relationships
+# to connect them, unifying the graph visualization.
+
+LINK_CONTENT_TO_NOTE_BY_FILE_PATH = """
+MATCH (c:Content {file_path: $file_path})
+MATCH (n:Note {file_path: $file_path})
+MERGE (c)-[r:REPRESENTS]->(n)
+SET r.linked_at = datetime()
+RETURN c.id AS content_id, n.id AS note_id
+"""
+
+FIND_NOTE_BY_FILE_PATH = """
+MATCH (n:Note {file_path: $file_path})
+RETURN n.id AS id, n.title AS title
+"""
+
+FIND_CONTENT_BY_FILE_PATH = """
+MATCH (c:Content {file_path: $file_path})
+RETURN c.id AS id, c.title AS title
+"""
+
+LINK_ALL_CONTENT_TO_NOTES = """
+MATCH (c:Content)
+WHERE c.file_path IS NOT NULL
+MATCH (n:Note {file_path: c.file_path})
+WHERE NOT (c)-[:REPRESENTS]->(n)
+MERGE (c)-[r:REPRESENTS]->(n)
+SET r.linked_at = datetime()
+RETURN count(r) AS linked_count
+"""
+
+
+# =============================================================================
 # Graph Visualization Queries
 # =============================================================================
 # Queries for the Graph Viewer UI - returning nodes and edges for D3/force-graph

@@ -30,6 +30,20 @@ import { useUiStore } from '../stores'
 import { useDebounce } from '../hooks/useDebouncedSearch'
 import { fadeInUp, staggerContainer } from '../utils/animations'
 
+function getNoteDisplayTitle(note) {
+  return (
+    note?.title ||
+    note?.frontmatter?.title ||
+    note?.frontmatter?.name ||
+    note?.name ||
+    ''
+  )
+}
+
+function getFolderDisplayName(folder) {
+  return folder?.folder || ''
+}
+
 // Inline note content component that fills available space
 function InlineNoteContent({ notePath, onClose }) {
   const { data: note, isLoading, error } = useQuery({
@@ -80,7 +94,7 @@ function InlineNoteContent({ notePath, onClose }) {
       <div className="flex items-center justify-between px-8 py-4 border-b border-border-primary bg-bg-secondary">
         <div className="flex-1 min-w-0 pr-4">
           <h1 className="text-2xl font-bold text-text-primary font-heading truncate">
-            {note?.title || note?.name || 'Untitled'}
+            {getNoteDisplayTitle(note) || 'Untitled'}
           </h1>
           {note?.modified && (
             <p className="text-sm text-text-muted mt-1 flex items-center gap-2">
@@ -220,7 +234,7 @@ function FolderTree({ folders, notesByFolder, selectedNote, onNoteSelect }) {
         const isExpanded = expandedFolders[folder.folder]
         
         return (
-          <div key={folder.type}>
+          <div key={folder.folder}>
             {/* Folder header */}
             <button
               onClick={() => toggleFolder(folder.folder)}
@@ -349,6 +363,23 @@ export function Knowledge() {
 
   const isLoading = topicsLoading || notesLoading
 
+  const collator = useMemo(
+    () => new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }),
+    []
+  )
+
+  const sortedTopics = useMemo(() => {
+    return [...topics].sort((a, b) =>
+      collator.compare(getFolderDisplayName(a), getFolderDisplayName(b))
+    )
+  }, [topics, collator])
+
+  const sortedNotes = useMemo(() => {
+    return [...notes].sort((a, b) =>
+      collator.compare(getNoteDisplayTitle(a), getNoteDisplayTitle(b))
+    )
+  }, [notes, collator])
+
   // Auto-select best matching note when coming from graph with search param
   useEffect(() => {
     // Only auto-select when:
@@ -401,13 +432,21 @@ export function Knowledge() {
   // Group notes by folder for tree view
   const notesByTopic = useMemo(() => {
     const grouped = {}
-    notes.forEach(note => {
+    sortedNotes.forEach(note => {
       const folder = note.folder || 'Uncategorized'
       if (!grouped[folder]) grouped[folder] = []
       grouped[folder].push(note)
     })
+
+    // Ensure notes are always alphabetically sorted within each folder
+    for (const key of Object.keys(grouped)) {
+      grouped[key].sort((a, b) =>
+        collator.compare(getNoteDisplayTitle(a), getNoteDisplayTitle(b))
+      )
+    }
+
     return grouped
-  }, [notes])
+  }, [sortedNotes, collator])
 
   if (isLoading) {
     return <PageLoader message="Loading knowledge base..." />
@@ -481,14 +520,14 @@ export function Knowledge() {
         <motion.div variants={fadeInUp} className="flex-1 overflow-y-auto p-3">
           {viewMode === 'tree' ? (
             <FolderTree
-              folders={topics}
+              folders={sortedTopics}
               notesByFolder={notesByTopic}
               selectedNote={selectedNote}
               onNoteSelect={handleNoteSelect}
             />
           ) : (
             <div className="space-y-2">
-              {notes.map((note) => (
+              {sortedNotes.map((note) => (
                 <motion.button
                   key={note.path}
                   whileHover={{ x: 4 }}
@@ -503,7 +542,7 @@ export function Knowledge() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-text-primary truncate">
-                        {note.title || note.name}
+                        {getNoteDisplayTitle(note)}
                       </p>
                       <p className="text-xs text-text-muted mt-0.5">
                         {note.folder || 'Uncategorized'}

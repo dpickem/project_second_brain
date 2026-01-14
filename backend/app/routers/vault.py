@@ -59,6 +59,7 @@ class NoteContent(BaseModel):
 
     path: str
     name: str
+    title: Optional[str] = None  # Title from frontmatter (title or name)
     content: str  # Full markdown content
     frontmatter: dict = {}  # Parsed frontmatter
     modified: datetime
@@ -284,7 +285,7 @@ async def list_notes(
     content_type: Optional[str] = Query(None, description="Filter by content type"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Notes per page"),
-    sort_by: str = Query("modified", description="Sort by: modified, name, size"),
+    sort_by: str = Query("modified", description="Sort by: modified, name, title, size"),
     sort_desc: bool = Query(True, description="Sort descending"),
 ):
     """List notes in the vault with filtering and pagination.
@@ -325,9 +326,9 @@ async def list_notes(
 
             try:
                 content = md_file.read_text(encoding="utf-8")
-                fm, _ = parse_frontmatter(content)
+                fm, _ = await parse_frontmatter(content)
                 if fm:
-                    note_title = fm.get("title")
+                    note_title = fm.get("title") or fm.get("name")
                     note_tags = fm.get("tags", [])
                     if isinstance(note_tags, str):
                         note_tags = [note_tags]
@@ -381,6 +382,8 @@ async def list_notes(
             notes.sort(key=lambda n: n.modified, reverse=sort_desc)
         elif sort_by == "name":
             notes.sort(key=lambda n: n.name.lower(), reverse=sort_desc)
+        elif sort_by == "title":
+            notes.sort(key=lambda n: (n.title or n.name).lower(), reverse=sort_desc)
         elif sort_by == "size":
             notes.sort(key=lambda n: n.size, reverse=sort_desc)
 
@@ -441,17 +444,20 @@ async def get_note(note_path: str):
         # Parse frontmatter and extract body content (without frontmatter)
         body_content = content
         frontmatter = {}
+        note_title: Optional[str] = None
         try:
             fm, body = await parse_frontmatter(content)
             if fm:
                 frontmatter = fm
                 body_content = body
+                note_title = fm.get("title") or fm.get("name")
         except Exception:
             pass
 
         return NoteContent(
             path=note_path,
             name=file_path.stem,
+            title=note_title,
             content=body_content,
             frontmatter=frontmatter,
             modified=datetime.fromtimestamp(stat.st_mtime),

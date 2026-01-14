@@ -55,6 +55,39 @@ class MyClass:
 
 ---
 
+#### TD-003: Move cross-layer model construction logic into model factory methods
+**Priority**: P2  
+**Status**: Open  
+**Area**: Backend models (Pydantic + SQLAlchemy)
+
+**Description**:  
+Standardize the pattern of defining **factory constructors** on the model classes (both Pydantic models and SQLAlchemy ORM models) for converting from common upstream sources (DB records, pipeline outputs, API payloads). This avoids duplicated “mapping glue” across routers/services/tasks and makes conversions testable, discoverable, and consistent.
+
+**Motivation / Current Pain**:  
+- Conversion logic is frequently repeated inline (e.g., mapping DB `Content` → Pydantic `UnifiedContent`, or Pydantic `ProcessingResult` → DB `ProcessingRun`)
+- Inline mappings drift over time (fields added/renamed in one path but not others)
+- Harder to ensure consistent defaults, timestamps, and optional field handling
+
+**Target Pattern**:
+```python
+class SomeModel:
+    @classmethod
+    def from_source_x(cls, x: SourceX) -> "SomeModel":
+        ...
+```
+
+**Examples / Candidates**:
+- [ ] `UnifiedContent.from_db_content(db_content)` (DB → Pydantic)
+- [ ] `ProcessingRun.from_processing_result(...)` (Pydantic → DB)
+- [ ] Consider similar factories for: `TagAssignment`, `ExtractionResult`, `Connection`, etc. where conversions happen repeatedly across layers.
+
+**Acceptance Criteria**:
+- Conversion/mapping logic lives primarily on the model class (or a dedicated `model_factories.py` module if a model can’t depend on a source type without circular imports)
+- Call sites use the factory method instead of hand-rolling mappings
+- Add focused unit tests for each factory method (one per conversion direction/source)
+
+---
+
 #### TD-002: Complete LLM/OCR/VLM usage tracking and persistence
 **Priority**: P1  
 **Status**: Open  

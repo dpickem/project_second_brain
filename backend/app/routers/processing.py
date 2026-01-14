@@ -39,7 +39,7 @@ from sqlalchemy.orm import selectinload
 from app.db.base import async_session_maker
 from app.db.models import Content
 from app.db.models_processing import ProcessingRun
-from app.enums.content import ContentType, ProcessingStatus
+from app.enums.content import ProcessingStatus
 from app.enums.processing import ProcessingStage, ProcessingRunStatus
 from app.models.content import UnifiedContent
 from app.models.processing import (
@@ -197,27 +197,16 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
                 return
 
             # Convert to UnifiedContent
-            content = UnifiedContent(
-                id=db_content.content_uuid,
-                source_type=ContentType(db_content.content_type.upper()),
-                title=db_content.title,
-                source_url=db_content.source_url,
-                source_file_path=db_content.source_path,
-                full_text=db_content.raw_text or "",
-                authors=(
-                    db_content.metadata_json.get("authors", [])
-                    if db_content.metadata_json
-                    else []
-                ),
-                metadata=db_content.metadata_json or {},
-            )
+            content = UnifiedContent.from_db_content(db_content)
 
             # Update status to processing
             db_content.status = ProcessingStatus.PROCESSING
             await session.commit()
 
         # Build config
-        config = PipelineConfig()
+        # Explicitly enable cards/exercises to avoid relying on defaults.
+        # (Defaults may change over time; we always want these generated during processing.)
+        config = PipelineConfig(generate_cards=True, generate_exercises=True)
         if config_dict:
             for key, value in config_dict.items():
                 if hasattr(config, key):
@@ -237,17 +226,10 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
 
             if db_content:
                 # Create processing run record
-                run = ProcessingRun(
+                run = ProcessingRun.from_processing_result(
                     content_id=db_content.id,
                     status=ProcessingRunStatus.COMPLETED.value,
-                    analysis=processing_result.analysis.model_dump(),
-                    summaries=processing_result.summaries,
-                    extraction=processing_result.extraction.model_dump(),
-                    tags=processing_result.tags.model_dump(),
-                    estimated_cost_usd=processing_result.estimated_cost_usd,
-                    processing_time_seconds=processing_result.processing_time_seconds,
-                    obsidian_note_path=processing_result.obsidian_note_path,
-                    neo4j_node_id=processing_result.neo4j_node_id,
+                    processing_result=processing_result,
                 )
                 session.add(run)
 
@@ -276,7 +258,7 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
                     db_content.status = ProcessingStatus.FAILED
 
                     # Create failed processing run record
-                    run = ProcessingRun(
+                    run = ProcessingRun.from_processing_result(
                         content_id=db_content.id,
                         status=ProcessingRunStatus.FAILED.value,
                         error_message=str(e),

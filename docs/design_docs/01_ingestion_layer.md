@@ -1075,7 +1075,7 @@ celery_app = Celery(
 
 @celery_app.task(bind=True, max_retries=3)
 def process_content(self, content_id: str, metadata: dict = None):
-    """Process ingested content through LLM pipeline."""
+    """Run processing pipeline on already-ingested content."""
     try:
         # Load content from database
         content = load_content(content_id)
@@ -1105,12 +1105,12 @@ async def queue_for_processing(
     
     # Queue task
     task_options = {
-        "high": {"queue": "high_priority"},
-        "normal": {"queue": "default"},
-        "low": {"queue": "low_priority"}
+        "high": {"queue": "ingestion_high"},
+        "normal": {"queue": "ingestion_default"},
+        "low": {"queue": "ingestion_low"}
     }
     
-    process_content.apply_async(
+    ingest_content.apply_async(
         args=[content.id, metadata],
         **task_options.get(priority, {})
     )

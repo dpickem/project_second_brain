@@ -56,7 +56,7 @@ export function Dashboard() {
   }
 
   const dueCards = dueCardsData?.cards || []
-  const totalDue = dueCardsData?.total || stats.due_count || 0
+  const totalDue = dueCardsData?.total_due ?? stats.due_count ?? 0
   const topics = weakSpots?.topics || []
   const activity = activityData?.activity || []
 

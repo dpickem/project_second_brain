@@ -138,7 +138,9 @@ class Content(Base):
 
     # Relationships
     annotations: Mapped[List["Annotation"]] = relationship(back_populates="content")
-    cards: Mapped[List["SpacedRepCard"]] = relationship(back_populates="content")
+    cards: Mapped[List["SpacedRepCard"]] = relationship(
+        back_populates="content", foreign_keys="SpacedRepCard.source_content_pk"
+    )
 
 
 class Annotation(Base):

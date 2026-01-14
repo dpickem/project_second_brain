@@ -31,8 +31,10 @@ Tables:
 - followup_tasks: Generated follow-up tasks
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 import uuid
 
 from sqlalchemy import (
@@ -49,6 +51,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.enums import ConceptImportance
+
+if TYPE_CHECKING:
+    from app.models.processing import ProcessingResult
 
 
 def _utc_now() -> datetime:
@@ -135,6 +140,52 @@ class ProcessingRun(Base):
     followups: Mapped[List["FollowupRecord"]] = relationship(
         back_populates="processing_run", cascade="all, delete-orphan"
     )
+
+    @classmethod
+    def from_processing_result(
+        cls,
+        *,
+        content_id: int,
+        status: str,
+        processing_result: Optional[ProcessingResult] = None,
+        error_message: Optional[str] = None,
+    ) -> "ProcessingRun":
+        """
+        Create a ProcessingRun row from a pipeline ProcessingResult.
+
+        This centralizes the mapping logic so callers don't have to manually
+        translate Pydantic pipeline models into JSON columns.
+
+        Args:
+            content_id: FK to Content.id
+            status: Run status string (e.g. "COMPLETED", "FAILED")
+            processing_result: Pipeline output (required for COMPLETED runs)
+            error_message: Error message (used for FAILED runs)
+        """
+        completed_at = _utc_now() if status in {"COMPLETED", "FAILED"} else None
+
+        if processing_result is None:
+            return cls(
+                content_id=content_id,
+                status=status,
+                completed_at=completed_at,
+                error_message=error_message,
+            )
+
+        return cls(
+            content_id=content_id,
+            status=status,
+            completed_at=completed_at,
+            analysis=processing_result.analysis.model_dump(),
+            summaries=processing_result.summaries,
+            extraction=processing_result.extraction.model_dump(),
+            tags=processing_result.tags.model_dump(),
+            estimated_cost_usd=processing_result.estimated_cost_usd,
+            processing_time_seconds=processing_result.processing_time_seconds,
+            obsidian_note_path=processing_result.obsidian_note_path,
+            neo4j_node_id=processing_result.neo4j_node_id,
+            error_message=error_message,
+        )
 
 
 class ConceptRecord(Base):

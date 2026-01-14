@@ -287,7 +287,7 @@ async def process_content(
             generated_cards, card_usages = await generate_cards_from_extraction(
                 db=db,
                 extraction=extraction,
-                content_id=content.id,
+                content_id=content.id,  # content_id = UUID throughout the app
                 tags=card_tags,
             )
             all_usages.extend(card_usages)
@@ -316,7 +316,7 @@ async def process_content(
                     db=db,
                     llm_client=llm_client,
                     extraction=extraction,
-                    content_id=content.id,
+                    content_id=content.id,  # Exercises use UUID string (source_content_ids)
                     tags=exercise_tags,
                     max_exercises=3,  # Limit to 3 exercises per content
                 )

@@ -2,15 +2,15 @@
 Celery Task Definitions
 
 Defines async tasks for content processing, including:
-- process_content: Main task for processing ingested content through PipelineRegistry
-- process_book: Specialized task for batch book OCR processing
+- ingest_content: Main task for ingestion (extracting raw text/annotations) via PipelineRegistry
+- ingest_book: Specialized ingestion task for batch book OCR processing
 - sync_raindrop: Periodic sync of Raindrop.io bookmarks
 - sync_github: Periodic sync of GitHub starred repos
 
 Pipeline Routing:
     Tasks use PipelineContentType to route content to the appropriate pipeline:
     - "pdf" → PDFProcessor
-    - "book" → BookOCRPipeline (batch via process_book task)
+    - "book" → BookOCRPipeline (batch via ingest_book task)
     - "voice_memo" → VoiceTranscriber
     - "code" → GitHubImporter
     - "article" → WebArticlePipeline
@@ -26,43 +26,44 @@ Retry Strategy:
 Queue Routing:
     Task-to-queue assignment is configured centrally in queue.py via `task_routes`,
     NOT in the task decorators. The routing maps task names to queues:
-    - process_content       → default queue
-    - process_content_high  → high_priority queue (voice memos, user waiting)
-    - process_content_low   → low_priority queue (batch imports, syncs)
-    - process_book          → default queue (60 min timeout)
-    - sync_raindrop         → low_priority queue
-    - sync_github           → low_priority queue
+    - ingest_content        → ingestion_default queue
+    - ingest_content_high   → ingestion_high queue (voice memos, user waiting)
+    - ingest_content_low    → ingestion_low queue (batch imports, syncs)
+    - ingest_book           → ingestion_default queue (60 min timeout)
+    - process_content       → llm_processing queue (LLM pipeline)
+    - sync_raindrop         → ingestion_low queue
+    - sync_github           → ingestion_low queue
 
     To run workers for specific queues:
-        celery -A app.services.queue worker -Q high_priority,default,low_priority -l info
+        celery -A app.services.queue worker -Q ingestion_high,ingestion_default,ingestion_low,llm_processing -l info
 
 Usage:
-    from app.services.tasks import process_content, process_book
+    from app.services.tasks import ingest_content, ingest_book
     from app.pipelines import PipelineContentType
 
     # Queue PDF for processing
-    process_content.delay(
+    ingest_content.delay(
         content_id="uuid",
         content_type=PipelineContentType.PDF.value,
         source_path="/path/to/file.pdf",
     )
 
     # Queue voice memo (high priority)
-    process_content_high.delay(
+    ingest_content_high.delay(
         content_id="uuid",
         content_type=PipelineContentType.VOICE_MEMO.value,
         source_path="/path/to/memo.mp3",
     )
 
     # Queue book for batch OCR
-    process_book.delay(
+    ingest_book.delay(
         content_id="uuid",
         image_paths=["/path/to/page1.jpg", "/path/to/page2.jpg"],
         book_metadata={"title": "My Book"},
     )
 
     # Check task status
-    result = process_content.AsyncResult(task_id)
+    result = ingest_content.AsyncResult(task_id)
     print(result.status)
 """
 
@@ -99,8 +100,11 @@ from app.pipelines import (
     RaindropSync,
     get_registry,
 )
-from app.db.models import ContentStatus
+from app.db.base import task_session_maker
+from app.db.models import Content, ContentStatus
 from app.enums import ProcessingRunStatus
+from app.enums.content import ProcessingStatus
+from app.models.content import UnifiedContent
 from app.services.obsidian.sync import VaultSyncService
 from app.services.queue import celery_app
 from app.services.storage import (
@@ -108,6 +112,10 @@ from app.services.storage import (
     save_content,
     update_content,
     update_status,
+)
+from app.services.processing.pipeline import (
+    process_content as run_llm_pipeline,
+    PipelineConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -134,25 +142,195 @@ sync_retry = retry(
     reraise=True,
 )
 
+# For LLM processing: 2 attempts, 2-5 min exponential backoff
+# Fewer retries than ingestion since LLM processing is expensive.
+llm_processing_retry = retry(
+    stop=stop_after_attempt(2),
+    wait=wait_exponential(multiplier=120, min=120, max=300),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
+
 
 # =============================================================================
 # Content processing tasks
 # =============================================================================
 
 
+async def _run_llm_processing_impl(content_id: str) -> dict[str, Any]:
+    """
+    Internal async implementation of LLM processing.
+
+    Runs the full LLM processing pipeline to generate:
+    - Summaries (brief, standard, detailed)
+    - Concepts and key findings
+    - Spaced repetition cards
+    - Practice exercises
+    - Tags, connections, follow-ups, mastery questions
+    - Obsidian notes and Neo4j nodes
+
+    Args:
+        content_id: UUID of the content to process
+
+    Returns:
+        Dictionary with processing results including card/exercise counts
+    """
+    from sqlalchemy import select
+    from app.db.models_processing import ProcessingRun
+    from app.enums.processing import ProcessingRunStatus as PRunStatus
+
+    logger.info(f"Starting LLM processing for content {content_id}")
+
+    async with task_session_maker() as session:
+        # Load content from database
+        result = await session.execute(
+            select(Content).where(Content.content_uuid == content_id)
+        )
+        db_content = result.scalar_one_or_none()
+
+        if not db_content:
+            logger.error(f"Content {content_id} not found for LLM processing")
+            return {"status": "error", "error": "Content not found"}
+
+        # Convert to UnifiedContent for processing pipeline
+        unified_content = UnifiedContent.from_db_content(db_content)
+
+        # Update status to processing
+        db_content.status = ProcessingStatus.PROCESSING
+        await session.commit()
+
+    # Run LLM processing pipeline with a new database session for card/exercise generation
+    try:
+        async with task_session_maker() as db_session:
+            # Explicitly enable cards/exercises to avoid relying on defaults.
+            # (Defaults may change over time; we always want these generated during processing.)
+            config = PipelineConfig(generate_cards=True, generate_exercises=True)
+            processing_result = await run_llm_pipeline(
+                unified_content, config, db=db_session
+            )
+
+        # Save processing results
+        async with task_session_maker() as session:
+            result = await session.execute(
+                select(Content).where(Content.content_uuid == content_id)
+            )
+            db_content = result.scalar_one_or_none()
+
+            if db_content:
+                # Create processing run record
+                run = ProcessingRun.from_processing_result(
+                    content_id=db_content.id,
+                    status=PRunStatus.COMPLETED.value,
+                    processing_result=processing_result,
+                )
+                session.add(run)
+
+                # Update content status and metadata
+                db_content.status = ProcessingStatus.PROCESSED
+                db_content.processed_at = datetime.utcnow()
+                db_content.summary = processing_result.summaries.get("standard", "")
+                if processing_result.obsidian_note_path:
+                    db_content.vault_path = processing_result.obsidian_note_path
+
+                await session.commit()
+
+        logger.info(
+            f"LLM processing completed for {content_id}: "
+            f"{processing_result.processing_time_seconds:.2f}s, "
+            f"${processing_result.estimated_cost_usd:.4f}"
+        )
+
+        return {
+            "status": ProcessingRunStatus.COMPLETED.value,
+            "content_id": content_id,
+            "processing_time_seconds": processing_result.processing_time_seconds,
+            "estimated_cost_usd": processing_result.estimated_cost_usd,
+            "concepts_extracted": len(processing_result.extraction.concepts),
+            "cards_generated": len(getattr(processing_result, "cards", [])),
+            "exercises_generated": len(getattr(processing_result, "exercises", [])),
+        }
+
+    except Exception as e:
+        logger.error(f"LLM processing failed for {content_id}: {e}")
+
+        # Update status to failed
+        async with task_session_maker() as session:
+            result = await session.execute(
+                select(Content).where(Content.content_uuid == content_id)
+            )
+            db_content = result.scalar_one_or_none()
+            if db_content:
+                db_content.status = ProcessingStatus.FAILED
+
+                # Create failed processing run record
+                run = ProcessingRun.from_processing_result(
+                    content_id=db_content.id,
+                    status=PRunStatus.FAILED.value,
+                    error_message=str(e),
+                )
+                session.add(run)
+                await session.commit()
+
+        return {
+            "status": ProcessingRunStatus.FAILED.value,
+            "content_id": content_id,
+            "error": str(e),
+        }
+
+
+@llm_processing_retry
+def _process_content_with_retry(content_id: str) -> dict[str, Any]:
+    """Run LLM processing (pipeline) with tenacity retry logic."""
+    return asyncio.run(_run_llm_processing_impl(content_id))
+
+
+@celery_app.task(name="app.services.tasks.process_content")
+def process_content(content_id: str) -> dict[str, Any]:
+    """
+    Celery task to run the LLM processing pipeline on already-ingested content.
+
+    This task runs the full LLM processing pipeline to generate:
+    - Summaries (brief, standard, detailed)
+    - Concepts and key findings
+    - Spaced repetition cards
+    - Practice exercises
+    - Tags, connections, follow-ups, mastery questions
+    - Obsidian notes and Neo4j nodes
+
+    This task is automatically queued after content ingestion when
+    auto_process=True (the default).
+
+    Retry behavior: 2 attempts with exponential backoff (2-5 min).
+
+    Args:
+        content_id: UUID of the content to process
+
+    Returns:
+        Dictionary with processing results
+    """
+    try:
+        return _process_content_with_retry(content_id)
+    except RetryError as e:
+        logger.error(f"LLM processing failed for {content_id} after all retries: {e}")
+        # Status already updated to FAILED in _run_llm_processing_impl
+        raise
+
+
 @content_retry
-def _process_content_impl(
+def _ingest_content_impl(
     content_id: str,
     content_type: str,
     source_path: Optional[str] = None,
     source_url: Optional[str] = None,
     source_text: Optional[str] = None,
+    auto_process: bool = True,
 ) -> dict[str, Any]:
     """
-    Internal implementation of content processing with tenacity retry.
+    Internal implementation of content ingestion with tenacity retry.
 
-    Uses PipelineRegistry to route content to the appropriate pipeline
-    based on the content type.
+    Uses PipelineRegistry to ingest content (extract raw text/annotations/metadata),
+    then optionally queues the LLM processing pipeline to generate cards, exercises,
+    summaries, and other learning materials.
 
     Args:
         content_id: UUID of the content to process
@@ -160,11 +338,13 @@ def _process_content_impl(
         source_path: File path for file-based content
         source_url: URL for web-based content
         source_text: Text for direct text input
+        auto_process: If True, automatically run LLM processing after ingestion
+                     to generate cards, exercises, summaries, etc. (default: True)
 
     Raises:
         Exception: Re-raised after retry attempts exhausted.
     """
-    logger.info(f"Processing content {content_id} (type: {content_type})")
+    logger.info(f"Ingesting content {content_id} (type: {content_type})")
 
     # Parse content type
     try:
@@ -202,9 +382,6 @@ def _process_content_impl(
             metadata=result.metadata,
             task_context=True,
         )
-        # Note: Status remains PENDING after ingestion.
-        # Status changes to PROCESSED only after LLM processing pipeline runs.
-        # See: app/services/processing/pipeline.py
 
         return result
 
@@ -221,25 +398,41 @@ def _process_content_impl(
 
     logger.info(f"Content {content_id} ingestion completed")
 
+    # Auto-queue LLM processing if enabled
+    if auto_process:
+        logger.info(f"Queuing {content_id} for LLM processing...")
+        process_content.delay(content_id)
+
+        return {
+            "status": ProcessingRunStatus.INGESTED.value,
+            "content_id": content_id,
+            "content_type": content_type,
+            "title": result.title,
+            "ingested_at": datetime.utcnow().isoformat(),
+            "processing_queued": True,
+        }
+
     return {
         "status": ProcessingRunStatus.INGESTED.value,
         "content_id": content_id,
         "content_type": content_type,
         "title": result.title,
         "ingested_at": datetime.utcnow().isoformat(),
+        "processing_queued": False,
     }
 
 
-@celery_app.task(name="app.services.tasks.process_content")
-def process_content(
+@celery_app.task(name="app.services.tasks.ingest_content")
+def ingest_content(
     content_id: str,
     content_type: str,
     source_path: Optional[str] = None,
     source_url: Optional[str] = None,
     source_text: Optional[str] = None,
+    auto_process: bool = True,
 ) -> dict[str, Any]:
     """
-    Process ingested content through the appropriate pipeline.
+    Ingest content through the appropriate ingestion pipeline (raw extraction).
 
     IMPORTANT: Content must already exist in the database before calling this task.
     This task calls update_content() to update fields after pipeline processing,
@@ -253,6 +446,13 @@ def process_content(
     - "code" → GitHubImporter
     - "article" → WebArticlePipeline
 
+    After ingestion, if auto_process=True (default), the content is automatically
+    processed through the LLM pipeline to generate:
+    - Summaries, concepts, and tags
+    - Spaced repetition cards for review
+    - Practice exercises
+    - Obsidian notes and Neo4j nodes
+
     Retry behavior is handled by tenacity (3 attempts, exponential backoff 1-4 min).
 
     Args:
@@ -261,13 +461,15 @@ def process_content(
         source_path: File path for file-based content
         source_url: URL for web-based content (GitHub, articles)
         source_text: Text for direct text input
+        auto_process: If True, automatically run LLM processing after ingestion
+                     to generate cards, exercises, summaries, etc. (default: True)
 
     Returns:
         Dictionary with processing results
     """
     try:
-        return _process_content_impl(
-            content_id, content_type, source_path, source_url, source_text
+        return _ingest_content_impl(
+            content_id, content_type, source_path, source_url, source_text, auto_process
         )
     except RetryError as e:
         logger.error(f"Processing failed for {content_id} after all retries: {e}")
@@ -279,45 +481,47 @@ def process_content(
         raise
 
 
-@celery_app.task(name="app.services.tasks.process_content_high")
-def process_content_high(
+@celery_app.task(name="app.services.tasks.ingest_content_high")
+def ingest_content_high(
     content_id: str,
     content_type: str,
     source_path: Optional[str] = None,
     source_url: Optional[str] = None,
     source_text: Optional[str] = None,
+    auto_process: bool = True,
 ) -> dict[str, Any]:
     """
     High-priority content processing (e.g., voice memos).
 
-    Same as process_content but routed to high_priority queue.
+    Same as ingest_content but routed to ingestion_high queue.
     Retry behavior inherited from _process_content_impl via tenacity.
 
-    Note: Content must already exist in DB before calling. See process_content docstring.
+    Note: Content must already exist in DB before calling. See ingest_content docstring.
     """
-    return process_content(
-        content_id, content_type, source_path, source_url, source_text
+    return ingest_content(
+        content_id, content_type, source_path, source_url, source_text, auto_process
     )
 
 
-@celery_app.task(name="app.services.tasks.process_content_low")
-def process_content_low(
+@celery_app.task(name="app.services.tasks.ingest_content_low")
+def ingest_content_low(
     content_id: str,
     content_type: str,
     source_path: Optional[str] = None,
     source_url: Optional[str] = None,
     source_text: Optional[str] = None,
+    auto_process: bool = True,
 ) -> dict[str, Any]:
     """
     Low-priority content processing (e.g., batch imports).
 
-    Same as process_content but routed to low_priority queue.
+    Same as ingest_content but routed to ingestion_low queue.
     Retry behavior inherited from _process_content_impl via tenacity.
 
-    Note: Content must already exist in DB before calling. See process_content docstring.
+    Note: Content must already exist in DB before calling. See ingest_content docstring.
     """
-    return process_content(
-        content_id, content_type, source_path, source_url, source_text
+    return ingest_content(
+        content_id, content_type, source_path, source_url, source_text, auto_process
     )
 
 
@@ -327,6 +531,7 @@ def _process_book_impl(
     image_paths: list[str],
     book_metadata: dict[str, Any],
     max_concurrency: int = 5,
+    auto_process: bool = True,
 ) -> dict[str, Any]:
     """
     Internal implementation of book OCR processing with tenacity retry.
@@ -369,9 +574,6 @@ def _process_book_impl(
             metadata=result.metadata,
             task_context=True,
         )
-        # Note: Status remains PENDING after ingestion.
-        # Status changes to PROCESSED only after LLM processing pipeline runs.
-        # See: app/services/processing/pipeline.py
 
         return result
 
@@ -384,6 +586,21 @@ def _process_book_impl(
         f"${result.metadata.get('llm_cost_usd', 0):.4f} LLM cost"
     )
 
+    # Auto-queue LLM processing if enabled
+    if auto_process:
+        logger.info(f"Queuing book {content_id} for LLM processing...")
+        process_content.delay(content_id)
+
+        return {
+            "status": ProcessingRunStatus.INGESTED.value,
+            "content_id": content_id,
+            "title": result.title,
+            "pages_processed": result.metadata.get("total_pages_processed", 0),
+            "llm_cost_usd": result.metadata.get("llm_cost_usd", 0),
+            "ingested_at": datetime.utcnow().isoformat(),
+            "processing_queued": True,
+        }
+
     return {
         "status": ProcessingRunStatus.INGESTED.value,
         "content_id": content_id,
@@ -391,15 +608,17 @@ def _process_book_impl(
         "pages_processed": result.metadata.get("total_pages_processed", 0),
         "llm_cost_usd": result.metadata.get("llm_cost_usd", 0),
         "ingested_at": datetime.utcnow().isoformat(),
+        "processing_queued": False,
     }
 
 
-@celery_app.task(name="app.services.tasks.process_book")
-def process_book(
+@celery_app.task(name="app.services.tasks.ingest_book")
+def ingest_book(
     content_id: str,
     image_paths: list[str],
     book_metadata: Optional[dict[str, Any]] = None,
     max_concurrency: int = 5,
+    auto_process: bool = True,
 ) -> dict[str, Any]:
     """
     Process batch of book page images through BookOCRPipeline.
@@ -413,6 +632,7 @@ def process_book(
     3. Aggregates into a single book content item
     4. Updates the database with extracted content
     5. Tracks LLM costs
+    6. Optionally runs LLM processing to generate cards, exercises, etc.
 
     Time limit: 60 minutes (configured in queue.py)
 
@@ -423,6 +643,8 @@ def process_book(
         image_paths: List of paths to page image files
         book_metadata: Optional dict with title, authors, isbn
         max_concurrency: Max parallel OCR calls (default 5, increase for faster processing)
+        auto_process: If True, automatically run LLM processing after ingestion
+                     to generate cards, exercises, summaries, etc. (default: True)
 
     Returns:
         Dictionary with processing results
@@ -431,7 +653,7 @@ def process_book(
 
     try:
         return _process_book_impl(
-            content_id, image_paths, book_metadata, max_concurrency
+            content_id, image_paths, book_metadata, max_concurrency, auto_process
         )
     except RetryError as e:
         logger.error(f"Book processing failed for {content_id} after all retries: {e}")
@@ -520,7 +742,7 @@ def sync_raindrop(
                 await save_content(item)
                 saved_count += 1
                 # Then queue for processing
-                process_content_low.delay(
+                ingest_content_low.delay(
                     content_id=item.id,
                     content_type=PipelineContentType.ARTICLE.value,
                     source_url=item.source_url,
@@ -599,7 +821,7 @@ def sync_github(limit: int = 50) -> dict[str, Any]:
                 await save_content(item)
                 saved_count += 1
                 # Then queue for processing
-                process_content_low.delay(
+                ingest_content_low.delay(
                     content_id=item.id,
                     content_type=PipelineContentType.CODE.value,
                     source_url=item.source_url,

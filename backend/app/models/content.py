@@ -22,13 +22,18 @@ Usage:
     )
 """
 
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 import uuid
 
 from pydantic import BaseModel, Field
 
 from app.enums.content import ContentType, AnnotationType, ProcessingStatus
+
+if TYPE_CHECKING:
+    from app.db.models import Content
 
 
 class Annotation(BaseModel):
@@ -222,6 +227,44 @@ class UnifiedContent(BaseModel):
 
     # Additional metadata (flexible)
     metadata: dict = Field(default_factory=dict)
+
+    @classmethod
+    def from_db_content(cls, db_content: "Content") -> "UnifiedContent":
+        """
+        Create a UnifiedContent instance from a database Content record.
+
+        This factory method provides a clean interface for converting
+        SQLAlchemy Content models to Pydantic UnifiedContent models,
+        used when loading content for LLM processing.
+
+        Args:
+            db_content: SQLAlchemy Content model instance from the database
+
+        Returns:
+            UnifiedContent instance ready for processing
+
+        Example:
+            >>> async with async_session_maker() as session:
+            ...     result = await session.execute(
+            ...         select(Content).where(Content.content_uuid == content_id)
+            ...     )
+            ...     db_content = result.scalar_one()
+            ...     unified = UnifiedContent.from_db_content(db_content)
+        """
+        return cls(
+            id=db_content.content_uuid,
+            source_type=ContentType(db_content.content_type.upper()),
+            title=db_content.title,
+            source_url=db_content.source_url,
+            source_file_path=db_content.source_path,
+            full_text=db_content.raw_text or "",
+            authors=(
+                db_content.metadata_json.get("authors", [])
+                if db_content.metadata_json
+                else []
+            ),
+            metadata=db_content.metadata_json or {},
+        )
 
     class Config:
         json_schema_extra = {

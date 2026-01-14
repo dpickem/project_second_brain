@@ -200,6 +200,19 @@ async def create_knowledge_nodes(
                     f"Failed to create relationship to '{conn.target_title}': {e}"
                 )
 
+        # Link Content node to Note node if they share the same file_path
+        # This bridges processed content with Obsidian vault representation
+        if file_path:
+            try:
+                link_result = await neo4j_client.link_content_to_note_by_path(file_path)
+                if link_result:
+                    logger.debug(
+                        f"Linked Content to Note: {link_result['content_id']} "
+                        f"-> {link_result['note_id']}"
+                    )
+            except Exception as e:
+                logger.debug(f"No Note node found to link for {file_path}: {e}")
+
         logger.info(
             f"Created knowledge graph nodes for {content.title}: "
             f"1 content, {len(core_concepts)} concepts, {len(result.connections)} connections"

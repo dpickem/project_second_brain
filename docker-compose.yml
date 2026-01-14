@@ -14,7 +14,7 @@
 #
 #   4. View logs:
 #      docker-compose logs -f backend
-#      docker-compose logs -f celery-worker
+#      docker-compose logs -f celery-worker-1 celery-worker-2
 #
 #   5. Stop all services:
 #      docker-compose down
@@ -188,11 +188,27 @@ services:
     volumes: *shared-volumes
 
   # =============================================================================
-  # Celery Worker - Background task processing
+  # Celery Workers - Background task processing
   # =============================================================================
-  celery-worker:
+  # Worker 1: Handles high-priority ingestion (voice memos) + default ingestion
+  # Worker 2: Handles LLM processing + low-priority ingestion (sync/batch)
+  # Both workers can process from ingestion_default for parallelism.
+  
+  celery-worker-1:
     build: ./backend
-    command: celery -A app.services.queue worker --loglevel=info --concurrency=2 -Q high_priority,default,low_priority,celery
+    command: celery -A app.services.queue worker --loglevel=info --concurrency=2 -Q ingestion_high,ingestion_default,celery -n worker1@%h
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes: *shared-volumes
+
+  celery-worker-2:
+    build: ./backend
+    command: celery -A app.services.queue worker --loglevel=info --concurrency=2 -Q llm_processing,ingestion_low,ingestion_default -n worker2@%h
     environment:
       <<: *common-env
     depends_on:

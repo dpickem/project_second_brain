@@ -357,9 +357,10 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_routes={
-        "app.services.tasks.process_content": {"queue": "default"},
-        "app.services.tasks.process_content_high": {"queue": "high_priority"},
-        "app.services.tasks.process_content_low": {"queue": "low_priority"},
+        "app.services.tasks.ingest_content": {"queue": "ingestion_default"},
+        "app.services.tasks.ingest_content_high": {"queue": "ingestion_high"},
+        "app.services.tasks.ingest_content_low": {"queue": "ingestion_low"},
+        "app.services.tasks.process_content": {"queue": "llm_processing"},
     },
     task_default_retry_delay=60,
     task_max_retries=3,

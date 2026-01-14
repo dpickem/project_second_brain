@@ -161,7 +161,9 @@ def print_result(
     print(output)
 
 
-async def save_to_database(content: UnifiedContent, skip_save: bool = False) -> Optional[str]:
+async def save_to_database(
+    content: UnifiedContent, skip_save: bool = False
+) -> Optional[str]:
     """
     Save content to PostgreSQL database.
 

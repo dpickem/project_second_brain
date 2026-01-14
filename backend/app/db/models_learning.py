@@ -208,7 +208,14 @@ class SpacedRepCard(Base):
     __tablename__ = "spaced_rep_cards"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    content_id: Mapped[Optional[int]] = mapped_column(ForeignKey("content.id"))
+
+    # Content reference - two fields for different use cases:
+    # 1. content_id (str): UUID string - the app-facing identifier, used everywhere
+    # 2. source_content_pk (int FK): Database FK for ORM relationship only
+    content_id: Mapped[Optional[str]] = mapped_column(String(36), index=True)
+    source_content_pk: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("content.id"), index=True
+    )
 
     # Card content
     card_type: Mapped[str] = mapped_column(String(50))

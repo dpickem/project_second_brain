@@ -485,6 +485,18 @@ class VaultSyncService:
                 # Sync outgoing links
                 await self._sync_links(node_id, outgoing_links)
 
+                # Link Note to Content node if they share the same file_path
+                # This bridges the vault note with its processed content representation
+                try:
+                    link_result = await neo4j.link_content_to_note_by_path(file_path)
+                    if link_result:
+                        logger.debug(
+                            f"Linked Content to Note: {link_result['content_id']} "
+                            f"-> {link_result['note_id']}"
+                        )
+                except Exception as e:
+                    logger.debug(f"No Content node to link for {file_path}: {e}")
+
             logger.debug(f"Synced note to Neo4j: {note_path.name}")
 
             return {

@@ -130,7 +130,7 @@ class CardGeneratorService:
     async def generate_from_concepts(
         self,
         extraction: ExtractionResult,
-        content_id: int,
+        content_id: str,
         tags: list[str],
     ) -> tuple[list[SpacedRepCard], list[LLMUsage]]:
         """
@@ -145,14 +145,23 @@ class CardGeneratorService:
 
         Args:
             extraction: Extraction result containing concepts from content processing
-            content_id: ID of source content for linking cards
+            content_id: UUID of source content for linking cards
             tags: Topic tags to apply to all generated cards
 
         Returns:
             Tuple of (persisted SpacedRepCard instances, LLM usages - empty for this method)
         """
+        from sqlalchemy import select
+        from app.db.models import Content
+
         cards = []
         usages = []
+
+        # Look up the database PK for the ORM relationship
+        result = await self.db.execute(
+            select(Content.id).where(Content.content_uuid == content_id)
+        )
+        source_content_pk = result.scalar_one_or_none()
 
         for concept in extraction.concepts:
             # Skip concepts without definitions
@@ -162,6 +171,7 @@ class CardGeneratorService:
             # 1. Definition card
             definition_card = SpacedRepCard(
                 content_id=content_id,
+                source_content_pk=source_content_pk,
                 card_type="definition",
                 front=f"What is {concept.name}?",
                 back=concept.definition,
@@ -178,6 +188,7 @@ class CardGeneratorService:
             if concept.why_it_matters:
                 importance_card = SpacedRepCard(
                     content_id=content_id,
+                    source_content_pk=source_content_pk,
                     card_type="application",
                     front=f"Why is understanding {concept.name} important?",
                     back=concept.why_it_matters,
@@ -203,6 +214,7 @@ class CardGeneratorService:
                 if example_text:
                     example_card = SpacedRepCard(
                         content_id=content_id,
+                        source_content_pk=source_content_pk,
                         card_type="example",
                         front=f"Give an example of {concept.name}.",
                         back=(
@@ -235,6 +247,7 @@ class CardGeneratorService:
                 if wrong and correct:
                     misconception_card = SpacedRepCard(
                         content_id=content_id,
+                        source_content_pk=source_content_pk,
                         card_type="misconception",
                         front=f"True or False: {wrong}",
                         back=f"FALSE. {correct}",
@@ -251,6 +264,7 @@ class CardGeneratorService:
             if len(concept.properties) >= settings.CARD_MIN_PROPERTIES_FOR_CARD:
                 properties_card = SpacedRepCard(
                     content_id=content_id,
+                    source_content_pk=source_content_pk,
                     card_type="definition",
                     front=f"What are the key characteristics of {concept.name}?",
                     back="\n".join(f"• {p}" for p in concept.properties),
@@ -493,7 +507,7 @@ class CardGeneratorService:
 async def generate_cards_from_extraction(
     db: AsyncSession,
     extraction: ExtractionResult,
-    content_id: int,
+    content_id: str,
     tags: list[str],
 ) -> tuple[list[SpacedRepCard], list[LLMUsage]]:
     """
@@ -504,7 +518,7 @@ async def generate_cards_from_extraction(
     Args:
         db: Async database session
         extraction: Extraction result containing concepts from content processing
-        content_id: ID of the source content
+        content_id: UUID of the source content
         tags: Topic tags to apply to generated cards
 
     Returns:

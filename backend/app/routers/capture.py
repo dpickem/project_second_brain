@@ -29,6 +29,7 @@ Usage:
 from datetime import datetime
 from typing import Optional
 import re
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 import httpx
@@ -40,8 +41,12 @@ from app.models.content import (
     UnifiedContent,
 )
 from app.pipelines.base import PipelineContentType
+from app.pipelines.utils.hash_utils import (
+    calculate_file_hash,
+    calculate_content_hash,
+)
 from app.services.storage import save_upload, save_content
-from app.services.tasks import process_book, process_content, process_content_high
+from app.services.tasks import ingest_book, ingest_content, ingest_content_high
 
 router = APIRouter(prefix="/api/capture", tags=["capture"])
 
@@ -146,25 +151,41 @@ async def capture_url(
     if tags:
         tag_list = [t.strip() for t in tags.split(",") if t.strip()]
 
+    # Normalize URL lightly for dedupe (strip fragment + trailing slash)
+    normalized_url = url.split("#", 1)[0].rstrip("/") or url
+
     ucf = UnifiedContent(
         source_type=ContentType.ARTICLE,
-        source_url=url,
+        source_url=normalized_url,
         title=title,
         created_at=datetime.now(),
         full_text="",  # Will be fetched during processing
         annotations=annotations,
         tags=tag_list,
+        metadata={
+            "source_url_hash": calculate_content_hash(normalized_url.lower().strip()),
+        },
     )
 
     await save_content(ucf)
 
+    if ucf.metadata.get("_deduped"):
+        return {
+            "status": "deduped",
+            "id": ucf.id,
+            "title": title,
+            "url": normalized_url,
+            "message": "URL already exists; skipping re-ingestion",
+            "existing_id": ucf.metadata.get("_dedupe_existing_id"),
+        }
+
     # Queue for article extraction pipeline
     background_tasks.add_task(
-        process_content.delay,
+        ingest_content.delay,
         ucf.id,
         PipelineContentType.ARTICLE.value,
         None,  # source_path
-        url,  # source_url
+        normalized_url,  # source_url
     )
 
     return {
@@ -234,6 +255,8 @@ async def capture_photo(
 
     title = book_title or f"Photo capture - {capture_type}"
 
+    file_hash = calculate_file_hash(file_path)
+
     ucf = UnifiedContent(
         source_type=content_type,
         source_file_path=str(file_path),
@@ -242,10 +265,21 @@ async def capture_photo(
         full_text="",  # Will be extracted during processing
         annotations=annotations,
         asset_paths=[str(file_path)],
+        raw_file_hash=file_hash,
         metadata={"capture_type": capture_type},
     )
 
     await save_content(ucf)
+
+    if ucf.metadata.get("_deduped"):
+        return {
+            "status": "deduped",
+            "id": ucf.id,
+            "file_path": str(file_path),
+            "capture_type": capture_type,
+            "message": "File already exists; skipping re-ingestion",
+            "existing_id": ucf.metadata.get("_dedupe_existing_id"),
+        }
 
     # Map capture_type to PipelineContentType
     pipeline_type_map = {
@@ -257,7 +291,7 @@ async def capture_photo(
     pipeline_type = pipeline_type_map.get(capture_type, PipelineContentType.PHOTO)
 
     background_tasks.add_task(
-        process_content.delay,
+        ingest_content.delay,
         ucf.id,
         pipeline_type.value,
         str(file_path),  # source_path
@@ -321,6 +355,8 @@ async def capture_voice(
     # Save file
     file_path = await save_upload(file, directory="voice_memos")
 
+    file_hash = calculate_file_hash(file_path)
+
     ucf = UnifiedContent(
         source_type=ContentType.VOICE_MEMO,
         source_file_path=str(file_path),
@@ -328,14 +364,24 @@ async def capture_voice(
         created_at=datetime.now(),
         full_text="",  # Will be transcribed
         asset_paths=[str(file_path)],
+        raw_file_hash=file_hash,
         metadata={"expand": expand},
     )
 
     await save_content(ucf)
 
+    if ucf.metadata.get("_deduped"):
+        return {
+            "status": "deduped",
+            "id": ucf.id,
+            "file_path": str(file_path),
+            "message": "Voice memo already exists; skipping re-ingestion",
+            "existing_id": ucf.metadata.get("_dedupe_existing_id"),
+        }
+
     # Use high-priority queue for voice memos (user is waiting)
     background_tasks.add_task(
-        process_content_high.delay,
+        ingest_content_high.delay,
         ucf.id,
         PipelineContentType.VOICE_MEMO.value,
         str(file_path),  # source_path
@@ -392,6 +438,8 @@ async def capture_pdf(
     # Save file
     file_path = await save_upload(file, directory="pdfs")
 
+    file_hash = calculate_file_hash(file_path)
+
     ucf = UnifiedContent(
         source_type=ContentType.PAPER,
         source_file_path=str(file_path),
@@ -399,6 +447,7 @@ async def capture_pdf(
         created_at=datetime.now(),
         full_text="",  # Will be extracted
         asset_paths=[str(file_path)],
+        raw_file_hash=file_hash,
         metadata={
             "content_type_hint": content_type_hint,
             "detect_handwriting": detect_handwriting,
@@ -407,9 +456,19 @@ async def capture_pdf(
 
     await save_content(ucf)
 
+    if ucf.metadata.get("_deduped"):
+        return {
+            "status": "deduped",
+            "id": ucf.id,
+            "file_path": str(file_path),
+            "filename": file.filename,
+            "message": "PDF already exists; skipping re-ingestion",
+            "existing_id": ucf.metadata.get("_dedupe_existing_id"),
+        }
+
     # Queue PDF for processing
     background_tasks.add_task(
-        process_content.delay,
+        ingest_content.delay,
         ucf.id,
         PipelineContentType.PDF.value,
         str(file_path),  # source_path
@@ -503,6 +562,13 @@ async def capture_book(
         file_path = await save_upload(file, directory="book_pages")
         saved_paths.append(str(file_path))
 
+    # Create a stable combined hash of the batch to dedupe repeated uploads
+    try:
+        per_file_hashes = sorted(calculate_file_hash(Path(p)) for p in saved_paths)
+        batch_hash = calculate_content_hash("|".join(per_file_hashes))
+    except Exception:
+        batch_hash = None
+
     # Parse authors
     author_list = []
     if authors:
@@ -530,6 +596,7 @@ async def capture_book(
         full_text="",  # Will be populated by pipeline
         annotations=annotations,
         asset_paths=saved_paths,
+        raw_file_hash=batch_hash,
         metadata={
             "isbn": isbn,
             "page_count": len(files),
@@ -538,6 +605,18 @@ async def capture_book(
     )
 
     await save_content(ucf)
+
+    if ucf.metadata.get("_deduped"):
+        return {
+            "status": "deduped",
+            "id": ucf.id,
+            "title": book_title,
+            "page_count": len(files),
+            "file_paths": saved_paths,
+            "max_concurrency": max_concurrency,
+            "message": "Book batch already exists; skipping re-ingestion",
+            "existing_id": ucf.metadata.get("_dedupe_existing_id"),
+        }
 
     # Build metadata for the task
     book_metadata = {
@@ -548,7 +627,7 @@ async def capture_book(
 
     # Queue for batch book processing (parallel OCR)
     background_tasks.add_task(
-        process_book.delay,
+        ingest_book.delay,
         ucf.id,
         saved_paths,
         book_metadata,

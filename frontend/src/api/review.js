@@ -41,7 +41,7 @@
  * @see analyticsApi - For learning analytics computed from reviews
  */
 
-import { typedApi } from './typed-client'
+import { typedApi, unwrap } from './typed-client'
 
 export const reviewApi = {
   /**
@@ -57,9 +57,11 @@ export const reviewApi = {
     if (topic) params.topic = topic
     if (cardType) params.card_type = cardType
     
-    return typedApi.GET('/api/review/due', { 
+    // IMPORTANT: `openapi-fetch` returns `{ data, error }` and does NOT throw on non-2xx.
+    // React Query requires the queryFn to either return data or throw—never resolve `undefined`.
+    return unwrap(typedApi.GET('/api/review/due', { 
       params: { query: params } 
-    }).then(r => r.data)
+    }))
   },
 
   /**

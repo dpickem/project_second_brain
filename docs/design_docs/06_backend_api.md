@@ -387,7 +387,7 @@ celery_app = Celery(
     backend=settings.CELERY_RESULT_BACKEND
 )
 
-# Task queues: high_priority, default, low_priority
+# Task queues: ingestion_high, ingestion_default, ingestion_low, llm_processing
 ```
 
 APScheduler for periodic tasks:

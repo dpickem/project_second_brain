@@ -46,6 +46,10 @@ from app.services.knowledge_graph.queries import (
     VERIFY_CONNECTIVITY,
     LIST_INDEX_NAMES,
     GET_ALL_GRAPH_DATA,
+    LINK_CONTENT_TO_NOTE_BY_FILE_PATH,
+    FIND_NOTE_BY_FILE_PATH,
+    FIND_CONTENT_BY_FILE_PATH,
+    LINK_ALL_CONTENT_TO_NOTES,
 )
 
 logger = logging.getLogger(__name__)
@@ -588,6 +592,110 @@ class Neo4jClient:
                 )
 
             return len(target_ids)
+
+    # =========================================================================
+    # Content-Note Linking Operations
+    # =========================================================================
+    # These methods bridge Content nodes (from LLM processing) with Note nodes
+    # (from vault sync), connecting them via REPRESENTS relationships when they
+    # share the same file_path.
+
+    async def link_content_to_note_by_path(self, file_path: str) -> Optional[dict]:
+        """
+        Create a REPRESENTS relationship between Content and Note with same file_path.
+
+        This bridges the processed content (Content node with embeddings, summaries)
+        with its Obsidian vault representation (Note node with wikilinks).
+
+        Args:
+            file_path: Relative path to the note file from vault root
+
+        Returns:
+            Dict with content_id and note_id if linked, None if no match found
+        """
+        await self._ensure_initialized()
+
+        async with self._async_driver.session(
+            database=settings.NEO4J_DATABASE
+        ) as session:
+            result = await session.run(
+                LINK_CONTENT_TO_NOTE_BY_FILE_PATH,
+                file_path=file_path,
+            )
+            record = await result.single()
+            if record:
+                return {
+                    "content_id": record["content_id"],
+                    "note_id": record["note_id"],
+                }
+            return None
+
+    async def find_note_by_file_path(self, file_path: str) -> Optional[dict]:
+        """
+        Find a Note node by its file path.
+
+        Args:
+            file_path: Relative path to the note file from vault root
+
+        Returns:
+            Dict with id and title if found, None otherwise
+        """
+        await self._ensure_initialized()
+
+        async with self._async_driver.session(
+            database=settings.NEO4J_DATABASE
+        ) as session:
+            result = await session.run(
+                FIND_NOTE_BY_FILE_PATH,
+                file_path=file_path,
+            )
+            record = await result.single()
+            if record:
+                return {"id": record["id"], "title": record["title"]}
+            return None
+
+    async def find_content_by_file_path(self, file_path: str) -> Optional[dict]:
+        """
+        Find a Content node by its file path.
+
+        Args:
+            file_path: Relative path to the note file from vault root
+
+        Returns:
+            Dict with id and title if found, None otherwise
+        """
+        await self._ensure_initialized()
+
+        async with self._async_driver.session(
+            database=settings.NEO4J_DATABASE
+        ) as session:
+            result = await session.run(
+                FIND_CONTENT_BY_FILE_PATH,
+                file_path=file_path,
+            )
+            record = await result.single()
+            if record:
+                return {"id": record["id"], "title": record["title"]}
+            return None
+
+    async def link_all_content_to_notes(self) -> int:
+        """
+        Create REPRESENTS relationships for all Content/Note pairs with matching file_paths.
+
+        This is a backfill operation to link existing Content and Note nodes
+        that were created before this linking feature was added.
+
+        Returns:
+            Number of new REPRESENTS relationships created
+        """
+        await self._ensure_initialized()
+
+        async with self._async_driver.session(
+            database=settings.NEO4J_DATABASE
+        ) as session:
+            result = await session.run(LINK_ALL_CONTENT_TO_NOTES)
+            record = await result.single()
+            return record["linked_count"] if record else 0
 
     # =========================================================================
     # Graph Visualization Operations

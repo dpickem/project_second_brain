@@ -257,7 +257,7 @@ export function ReviewQueue() {
   // Initialize queue when cards load
   useEffect(() => {
     if (dueCards?.cards && cards.length === 0) {
-      setCards(dueCards.cards, dueCards.totalDue)
+      setCards(dueCards.cards, dueCards.total_due)
     }
   }, [dueCards, cards.length, setCards])
 

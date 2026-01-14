@@ -533,9 +533,7 @@ def validate_api_keys(values: dict[str, str]) -> list[str]:
         api_key_value = values.get(api_key_var, "")
         if not api_key_value:
             models_str = ", ".join(model_usages)
-            warnings.append(
-                f"{api_key_var} is required for: {models_str}"
-            )
+            warnings.append(f"{api_key_var} is required for: {models_str}")
 
     return warnings
 
@@ -586,9 +584,7 @@ def generate_secure_password(length: int = 24) -> str:
     return secrets.token_urlsafe(length)
 
 
-def prompt_for_value(
-    var: EnvVar, current_value: str, interactive: bool = True
-) -> str:
+def prompt_for_value(var: EnvVar, current_value: str, interactive: bool = True) -> str:
     """Prompt user for an environment variable value."""
     if not interactive:
         # Non-interactive: use current value, default, or generate
@@ -625,7 +621,9 @@ def prompt_for_value(
     elif var.generate:
         prompt_text = "  Enter value (or press Enter to auto-generate): "
     else:
-        prompt_text = "  Enter value: " if var.required else "  Enter value (optional): "
+        prompt_text = (
+            "  Enter value: " if var.required else "  Enter value (optional): "
+        )
 
     try:
         user_input = input(prompt_text).strip()
@@ -758,7 +756,9 @@ def show_env_help() -> None:
         print_subheader(category_name)
 
         for var in vars_in_category:
-            required = f"{Colors.RED}(required){Colors.END}" if var.required else "(optional)"
+            required = (
+                f"{Colors.RED}(required){Colors.END}" if var.required else "(optional)"
+            )
             print(f"{Colors.BOLD}{var.name}{Colors.END} {required}")
             print(f"  {var.description}")
             if var.default:
@@ -814,7 +814,9 @@ def start_docker_services() -> bool:
 
     if not check_docker():
         print_failure("Docker is not running or not installed")
-        print_info("Please install Docker Desktop: https://www.docker.com/products/docker-desktop/")
+        print_info(
+            "Please install Docker Desktop: https://www.docker.com/products/docker-desktop/"
+        )
         return False
 
     print_success("Docker is running")
@@ -887,7 +889,8 @@ def show_help(header: str = "Help & Documentation") -> None:
     """Show comprehensive help with all available commands."""
     print_header(header)
 
-    print(f"""
+    print(
+        f"""
 {Colors.BOLD}Quick Start:{Colors.END}
 
   {Colors.CYAN}Access the application:{Colors.END}
@@ -977,7 +980,8 @@ def show_help(header: str = "Help & Documentation") -> None:
   2. Ensure all required API keys are set in .env
   3. Try python scripts/setup/reset_all.py --dry-run to diagnose state
   4. Check docs/implementation_plan/tech_debt.md for known issues
-""")
+"""
+    )
 
 
 # =============================================================================

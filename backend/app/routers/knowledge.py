@@ -378,3 +378,43 @@ async def get_topic_hierarchy(
     except Exception as e:
         logger.error(f"Error fetching topic hierarchy: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch topics: {str(e)}")
+
+
+# =============================================================================
+# Maintenance Endpoints
+# =============================================================================
+
+
+@router.post("/link-content-notes")
+async def link_content_to_notes() -> dict:
+    """
+    Create REPRESENTS relationships between Content and Note nodes.
+
+    Content nodes (from LLM processing) and Note nodes (from vault sync) may
+    represent the same file but aren't automatically linked. This endpoint
+    creates REPRESENTS relationships for all Content/Note pairs that share
+    the same file_path.
+
+    This is a backfill operation for existing data. New Content and Note nodes
+    are automatically linked during creation.
+
+    Returns:
+        Dict with count of newly created links
+    """
+    try:
+        neo4j_client = await get_neo4j_client()
+        linked_count = await neo4j_client.link_all_content_to_notes()
+
+        logger.info(f"Linked {linked_count} Content-Note pairs")
+
+        return {
+            "status": "success",
+            "linked_count": linked_count,
+            "message": f"Created {linked_count} REPRESENTS relationships",
+        }
+
+    except Exception as e:
+        logger.error(f"Error linking content to notes: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to link content to notes: {str(e)}"
+        )
