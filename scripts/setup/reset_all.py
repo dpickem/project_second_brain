@@ -49,7 +49,10 @@ USAGE:
     # Combine component flags
     python scripts/setup/reset_all.py --postgres-only --redis-only
 
-    # Reset vault but keep folder structure (delete files only)
+    # Reset everything but keep vault folder structure
+    python scripts/setup/reset_all.py --keep-structure
+
+    # Reset vault only but keep folder structure (delete files only)
     python scripts/setup/reset_all.py --vault-only --keep-structure
 
     # Custom paths (override environment/config)

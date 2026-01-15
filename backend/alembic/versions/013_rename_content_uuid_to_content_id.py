@@ -1,8 +1,10 @@
-"""Rename content_uuid to content_id in spaced_rep_cards
+"""No-op migration (work already done in 012)
 
-content_id should ALWAYS mean the UUID throughout the application.
-This migration renames the column from content_uuid to content_id
-for naming consistency.
+Originally intended to rename content_uuid to content_id, but migration 012
+already handles this correctly by renaming content_id_uuid -> content_id
+and creating the index ix_spaced_rep_cards_content_id.
+
+This migration is kept for version history continuity.
 
 Revision ID: 013
 Revises: 012
@@ -11,8 +13,6 @@ Create Date: 2026-01-14
 """
 
 from typing import Sequence, Union
-
-from alembic import op
 
 
 # revision identifiers, used by Alembic.
@@ -23,40 +23,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Rename content_uuid to content_id."""
-    # Drop old index
-    op.drop_index("ix_spaced_rep_cards_content_uuid", table_name="spaced_rep_cards")
-
-    # Rename column
-    op.alter_column(
-        "spaced_rep_cards",
-        "content_uuid",
-        new_column_name="content_id",
-    )
-
-    # Create new index with correct name
-    op.create_index(
-        "ix_spaced_rep_cards_content_id",
-        "spaced_rep_cards",
-        ["content_id"],
-    )
+    """No-op - work already done in migration 012."""
+    pass
 
 
 def downgrade() -> None:
-    """Rename content_id back to content_uuid."""
-    # Drop new index
-    op.drop_index("ix_spaced_rep_cards_content_id", table_name="spaced_rep_cards")
-
-    # Rename column back
-    op.alter_column(
-        "spaced_rep_cards",
-        "content_id",
-        new_column_name="content_uuid",
-    )
-
-    # Recreate old index
-    op.create_index(
-        "ix_spaced_rep_cards_content_uuid",
-        "spaced_rep_cards",
-        ["content_uuid"],
-    )
+    """No-op - nothing to undo."""
+    pass
