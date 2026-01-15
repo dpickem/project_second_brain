@@ -1,7 +1,7 @@
 /**
  * QuickCapture Component
  * 
- * Inline text capture with success feedback.
+ * Inline text capture with success feedback and optional learning material generation.
  */
 
 import { useState } from 'react'
@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { clsx } from 'clsx'
 import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Card, Button, Textarea } from '../common'
+import { Card, Button, Textarea, Checkbox } from '../common'
 import { captureApi } from '../../api/capture'
 import { scaleIn } from '../../utils/animations'
 
@@ -20,6 +20,8 @@ export function QuickCapture({
 }) {
   const [text, setText] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
+  const [createCards, setCreateCards] = useState(false)
+  const [createExercises, setCreateExercises] = useState(false)
 
   const captureMutation = useMutation({
     mutationFn: captureApi.captureText,
@@ -38,7 +40,11 @@ export function QuickCapture({
   const handleSubmit = (e) => {
     e?.preventDefault()
     if (!text.trim()) return
-    captureMutation.mutate({ text: text.trim() })
+    captureMutation.mutate({ 
+      text: text.trim(),
+      createCards,
+      createExercises,
+    })
   }
 
   const handleKeyDown = (e) => {
@@ -70,6 +76,22 @@ export function QuickCapture({
           disabled={captureMutation.isPending}
           className="resize-none"
         />
+
+        {/* Learning material toggles */}
+        <div className="flex items-center gap-6 mt-3 pt-3 border-t border-border-primary">
+          <Checkbox
+            id="create-cards"
+            checked={createCards}
+            onChange={(e) => setCreateCards(e.target.checked)}
+            label="Create Cards"
+          />
+          <Checkbox
+            id="create-exercises"
+            checked={createExercises}
+            onChange={(e) => setCreateExercises(e.target.checked)}
+            label="Create Exercises"
+          />
+        </div>
 
         <div className="flex items-center justify-between mt-4">
           {/* Keyboard shortcut hint */}

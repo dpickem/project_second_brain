@@ -46,7 +46,12 @@ from app.pipelines.utils.hash_utils import (
     calculate_content_hash,
 )
 from app.services.storage import save_upload, save_content
-from app.services.tasks import ingest_book, ingest_content, ingest_content_high
+from app.services.tasks import (
+    ingest_book,
+    ingest_content,
+    ingest_content_high,
+    process_content,
+)
 
 router = APIRouter(prefix="/api/capture", tags=["capture"])
 
@@ -57,18 +62,23 @@ async def capture_text(
     content: str = Form(..., description="Text content to capture"),
     title: Optional[str] = Form(None, description="Optional title"),
     tags: Optional[str] = Form(None, description="Comma-separated tags"),
+    create_cards: bool = Form(False, description="Generate spaced repetition cards"),
+    create_exercises: bool = Form(False, description="Generate practice exercises"),
 ):
     """
     Quick text capture for ideas, notes, and thoughts.
 
     Immediately queues content for processing and returns.
     Processing includes: LLM tagging, Obsidian note creation, knowledge graph.
+    Optionally generates spaced repetition cards and practice exercises.
 
     Args:
         background_tasks: FastAPI background tasks handler for async processing.
         content: The text content to capture (required).
         title: Optional title for the note. If not provided, generated from content.
         tags: Optional comma-separated list of tags (e.g., "idea,work,urgent").
+        create_cards: Whether to generate spaced repetition cards (default: False).
+        create_exercises: Whether to generate practice exercises (default: False).
 
     Returns:
         dict: Response containing status, content ID, title, and processing message.
@@ -93,14 +103,22 @@ async def capture_text(
     # Save to database
     await save_content(ucf)
 
-    # For text/idea capture, no pipeline processing needed - content is already saved
-    # Future: could queue for LLM tagging task here
+    # For ideas/text capture, skip ingestion pipeline (text is already captured)
+    # and go directly to LLM processing (analysis, summarization, card generation)
+    background_tasks.add_task(
+        process_content.delay,
+        ucf.id,
+        config_dict={
+            "generate_cards": create_cards,
+            "generate_exercises": create_exercises,
+        },
+    )
 
     return {
         "status": "captured",
         "id": ucf.id,
         "title": title,
-        "message": "Content saved successfully",
+        "message": "Content captured and queued for processing",
     }
 
 

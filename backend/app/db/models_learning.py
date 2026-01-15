@@ -261,6 +261,55 @@ class SpacedRepCard(Base):
     # Relationships
     content: Mapped[Optional["Content"]] = relationship(back_populates="cards")
     attempts: Mapped[List["PracticeAttempt"]] = relationship(back_populates="card")
+    review_history: Mapped[List["CardReviewHistory"]] = relationship(
+        back_populates="card"
+    )
+
+
+# ===========================================
+# Card Review History
+# ===========================================
+
+
+class CardReviewHistory(Base):
+    """
+    Historical record of individual card reviews.
+
+    Each time a card is reviewed, a record is created here to track
+    review activity over time for analytics and learning curves.
+
+    Attributes:
+        id: Primary key, auto-incrementing integer identifier.
+        card_id: Foreign key reference to the reviewed SpacedRepCard.
+        rating: FSRS rating (1=Again, 2=Hard, 3=Good, 4=Easy).
+        reviewed_at: Timestamp when the review occurred.
+        time_spent_seconds: Optional time spent on the review.
+        state_before: Card state before the review.
+        state_after: Card state after the review.
+        stability_after: Card stability after the review.
+        scheduled_days: Days until next review after this review.
+    """
+
+    __tablename__ = "card_review_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    card_id: Mapped[int] = mapped_column(ForeignKey("spaced_rep_cards.id"), index=True)
+
+    # Review details
+    rating: Mapped[int] = mapped_column(Integer)
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now, index=True
+    )
+    time_spent_seconds: Mapped[Optional[int]] = mapped_column(Integer)
+
+    # State tracking
+    state_before: Mapped[Optional[str]] = mapped_column(String(20))
+    state_after: Mapped[Optional[str]] = mapped_column(String(20))
+    stability_after: Mapped[Optional[float]] = mapped_column(Float)
+    scheduled_days: Mapped[Optional[int]] = mapped_column(Integer)
+
+    # Relationship
+    card: Mapped["SpacedRepCard"] = relationship(back_populates="review_history")
 
 
 # ===========================================

@@ -41,6 +41,7 @@ from app.db.models_learning import (
     LearningTimeLog,
     ExerciseAttempt,
     Exercise,
+    CardReviewHistory,
 )
 from app.enums.learning import (
     MasteryTrend,
@@ -438,7 +439,7 @@ class MasteryService:
         """
         Get learning curve data for visualization.
 
-        Retrieves historical mastery snapshots and exercise activity data,
+        Retrieves card review activity, exercise activity, and time logs,
         calculating trend direction and 30-day projection using linear extrapolation.
 
         Args:
@@ -453,18 +454,44 @@ class MasteryService:
             days = settings.MASTERY_LEARNING_CURVE_DAYS
         start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-        # Get snapshots for the period
-        query = select(MasterySnapshot).where(
-            MasterySnapshot.snapshot_date >= start_date
-        )
+        # Query card reviews from CardReviewHistory for accurate historical data
+        # This tracks each individual review, not just the most recent per card
+        card_query = select(
+            func.date(CardReviewHistory.reviewed_at).label("review_date"),
+            func.count(CardReviewHistory.id).label("cards_reviewed"),
+        ).where(CardReviewHistory.reviewed_at >= start_date)
 
         if topic:
-            query = query.where(MasterySnapshot.topic_path == topic)
+            # Filter by topic tag via join to SpacedRepCard
+            card_query = card_query.join(
+                SpacedRepCard, SpacedRepCard.id == CardReviewHistory.card_id
+            ).where(SpacedRepCard.tags.contains([topic]))
 
-        query = query.order_by(MasterySnapshot.snapshot_date.asc())
+        card_query = card_query.group_by(func.date(CardReviewHistory.reviewed_at))
 
-        result = await self.db.execute(query)
-        snapshots = result.scalars().all()
+        card_result = await self.db.execute(card_query)
+        cards_by_date = {
+            row.review_date: row.cards_reviewed or 0 for row in card_result.fetchall()
+        }
+
+        # TODO: Remove this fallback mechanism after we clear the DB next time.
+        # Fallback: also check SpacedRepCard.last_reviewed for reviews before history tracking
+        # This ensures we show data for cards reviewed before the history table existed
+        fallback_query = select(
+            func.date(SpacedRepCard.last_reviewed).label("review_date"),
+            func.count(SpacedRepCard.id).label("cards_count"),
+        ).where(SpacedRepCard.last_reviewed >= start_date)
+
+        if topic:
+            fallback_query = fallback_query.where(SpacedRepCard.tags.contains([topic]))
+
+        fallback_query = fallback_query.group_by(func.date(SpacedRepCard.last_reviewed))
+
+        fallback_result = await self.db.execute(fallback_query)
+        for row in fallback_result.fetchall():
+            # Only add if not already in cards_by_date (history takes precedence)
+            if row.review_date not in cards_by_date:
+                cards_by_date[row.review_date] = row.cards_count or 0
 
         # Get exercise activity data grouped by date
         exercise_query = select(
@@ -511,27 +538,54 @@ class MasteryService:
             row.log_date: int(row.total_minutes or 0) for row in time_result.fetchall()
         }
 
-        # Convert to data points, combining snapshot and exercise data
+        # Get mastery snapshots for mastery_score data (if available)
+        snapshot_query = select(MasterySnapshot).where(
+            MasterySnapshot.snapshot_date >= start_date
+        )
+        if topic:
+            snapshot_query = snapshot_query.where(MasterySnapshot.topic_path == topic)
+        snapshot_query = snapshot_query.order_by(MasterySnapshot.snapshot_date.asc())
+
+        snapshot_result = await self.db.execute(snapshot_query)
+        snapshots = snapshot_result.scalars().all()
+        snapshot_by_date = {
+            (
+                s.snapshot_date.date()
+                if hasattr(s.snapshot_date, "date")
+                else s.snapshot_date
+            ): s
+            for s in snapshots
+        }
+
+        # Collect all unique dates from cards, exercises, and time logs
+        all_dates = (
+            set(cards_by_date.keys())
+            | set(exercise_by_date.keys())
+            | set(time_by_date.keys())
+        )
+
+        # Build data points for each date with activity
         data_points = []
-        for snapshot in snapshots:
-            snapshot_date = (
-                snapshot.snapshot_date.date()
-                if hasattr(snapshot.snapshot_date, "date")
-                else snapshot.snapshot_date
-            )
+        for activity_date in sorted(all_dates):
+            cards_reviewed = cards_by_date.get(activity_date, 0)
             exercise_data = exercise_by_date.get(
-                snapshot_date, {"count": 0, "avg_score": None}
+                activity_date, {"count": 0, "avg_score": None}
             )
-            time_minutes = time_by_date.get(snapshot_date, 0)
+            time_minutes = time_by_date.get(activity_date, 0)
+
+            # Get mastery score from snapshot if available
+            snapshot = snapshot_by_date.get(activity_date)
+            mastery_score = snapshot.mastery_score if snapshot else 0.0
+            retention_estimate = snapshot.retention_estimate if snapshot else None
 
             data_points.append(
                 LearningCurveDataPoint(
-                    date=snapshot.snapshot_date,
-                    mastery_score=snapshot.mastery_score or 0.0,
-                    retention_estimate=snapshot.retention_estimate,
-                    cards_reviewed=(
-                        (snapshot.mastered_cards or 0) + (snapshot.learning_cards or 0)
+                    date=datetime.combine(
+                        activity_date, datetime.min.time(), tzinfo=timezone.utc
                     ),
+                    mastery_score=mastery_score or 0.0,
+                    retention_estimate=retention_estimate,
+                    cards_reviewed=cards_reviewed,
                     exercises_attempted=exercise_data["count"],
                     exercise_score=(
                         exercise_data["avg_score"]
@@ -542,10 +596,11 @@ class MasteryService:
                 )
             )
 
-        # Calculate trend
-        if len(data_points) >= 2:
+        # Calculate trend from mastery scores (if available)
+        mastery_points = [dp for dp in data_points if dp.mastery_score > 0]
+        if len(mastery_points) >= 2:
             trend = _calculate_trend(
-                data_points[-1].mastery_score, data_points[0].mastery_score
+                mastery_points[-1].mastery_score, mastery_points[0].mastery_score
             )
         else:
             trend = MasteryTrend.STABLE
@@ -554,14 +609,14 @@ class MasteryService:
         projected_mastery = None
         window = settings.MASTERY_PROJECTION_WINDOW_DAYS
         horizon = settings.MASTERY_PROJECTION_HORIZON_DAYS
-        if len(data_points) >= window:
-            recent_points = data_points[-window:]
+        if len(mastery_points) >= window:
+            recent_points = mastery_points[-window:]
             avg_delta = (
                 recent_points[-1].mastery_score - recent_points[0].mastery_score
             ) / window
             projected_mastery = min(
                 1.0,
-                max(0.0, data_points[-1].mastery_score + (avg_delta * horizon)),
+                max(0.0, mastery_points[-1].mastery_score + (avg_delta * horizon)),
             )
 
         return LearningCurveResponse(
@@ -1638,7 +1693,8 @@ class MasteryService:
         """
         Get practice history for activity heatmap.
 
-        Returns daily practice activity for the specified number of weeks.
+        Returns daily practice activity for the specified number of weeks,
+        combining both spaced repetition card reviews and exercise attempts.
 
         Args:
             weeks: Number of weeks of history to return (default 52).
@@ -1649,18 +1705,29 @@ class MasteryService:
         now = datetime.now(timezone.utc)
         cutoff = now - timedelta(weeks=weeks)
 
-        # Query daily practice counts from cards
-        result = await self.db.execute(
+        # Query daily practice counts from spaced repetition cards
+        card_result = await self.db.execute(
             select(
                 func.date(SpacedRepCard.last_reviewed).label("practice_date"),
                 func.count(SpacedRepCard.id).label("count"),
             )
             .where(SpacedRepCard.last_reviewed >= cutoff)
             .group_by(func.date(SpacedRepCard.last_reviewed))
-            .order_by(func.date(SpacedRepCard.last_reviewed))
         )
 
-        rows = result.fetchall()
+        card_rows = {row[0]: row[1] for row in card_result.fetchall()}
+
+        # Query daily exercise attempt counts
+        exercise_result = await self.db.execute(
+            select(
+                func.date(ExerciseAttempt.attempted_at).label("practice_date"),
+                func.count(ExerciseAttempt.id).label("count"),
+            )
+            .where(ExerciseAttempt.attempted_at >= cutoff)
+            .group_by(func.date(ExerciseAttempt.attempted_at))
+        )
+
+        exercise_rows = {row[0]: row[1] for row in exercise_result.fetchall()}
 
         # Query daily practice time
         time_result = await self.db.execute(
@@ -1674,20 +1741,22 @@ class MasteryService:
 
         time_rows = {row[0]: row[1] for row in time_result.fetchall()}
 
+        # Combine all dates from cards and exercises
+        all_dates = set(card_rows.keys()) | set(exercise_rows.keys())
+
         # Build response
         days = []
         max_count = 0
         total_items = 0
-        total_practice_days = 0
 
-        for row in rows:
-            practice_date = row[0]
-            count = row[1]
+        for practice_date in sorted(all_dates):
+            card_count = card_rows.get(practice_date, 0)
+            exercise_count = exercise_rows.get(practice_date, 0)
+            count = card_count + exercise_count
             minutes = (time_rows.get(practice_date, 0) or 0) // 60
 
             max_count = max(max_count, count)
             total_items += count
-            total_practice_days += 1
 
             days.append(
                 PracticeHistoryDay(
@@ -1697,6 +1766,8 @@ class MasteryService:
                     level=0,  # Will be calculated below
                 )
             )
+
+        total_practice_days = len(days)
 
         # Calculate activity levels (0-4 based on count relative to max)
         for day in days:

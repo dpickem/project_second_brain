@@ -41,29 +41,58 @@ export const captureApi = {
    * @param {Object} data - Capture data
    * @param {string} data.text - Text content to capture
    * @param {string[]} [data.tags] - Optional tags to associate with the capture
-   * @param {string} [data.contentType] - Content type hint (e.g., 'note', 'idea', 'quote')
-   * @returns {Promise<{id: string, status: 'pending'|'processing'|'completed', created_at: string, content_type: string}>} Capture confirmation with processing status
+   * @param {string} [data.title] - Optional title for the note
+   * @param {boolean} [data.createCards=false] - Whether to generate spaced repetition cards
+   * @param {boolean} [data.createExercises=false] - Whether to generate practice exercises
+   * @returns {Promise<{status: string, content_id: string, title: string, message: string}>} Capture confirmation
    */
-  captureText: ({ text, tags, contentType }) => 
-    typedApi.POST('/api/capture/text', { 
-      body: { 
-        content: text,  // Backend expects 'content' not 'text'
-        tags, 
-        content_type: contentType 
-      }
-    }).then(r => r.data),
+  captureText: async ({ text, tags, title, createCards = false, createExercises = false }) => {
+    // Backend expects Form data, not JSON
+    const formData = new FormData()
+    formData.append('content', text)
+    if (title) formData.append('title', title)
+    if (tags && tags.length > 0) formData.append('tags', tags.join(','))
+    formData.append('create_cards', createCards.toString())
+    formData.append('create_exercises', createExercises.toString())
+    
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const response = await fetch(`${API_URL}/api/capture/text`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }))
+      throw new Error(error.detail || 'Capture failed')
+    }
+    return response.json()
+  },
 
   /**
    * Capture a URL for content extraction and processing
    * @param {Object} data - Capture data
    * @param {string} data.url - URL to capture and process
    * @param {string[]} [data.tags] - Optional tags to associate with the capture
-   * @returns {Promise<{id: string, url: string, status: 'pending'|'processing'|'completed', title?: string, created_at: string}>} Capture confirmation with extracted metadata
+   * @param {string} [data.notes] - Optional notes about the URL
+   * @returns {Promise<{status: string, content_id: string, title: string, url: string, message: string}>} Capture confirmation
    */
-  captureUrl: ({ url, tags }) => 
-    typedApi.POST('/api/capture/url', { 
-      body: { url, tags } 
-    }).then(r => r.data),
+  captureUrl: async ({ url, tags, notes }) => {
+    // Backend expects Form data, not JSON
+    const formData = new FormData()
+    formData.append('url', url)
+    if (notes) formData.append('notes', notes)
+    if (tags && tags.length > 0) formData.append('tags', tags.join(','))
+    
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const response = await fetch(`${API_URL}/api/capture/url`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }))
+      throw new Error(error.detail || 'Capture failed')
+    }
+    return response.json()
+  },
 
   /**
    * Upload and capture a file for processing

@@ -801,3 +801,171 @@ class TestTemplateDataFormatting:
 
         assert len(data["created_date"]) == 10
         assert "-" in data["created_date"]
+
+
+# =============================================================================
+# Idea-Specific Template Data Tests
+# =============================================================================
+
+
+class TestIdeaTemplateData:
+    """Tests for idea-specific template data variables."""
+
+    @pytest.fixture
+    def idea_content(self) -> UnifiedContent:
+        """Create sample idea content for testing."""
+        return UnifiedContent(
+            id="test-idea-123",
+            source_type=ContentType.IDEA,
+            title="Build a smart thermostat",
+            full_text="Build a smart thermostat using machine learning to predict optimal temperature settings",
+        )
+
+    @pytest.fixture
+    def idea_analysis(self) -> ContentAnalysis:
+        """Create sample idea content analysis."""
+        return ContentAnalysis(
+            content_type="idea",
+            domain="ml",
+            complexity="intermediate",
+            estimated_length="short",
+            has_code=False,
+            has_math=False,
+            key_topics=["ml", "smart home", "temperature"],
+        )
+
+    @pytest.fixture
+    def idea_processing_result(
+        self, idea_analysis, sample_extraction, sample_tags
+    ) -> ProcessingResult:
+        """Create sample processing result for an idea."""
+        return ProcessingResult(
+            content_id="test-idea-123",
+            analysis=idea_analysis,
+            summaries={
+                SummaryLevel.BRIEF.value: "A smart thermostat using ML.",
+                SummaryLevel.STANDARD.value: "This project involves building a smart thermostat that uses machine learning to optimize temperature settings.",
+                SummaryLevel.DETAILED.value: "## Overview\n\nA comprehensive smart thermostat system...",
+            },
+            extraction=sample_extraction,
+            tags=sample_tags,
+            connections=[],
+            followups=[
+                make_followup("Research existing ML thermostats", "RESEARCH", "HIGH"),
+                make_followup("Prototype sensor integration", "PRACTICE", "MEDIUM"),
+            ],
+            mastery_questions=[
+                make_question(
+                    "What ML models are best for temperature prediction?",
+                    "conceptual",
+                    "intermediate",
+                ),
+            ],
+            processing_time_seconds=10.0,
+        )
+
+    def test_idea_variable_contains_full_text(
+        self, idea_content, idea_processing_result
+    ):
+        """Test that 'idea' variable contains the original full text."""
+        data = _prepare_template_data(idea_content, idea_processing_result)
+
+        assert "idea" in data
+        assert data["idea"] == idea_content.full_text
+        assert "machine learning" in data["idea"]
+
+    def test_idea_variable_falls_back_to_summary(
+        self, idea_content, idea_processing_result
+    ):
+        """Test that 'idea' falls back to summary if full_text is empty."""
+        idea_content.full_text = ""
+        data = _prepare_template_data(idea_content, idea_processing_result)
+
+        # Should fall back to standard summary
+        assert "idea" in data
+        assert data["idea"] == idea_processing_result.summaries.get(
+            SummaryLevel.STANDARD.value, ""
+        )
+
+    def test_next_steps_variable_contains_followup_tasks(
+        self, idea_content, idea_processing_result
+    ):
+        """Test that 'next_steps' contains task strings from followups."""
+        data = _prepare_template_data(idea_content, idea_processing_result)
+
+        assert "next_steps" in data
+        assert len(data["next_steps"]) == 2
+        assert "Research existing ML thermostats" in data["next_steps"]
+        assert "Prototype sensor integration" in data["next_steps"]
+
+    def test_next_steps_empty_when_no_followups(
+        self, idea_content, idea_processing_result
+    ):
+        """Test that 'next_steps' is empty when no followups exist."""
+        idea_processing_result.followups = []
+        data = _prepare_template_data(idea_content, idea_processing_result)
+
+        assert "next_steps" in data
+        assert data["next_steps"] == []
+
+    def test_context_variable_exists(self, idea_content, idea_processing_result):
+        """Test that 'context' variable exists in template data."""
+        data = _prepare_template_data(idea_content, idea_processing_result)
+
+        assert "context" in data
+        # Context may be empty if analysis doesn't have it
+        assert isinstance(data["context"], str)
+
+    def test_importance_variable_exists(self, idea_content, idea_processing_result):
+        """Test that 'importance' variable exists in template data."""
+        data = _prepare_template_data(idea_content, idea_processing_result)
+
+        assert "importance" in data
+        assert isinstance(data["importance"], str)
+
+    def test_idea_template_includes_all_required_fields(
+        self, idea_content, idea_processing_result
+    ):
+        """Test that all fields required by idea.md.j2 template are present."""
+        data = _prepare_template_data(idea_content, idea_processing_result)
+
+        required_fields = [
+            "title",
+            "tags",
+            "domain",
+            "complexity",
+            "status",
+            "created_date",
+            "processed_date",
+            "idea",
+            "summary",
+            "key_findings",
+            "concepts",
+            "next_steps",
+            "mastery_questions",
+            "related",
+        ]
+
+        for field in required_fields:
+            assert field in data, f"Missing required field: {field}"
+
+    def test_idea_with_concepts_populates_correctly(
+        self, idea_content, idea_processing_result
+    ):
+        """Test that concepts are properly formatted for idea template."""
+        data = _prepare_template_data(idea_content, idea_processing_result)
+
+        assert len(data["concepts"]) > 0
+        for concept in data["concepts"]:
+            assert "name" in concept
+            assert "definition" in concept
+            assert "importance" in concept
+
+    def test_idea_with_empty_summaries(self, idea_content, idea_processing_result):
+        """Test idea template data handles empty summaries gracefully."""
+        idea_processing_result.summaries = {}
+        data = _prepare_template_data(idea_content, idea_processing_result)
+
+        assert data["summary"] == ""
+        # 'idea' should still use full_text
+        assert data["idea"] == idea_content.full_text

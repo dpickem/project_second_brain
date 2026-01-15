@@ -356,6 +356,28 @@ class Settings(BaseSettings):
     SESSION_WORKED_EXAMPLES_FIRST: bool = True  # Place worked examples at start
 
     # =========================================================================
+    # SPACED REPETITION (FSRS) SETTINGS
+    # =========================================================================
+    # FSRS algorithm defaults
+    FSRS_DEFAULT_RETENTION: float = 0.9  # Target retention probability (90%)
+    FSRS_MAX_INTERVAL_DAYS: int = 365  # Maximum interval between reviews
+
+    # Initial card state defaults
+    FSRS_INITIAL_STABILITY: float = 0.0  # Stability for new cards
+    FSRS_INITIAL_DIFFICULTY: float = (
+        0.3  # Difficulty for new cards (same as CARD_DIFFICULTY_MIXED)
+    )
+    FSRS_FALLBACK_DIFFICULTY: float = 0.3  # Fallback when difficulty is None
+    FSRS_FALLBACK_STABILITY: float = 1.0  # Fallback when stability is None (for review)
+
+    # Due cards query settings
+    REVIEW_DEFAULT_LIMIT: int = 50  # Default number of due cards to fetch
+    REVIEW_INTERLEAVE_FETCH_MULTIPLIER: int = (
+        2  # Fetch N times limit for better interleaving
+    )
+    REVIEW_INTERLEAVE_MAX_FETCH: int = 200  # Cap on cards fetched for interleaving
+
+    # =========================================================================
     # ASSISTANT SERVICE
     # =========================================================================
     # Maximum characters for auto-generated conversation titles

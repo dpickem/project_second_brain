@@ -164,6 +164,9 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
 
     now = datetime.now()
 
+    # Get standard summary for idea/context
+    standard_summary = result.summaries.get(SummaryLevel.STANDARD.value, "")
+
     return {
         # Basic metadata
         "content_type": result.analysis.content_type,
@@ -180,9 +183,9 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
         # Source info (for articles)
         "source_url": content.source_url or "",
         # Summaries
-        "summary": result.summaries.get(SummaryLevel.STANDARD.value, ""),
+        "summary": standard_summary,
         "summary_brief": result.summaries.get(SummaryLevel.BRIEF.value, ""),
-        "overview": result.summaries.get(SummaryLevel.STANDARD.value, ""),
+        "overview": standard_summary,
         "detailed_notes": result.summaries.get(SummaryLevel.DETAILED.value, ""),
         # Key findings/takeaways
         "key_findings": result.extraction.key_findings,
@@ -200,6 +203,15 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
         # Connections
         "connections": connections,
         "related": [c["note"] for c in connections],
+        # Idea-specific variables (used by idea.md.j2 template)
+        "idea": content.full_text or standard_summary,
+        "context": (
+            result.analysis.context if hasattr(result.analysis, "context") else ""
+        ),
+        "importance": (
+            result.analysis.importance if hasattr(result.analysis, "importance") else ""
+        ),
+        "next_steps": [t["task"] for t in tasks],
     }
 
 

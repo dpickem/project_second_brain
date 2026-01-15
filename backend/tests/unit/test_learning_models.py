@@ -126,7 +126,7 @@ class TestCardModels:
             starter_code="def binary_search(arr, x):\n    pass",
             solution_code="def binary_search(arr, x):\n    ...",
             test_cases=[{"input": "[1,2,3,4,5], 3", "expected": "2"}],
-            content_id=1,
+            content_id="content-uuid-123",
             concept_id="algo/search/binary",
         )
         assert card.language == "python"

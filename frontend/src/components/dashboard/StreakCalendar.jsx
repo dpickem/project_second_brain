@@ -4,13 +4,14 @@
  * GitHub-style activity heatmap showing practice days.
  */
 
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { clsx } from 'clsx'
-import { format, subDays, startOfWeek, eachDayOfInterval, parseISO } from 'date-fns'
+import { format, subDays, addDays, startOfWeek, endOfWeek, eachDayOfInterval, parseISO, isSameDay } from 'date-fns'
 import { Card, Skeleton, Tooltip } from '../common'
 
-const WEEKS = 26 // ~6 months
+const WEEKS_BEFORE = 13 // ~3 months before today
+const WEEKS_AFTER = 13  // ~3 months after today
 
 function getActivityLevel(count) {
   if (count === 0) return 0
@@ -28,11 +29,13 @@ const levelColors = {
   4: 'bg-emerald-400',
 }
 
-function DayCell({ date, count, level }) {
+function DayCell({ date, count, level, isToday, isFuture }) {
   const formattedDate = format(date, 'MMM d, yyyy')
-  const tooltipContent = count > 0 
-    ? `${count} review${count === 1 ? '' : 's'} on ${formattedDate}`
-    : `No activity on ${formattedDate}`
+  const tooltipContent = isFuture
+    ? `${formattedDate} (upcoming)`
+    : count > 0 
+      ? `${count} review${count === 1 ? '' : 's'} on ${formattedDate}`
+      : `No activity on ${formattedDate}`
 
   return (
     <Tooltip content={tooltipContent} side="top">
@@ -43,7 +46,8 @@ function DayCell({ date, count, level }) {
         className={clsx(
           'w-3 h-3 rounded-sm cursor-pointer',
           'hover:ring-1 hover:ring-white/30 transition-all',
-          levelColors[level]
+          isFuture ? 'bg-slate-800/50' : levelColors[level],
+          isToday && 'ring-2 ring-amber-400'
         )}
       />
     </Tooltip>
@@ -55,45 +59,80 @@ export function StreakCalendar({
   isLoading = false,
   className,
 }) {
-  // Generate calendar grid
-  const calendar = useMemo(() => {
+  // Ref for auto-scrolling to current date
+  const scrollContainerRef = useRef(null)
+
+  // Generate calendar grid with past and future dates
+  const { calendar, todayWeekIndex } = useMemo(() => {
     const today = new Date()
-    const startDate = startOfWeek(subDays(today, WEEKS * 7))
-    const allDays = eachDayOfInterval({ start: startDate, end: today })
+    const startDate = startOfWeek(subDays(today, WEEKS_BEFORE * 7))
+    const endDate = endOfWeek(addDays(today, WEEKS_AFTER * 7))
+    const allDays = eachDayOfInterval({ start: startDate, end: endDate })
     
     // Create a map for quick lookup
     const activityMap = new Map()
     activityData.forEach(({ date, count }) => {
       const d = typeof date === 'string' ? parseISO(date) : date
-      activityMap.set(format(d, 'yyyy-MM-dd'), count)
+      const key = format(d, 'yyyy-MM-dd')
+      console.log('Calendar mapping:', { date, count, key })
+      activityMap.set(key, count)
     })
 
-    // Group by weeks
+    // Group by weeks and track which week contains today
     const weeks = []
     let currentWeek = []
+    let todayIdx = 0
     
     allDays.forEach((day, index) => {
       const dayOfWeek = day.getDay()
       const count = activityMap.get(format(day, 'yyyy-MM-dd')) || 0
+      const isToday = isSameDay(day, today)
+      const isFuture = day > today
       
       currentWeek.push({
         date: day,
         count,
         level: getActivityLevel(count),
+        isToday,
+        isFuture,
       })
       
       if (dayOfWeek === 6 || index === allDays.length - 1) {
+        // Check if this week contains today
+        if (currentWeek.some(d => d.isToday)) {
+          todayIdx = weeks.length
+        }
         weeks.push(currentWeek)
         currentWeek = []
       }
     })
 
-    return weeks
+    return { calendar: weeks, todayWeekIndex: todayIdx }
   }, [activityData])
+
+  // Auto-scroll to center on today's week
+  useEffect(() => {
+    const scrollToToday = () => {
+      if (scrollContainerRef.current) {
+        const container = scrollContainerRef.current
+        const weekWidth = 16 // 12px cell + 4px gap
+        const todayPosition = todayWeekIndex * weekWidth
+        const containerWidth = container.clientWidth
+        // Center today in the view
+        container.scrollLeft = todayPosition - (containerWidth / 2) + (weekWidth / 2)
+      }
+    }
+    // Double RAF ensures layout is complete
+    requestAnimationFrame(() => {
+      requestAnimationFrame(scrollToToday)
+    })
+  }, [calendar, todayWeekIndex])
 
   // Calculate stats
   const stats = useMemo(() => {
-    const total = activityData.reduce((sum, d) => sum + d.count, 0)
+    // Debug: log received activity data
+    console.log('StreakCalendar activityData:', activityData)
+    const total = activityData.reduce((sum, d) => sum + (d.count || 0), 0)
     const activeDays = activityData.filter(d => d.count > 0).length
     const average = activeDays > 0 ? Math.round(total / activeDays) : 0
     
@@ -129,7 +168,7 @@ export function StreakCalendar({
   }
 
   return (
-    <Card className={clsx('overflow-hidden', className)}>
+    <Card className={clsx('overflow-visible', className)}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-text-primary font-heading flex items-center gap-2">
@@ -145,37 +184,40 @@ export function StreakCalendar({
         </div>
       </div>
 
-      {/* Calendar grid */}
-      <div className="overflow-x-auto pb-2 -mx-2 px-2">
-        <div className="flex gap-1">
-          {/* Day labels */}
-          <div className="flex flex-col gap-1 mr-2 text-xs text-text-muted">
-            <span className="h-3">Mon</span>
-            <span className="h-3"></span>
-            <span className="h-3">Wed</span>
-            <span className="h-3"></span>
-            <span className="h-3">Fri</span>
-            <span className="h-3"></span>
-            <span className="h-3">Sun</span>
-          </div>
+      {/* Calendar grid with sticky day labels */}
+      <div className="relative flex">
+        {/* Sticky day labels */}
+        <div className="sticky left-0 z-10 flex flex-col gap-1 mr-2 text-xs text-text-muted bg-bg-elevated pr-2">
+          <span className="h-3">Mon</span>
+          <span className="h-3"></span>
+          <span className="h-3">Wed</span>
+          <span className="h-3"></span>
+          <span className="h-3">Fri</span>
+          <span className="h-3"></span>
+          <span className="h-3">Sun</span>
+        </div>
 
-          {/* Weeks */}
-          {calendar.map((week, weekIndex) => (
-            <div key={weekIndex} className="flex flex-col gap-1">
-              {/* Fill empty days at start of first week */}
-              {weekIndex === 0 && week[0]?.date.getDay() > 0 && (
-                Array.from({ length: week[0].date.getDay() }).map((_, i) => (
-                  <div key={`empty-${i}`} className="w-3 h-3" />
-                ))
-              )}
-              {week.map((day) => (
-                <DayCell 
-                  key={day.date.toISOString()}
-                  {...day}
-                />
-              ))}
-            </div>
-          ))}
+        {/* Scrollable weeks container */}
+        <div ref={scrollContainerRef} className="overflow-x-auto overflow-y-visible pb-2 flex-1">
+          <div className="flex gap-1">
+            {/* Weeks */}
+            {calendar.map((week, weekIndex) => (
+              <div key={weekIndex} className="flex flex-col gap-1">
+                {/* Fill empty days at start of first week */}
+                {weekIndex === 0 && week[0]?.date.getDay() > 0 && (
+                  Array.from({ length: week[0].date.getDay() }).map((_, i) => (
+                    <div key={`empty-${i}`} className="w-3 h-3" />
+                  ))
+                )}
+                {week.map((day) => (
+                  <DayCell 
+                    key={day.date.toISOString()}
+                    {...day}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

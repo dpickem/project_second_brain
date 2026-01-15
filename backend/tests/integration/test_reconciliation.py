@@ -17,6 +17,7 @@ import pytest
 import pytest_asyncio
 
 from app.services.obsidian.sync import VaultSyncService
+from app.services.obsidian.vault import create_vault_manager, reset_vault_manager
 
 
 pytestmark = pytest.mark.integration
@@ -31,6 +32,14 @@ pytestmark = pytest.mark.integration
 def sync_service() -> VaultSyncService:
     """Create a fresh VaultSyncService instance."""
     return VaultSyncService()
+
+
+@pytest.fixture(autouse=True)
+def reset_vault_singleton():
+    """Reset the vault manager singleton before each test."""
+    reset_vault_manager()
+    yield
+    reset_vault_manager()
 
 
 @pytest.fixture
@@ -101,6 +110,9 @@ class TestTimestampDetection:
         # Set last sync to 12 hours ago (old note is 24h old, new note is just created)
         last_sync = datetime.now(timezone.utc) - timedelta(hours=12)
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault_path))
+
         with patch.object(
             sync_service, "_get_last_sync_time", AsyncMock(return_value=last_sync)
         ):
@@ -108,7 +120,11 @@ class TestTimestampDetection:
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
                 with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
-                    result = await sync_service.reconcile_on_startup(vault_path)
+                    with patch(
+                        "app.services.obsidian.sync.get_vault_manager",
+                        return_value=temp_vault_manager,
+                    ):
+                        result = await sync_service.reconcile_on_startup(vault_path)
 
         # Only new_note should be modified (created within last 12 hours)
         # old_note was modified 24 hours ago, before last_sync
@@ -131,6 +147,9 @@ class TestTimestampDetection:
         # Touch new note to ensure it's "recently" modified
         notes["new_note"].touch()
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault_path))
+
         with patch.object(
             sync_service, "_get_last_sync_time", AsyncMock(return_value=last_sync)
         ):
@@ -138,7 +157,11 @@ class TestTimestampDetection:
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
                 with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
-                    result = await sync_service.reconcile_on_startup(vault_path)
+                    with patch(
+                        "app.services.obsidian.sync.get_vault_manager",
+                        return_value=temp_vault_manager,
+                    ):
+                        result = await sync_service.reconcile_on_startup(vault_path)
 
         # Only new_note should be synced (touched after last_sync)
         assert result["synced"] >= 1
@@ -159,6 +182,9 @@ class TestFirstRun:
         """First run with no last_sync_time syncs all notes."""
         vault_path, notes = vault_with_timestamps
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault_path))
+
         with patch.object(
             sync_service, "_get_last_sync_time", AsyncMock(return_value=None)
         ):
@@ -166,7 +192,11 @@ class TestFirstRun:
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
                 with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
-                    result = await sync_service.reconcile_on_startup(vault_path)
+                    with patch(
+                        "app.services.obsidian.sync.get_vault_manager",
+                        return_value=temp_vault_manager,
+                    ):
+                        result = await sync_service.reconcile_on_startup(vault_path)
 
         assert result["last_sync"] is None
         assert result["modified_since_sync"] >= 2  # Both notes
@@ -181,6 +211,9 @@ class TestFirstRun:
 
         update_mock = AsyncMock()
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault_path))
+
         with patch.object(
             sync_service, "_get_last_sync_time", AsyncMock(return_value=None)
         ):
@@ -188,7 +221,11 @@ class TestFirstRun:
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
                 with patch.object(sync_service, "_update_last_sync_time", update_mock):
-                    await sync_service.reconcile_on_startup(vault_path)
+                    with patch(
+                        "app.services.obsidian.sync.get_vault_manager",
+                        return_value=temp_vault_manager,
+                    ):
+                        await sync_service.reconcile_on_startup(vault_path)
 
         update_mock.assert_called_once()
 
@@ -225,6 +262,9 @@ Created while app was offline.
 """
         )
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(temp_vault))
+
         with patch.object(
             sync_service, "_get_last_sync_time", AsyncMock(return_value=last_sync)
         ):
@@ -232,7 +272,11 @@ Created while app was offline.
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
                 with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
-                    result = await sync_service.reconcile_on_startup(temp_vault)
+                    with patch(
+                        "app.services.obsidian.sync.get_vault_manager",
+                        return_value=temp_vault_manager,
+                    ):
+                        result = await sync_service.reconcile_on_startup(temp_vault)
 
         assert result["modified_since_sync"] >= 1
         assert result["synced"] >= 1
@@ -268,6 +312,9 @@ Original content.
         # Now "edit" the file (touch it to update mtime)
         edited_note.touch()
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(temp_vault))
+
         with patch.object(
             sync_service, "_get_last_sync_time", AsyncMock(return_value=last_sync)
         ):
@@ -275,7 +322,11 @@ Original content.
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
                 with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
-                    result = await sync_service.reconcile_on_startup(temp_vault)
+                    with patch(
+                        "app.services.obsidian.sync.get_vault_manager",
+                        return_value=temp_vault_manager,
+                    ):
+                        result = await sync_service.reconcile_on_startup(temp_vault)
 
         assert result["modified_since_sync"] >= 1
 
@@ -301,6 +352,9 @@ Content for note {i}.
 """
             )
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(temp_vault))
+
         # First run - should sync all
         with patch.object(
             sync_service, "_get_last_sync_time", AsyncMock(return_value=None)
@@ -309,7 +363,11 @@ Content for note {i}.
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j)
             ):
                 with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
-                    result = await sync_service.reconcile_on_startup(temp_vault)
+                    with patch(
+                        "app.services.obsidian.sync.get_vault_manager",
+                        return_value=temp_vault_manager,
+                    ):
+                        result = await sync_service.reconcile_on_startup(temp_vault)
 
         assert result["total_notes"] >= 50
         assert result["synced"] >= 50
@@ -343,6 +401,9 @@ Content
 """
             )
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(temp_vault))
+
         # Make first sync fail
         call_count = [0]
         original_sync_note = sync_service.sync_note
@@ -363,7 +424,11 @@ Content
                     with patch.object(
                         sync_service, "_update_last_sync_time", AsyncMock()
                     ):
-                        result = await sync_service.reconcile_on_startup(temp_vault)
+                        with patch(
+                            "app.services.obsidian.sync.get_vault_manager",
+                            return_value=temp_vault_manager,
+                        ):
+                            result = await sync_service.reconcile_on_startup(temp_vault)
 
         # Should have 1 failure but still process others
         assert result["failed"] >= 1

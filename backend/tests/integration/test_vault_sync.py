@@ -18,6 +18,7 @@ import pytest
 import pytest_asyncio
 
 from app.services.obsidian.sync import VaultSyncService, get_sync_status
+from app.services.obsidian.vault import create_vault_manager, reset_vault_manager
 
 
 # Skip all tests if Neo4j is not available
@@ -39,6 +40,14 @@ pytestmark = [
 def sync_service() -> VaultSyncService:
     """Create a fresh VaultSyncService instance."""
     return VaultSyncService()
+
+
+@pytest.fixture(autouse=True)
+def reset_vault_singleton():
+    """Reset the vault manager singleton before each test."""
+    reset_vault_manager()
+    yield
+    reset_vault_manager()
 
 
 @pytest.fixture
@@ -124,10 +133,17 @@ class TestSingleNoteSync:
         """Syncing a note creates a Neo4j node with correct properties."""
         note_path = vault_with_notes / "sources/papers/ml-paper.md"
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault_with_notes))
+
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
-            result = await sync_service.sync_note(note_path)
+            with patch(
+                "app.services.obsidian.sync.get_vault_manager",
+                return_value=temp_vault_manager,
+            ):
+                result = await sync_service.sync_note(note_path)
 
         assert "error" not in result
         assert result["node_id"] == "paper-001"
@@ -147,10 +163,17 @@ class TestSingleNoteSync:
         """Syncing a note creates LINKS_TO relationships for wikilinks."""
         note_path = vault_with_notes / "sources/papers/ml-paper.md"
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault_with_notes))
+
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
-            result = await sync_service.sync_note(note_path)
+            with patch(
+                "app.services.obsidian.sync.get_vault_manager",
+                return_value=temp_vault_manager,
+            ):
+                result = await sync_service.sync_note(note_path)
 
         # Should have extracted 4 wikilinks
         assert (
@@ -174,10 +197,17 @@ class TestSingleNoteSync:
         """Inline #tags are merged with frontmatter tags."""
         note_path = vault_with_notes / "sources/papers/ml-paper.md"
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault_with_notes))
+
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
-            result = await sync_service.sync_note(note_path)
+            with patch(
+                "app.services.obsidian.sync.get_vault_manager",
+                return_value=temp_vault_manager,
+            ):
+                result = await sync_service.sync_note(note_path)
 
         # Should have both frontmatter tags and inline tags
         assert "ml" in result["tags"]  # from frontmatter
@@ -198,15 +228,22 @@ This note has no frontmatter but links to [[Other Note]].
 """
         )
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(temp_vault))
+
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
-            with patch.object(
-                sync_service,
-                "_generate_and_persist_node_id",
-                AsyncMock(return_value="generated-id"),
+            with patch(
+                "app.services.obsidian.sync.get_vault_manager",
+                return_value=temp_vault_manager,
             ):
-                result = await sync_service.sync_note(note_path)
+                with patch.object(
+                    sync_service,
+                    "_generate_and_persist_node_id",
+                    AsyncMock(return_value="generated-id"),
+                ):
+                    result = await sync_service.sync_note(note_path)
 
         assert "error" not in result
         assert result["node_id"] == "generated-id"
@@ -232,11 +269,18 @@ class TestFullSync:
         (vault / "Note1.md").write_text("---\ntitle: Note 1\n---\nContent")
         (vault / "Note2.md").write_text("---\ntitle: Note 2\n---\nContent")
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault))
+
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
             with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
-                result = await sync_service.full_sync(vault)
+                with patch(
+                    "app.services.obsidian.sync.get_vault_manager",
+                    return_value=temp_vault_manager,
+                ):
+                    result = await sync_service.full_sync(vault)
 
         # Should have synced the two notes we created
         assert result["synced"] == 2
@@ -257,11 +301,18 @@ class TestFullSync:
         obsidian_dir.mkdir(exist_ok=True)
         (obsidian_dir / "config.md").write_text("---\ntype: config\n---\n")
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault))
+
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
             with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
-                result = await sync_service.full_sync(vault)
+                with patch(
+                    "app.services.obsidian.sync.get_vault_manager",
+                    return_value=temp_vault_manager,
+                ):
+                    result = await sync_service.full_sync(vault)
 
         # The .obsidian/config.md should not be in the total count
         assert result["synced"] == 1  # Only Note.md, not .obsidian/config.md
@@ -282,11 +333,18 @@ class TestFullSync:
 
         mock_neo4j_client.merge_note_node = mock_merge
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault_with_notes))
+
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
             with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
-                result = await sync_service.full_sync(vault_with_notes)
+                with patch(
+                    "app.services.obsidian.sync.get_vault_manager",
+                    return_value=temp_vault_manager,
+                ):
+                    result = await sync_service.full_sync(vault_with_notes)
 
         # Should have one failure and continue with others
         assert result["failed"] >= 1
@@ -322,6 +380,9 @@ class TestReconciliation:
         self, sync_service: VaultSyncService, vault_with_notes: Path, mock_neo4j_client
     ):
         """First run (no last_sync_time) syncs all notes."""
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault_with_notes))
+
         with patch.object(
             sync_service, "_get_last_sync_time", AsyncMock(return_value=None)
         ):
@@ -329,7 +390,13 @@ class TestReconciliation:
                 sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
             ):
                 with patch.object(sync_service, "_update_last_sync_time", AsyncMock()):
-                    result = await sync_service.reconcile_on_startup(vault_with_notes)
+                    with patch(
+                        "app.services.obsidian.sync.get_vault_manager",
+                        return_value=temp_vault_manager,
+                    ):
+                        result = await sync_service.reconcile_on_startup(
+                            vault_with_notes
+                        )
 
         assert result["last_sync"] is None
         assert result["modified_since_sync"] >= 2  # All notes are "new"
@@ -372,10 +439,17 @@ class TestLinkSync:
         """Wikilinks are converted to LINKS_TO relationships."""
         note_path = vault_with_notes / "concepts/neural-networks.md"
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(vault_with_notes))
+
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
-            await sync_service.sync_note(note_path)
+            with patch(
+                "app.services.obsidian.sync.get_vault_manager",
+                return_value=temp_vault_manager,
+            ):
+                await sync_service.sync_note(note_path)
 
         # Check sync_note_links was called with correct targets
         call_args = mock_neo4j_client.sync_note_links.call_args[0]
@@ -404,10 +478,17 @@ This note has no wikilinks at all.
 """
         )
 
+        # Create a vault manager pointing to temp vault
+        temp_vault_manager = create_vault_manager(str(temp_vault))
+
         with patch.object(
             sync_service, "_ensure_neo4j", AsyncMock(return_value=mock_neo4j_client)
         ):
-            result = await sync_service.sync_note(note_path)
+            with patch(
+                "app.services.obsidian.sync.get_vault_manager",
+                return_value=temp_vault_manager,
+            ):
+                result = await sync_service.sync_note(note_path)
 
         assert result["links_synced"] == 0
         # sync_note_links should still be called with empty list

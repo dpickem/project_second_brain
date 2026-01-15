@@ -35,12 +35,12 @@ test.describe('Dashboard Page', () => {
   })
 
   test('should display quick action cards', async ({ page }) => {
-    // Look for Practice action card
-    const practiceCard = page.getByRole('link', { name: /practice/i })
+    // Look for Practice action card (title is "Practice")
+    const practiceCard = page.getByRole('link', { name: /🎯.*practice/i }).first()
     await expect(practiceCard).toBeVisible()
     
-    // Look for Review action card
-    const reviewCard = page.getByRole('link', { name: /review/i })
+    // Look for Review action card (has icon 📚 and title "Review")
+    const reviewCard = page.getByRole('link', { name: /📚.*review/i }).first()
     await expect(reviewCard).toBeVisible()
   })
 
@@ -54,8 +54,8 @@ test.describe('Dashboard Page', () => {
   })
 
   test('should navigate to review page when clicking Review card', async ({ page }) => {
-    // Click the Review action card
-    const reviewCard = page.getByRole('link', { name: /review/i })
+    // Click the Review action card (has icon 📚 and title "Review")
+    const reviewCard = page.getByRole('link', { name: /📚.*review/i }).first()
     await reviewCard.click()
     
     // Should navigate to /review

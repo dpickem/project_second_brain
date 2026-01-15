@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.db.models_learning import CardReviewHistory
 from app.enums.learning import Rating
 from app.models.learning import CardCreate, CardReviewRequest, CardStats
 from app.services.learning.spaced_rep_service import SpacedRepService
@@ -245,6 +246,60 @@ class TestSpacedRepServiceReviewCard:
         with pytest.raises(ValueError, match="not found"):
             await service.review_card(request)
 
+    @pytest.mark.asyncio
+    async def test_review_creates_history_record(self, mock_db, mock_card):
+        """Test that reviewing a card creates a CardReviewHistory record."""
+        service = SpacedRepService(mock_db)
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_card
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        request = CardReviewRequest(
+            card_id=1,
+            rating=Rating.GOOD,
+            time_spent_seconds=15,
+        )
+
+        await service.review_card(request)
+
+        # Verify a CardReviewHistory was added to the session
+        add_calls = mock_db.add.call_args_list
+        history_added = any(
+            isinstance(call.args[0], CardReviewHistory) for call in add_calls
+        )
+        assert history_added, "CardReviewHistory record should be added to session"
+
+    @pytest.mark.asyncio
+    async def test_review_history_contains_correct_data(self, mock_db, mock_card):
+        """Test that the CardReviewHistory record contains correct data."""
+        service = SpacedRepService(mock_db)
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_card
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        request = CardReviewRequest(
+            card_id=1,
+            rating=Rating.HARD,
+            time_spent_seconds=20,
+        )
+
+        await service.review_card(request)
+
+        # Find the CardReviewHistory that was added
+        history_record = None
+        for call in mock_db.add.call_args_list:
+            if isinstance(call.args[0], CardReviewHistory):
+                history_record = call.args[0]
+                break
+
+        assert history_record is not None
+        assert history_record.card_id == 1
+        assert history_record.rating == Rating.HARD.value
+        assert history_record.time_spent_seconds == 20
+        assert history_record.state_before == "review"  # From mock_card.state
+
 
 class TestSpacedRepServiceCardStats:
     """Tests for card statistics."""
@@ -285,3 +340,93 @@ class TestSpacedRepServiceCardStats:
         result = await service.get_card_stats(topic_filter="ml/transformers")
 
         assert isinstance(result, CardStats)
+
+
+class TestSpacedRepServiceInterleaving:
+    """Tests for card interleaving by topic."""
+
+    @pytest.fixture
+    def mock_db(self):
+        """Create a mock database session."""
+        return MagicMock()
+
+    def _create_mock_card(self, card_id: int, tags: list[str]):
+        """Create a mock card with specified tags."""
+        card = MagicMock()
+        card.id = card_id
+        card.tags = tags
+        return card
+
+    def test_interleave_empty_list(self, mock_db):
+        """Test interleaving an empty list returns empty."""
+        service = SpacedRepService(mock_db)
+        result = service._interleave_by_topic([], 10)
+        assert result == []
+
+    def test_interleave_single_card(self, mock_db):
+        """Test interleaving a single card returns that card."""
+        service = SpacedRepService(mock_db)
+        card = self._create_mock_card(1, ["topic_a"])
+        result = service._interleave_by_topic([card], 10)
+        assert len(result) == 1
+        assert result[0].id == 1
+
+    def test_interleave_respects_limit(self, mock_db):
+        """Test that interleaving respects the limit parameter."""
+        service = SpacedRepService(mock_db)
+        cards = [self._create_mock_card(i, [f"topic_{i % 3}"]) for i in range(20)]
+        result = service._interleave_by_topic(cards, 5)
+        assert len(result) == 5
+
+    def test_interleave_separates_same_topic(self, mock_db):
+        """Test that cards from same topic don't appear consecutively."""
+        service = SpacedRepService(mock_db)
+        # Create 6 cards: 3 from topic_a, 3 from topic_b
+        cards = [
+            self._create_mock_card(1, ["topic_a"]),
+            self._create_mock_card(2, ["topic_a"]),
+            self._create_mock_card(3, ["topic_a"]),
+            self._create_mock_card(4, ["topic_b"]),
+            self._create_mock_card(5, ["topic_b"]),
+            self._create_mock_card(6, ["topic_b"]),
+        ]
+        result = service._interleave_by_topic(cards, 6)
+
+        # Check that no two consecutive cards share the same primary topic
+        for i in range(len(result) - 1):
+            current_topic = result[i].tags[0] if result[i].tags else "_no_topic"
+            next_topic = result[i + 1].tags[0] if result[i + 1].tags else "_no_topic"
+            assert (
+                current_topic != next_topic
+            ), f"Cards at position {i} and {i+1} share topic: {current_topic}"
+
+    def test_interleave_handles_cards_without_tags(self, mock_db):
+        """Test that cards without tags are handled correctly."""
+        service = SpacedRepService(mock_db)
+        cards = [
+            self._create_mock_card(1, []),
+            self._create_mock_card(2, ["topic_a"]),
+            self._create_mock_card(3, []),
+        ]
+        result = service._interleave_by_topic(cards, 3)
+        assert len(result) == 3
+
+    def test_interleave_multiple_topics(self, mock_db):
+        """Test interleaving with 3+ different topics."""
+        service = SpacedRepService(mock_db)
+        cards = [
+            self._create_mock_card(1, ["ml"]),
+            self._create_mock_card(2, ["ml"]),
+            self._create_mock_card(3, ["databases"]),
+            self._create_mock_card(4, ["databases"]),
+            self._create_mock_card(5, ["networking"]),
+            self._create_mock_card(6, ["networking"]),
+        ]
+        result = service._interleave_by_topic(cards, 6)
+
+        # Should have all 6 cards
+        assert len(result) == 6
+
+        # Collect all card IDs to ensure no duplicates
+        card_ids = [c.id for c in result]
+        assert len(set(card_ids)) == 6

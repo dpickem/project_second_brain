@@ -310,6 +310,8 @@ export function Knowledge() {
   const debouncedSearch = useDebounce(searchQuery, 300)
 
   // Sync with URL params (supports ?note=path/to/note.md and ?search=query)
+  // Only re-run when searchParams changes - NOT when selectedNote changes
+  // to avoid infinite loops between this effect and the auto-select effect
   useEffect(() => {
     const noteParam = searchParams.get('note')
     const searchParam = searchParams.get('search')
@@ -317,9 +319,10 @@ export function Knowledge() {
     if (noteParam) {
       setSelectedNote(decodeURIComponent(noteParam))
       pendingAutoSelectSearchRef.current = null
-    } else if (!noteParam && selectedNote) {
+    } else if (!noteParam) {
       // Clear selection if note param is removed from URL (e.g., browser back)
-      setSelectedNote(null)
+      // Use functional update to avoid needing selectedNote in deps
+      setSelectedNote(prev => prev ? null : prev)
     }
     if (searchParam) {
       setSearchQuery(searchParam)
@@ -328,7 +331,7 @@ export function Knowledge() {
       // Switch to list view for better search UX
       setViewMode('list')
     }
-  }, [searchParams, selectedNote]) // Re-run when URL params change
+  }, [searchParams]) // Only re-run when URL params change
 
   // Update URL when note selection changes
   const handleNoteSelect = (notePath) => {

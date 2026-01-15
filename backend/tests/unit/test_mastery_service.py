@@ -6,9 +6,10 @@ Tests the mastery tracking and analytics service including:
 - Weak spot detection
 - Daily snapshots
 - Learning curve data
+- Practice history
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
@@ -16,7 +17,7 @@ import pytest
 
 from app.config import settings
 from app.enums.learning import MasteryTrend, ExerciseType, CardState
-from app.models.learning import MasteryState
+from app.models.learning import MasteryState, LearningCurveDataPoint
 from app.services.learning.mastery_service import (
     MasteryService,
     _calculate_activity_level,
@@ -837,3 +838,272 @@ class TestSnapshotToState:
 
         for key, expected in expected_values.items():
             assert getattr(result, key) == expected
+
+
+# ============================================================================
+# Test get_learning_curve
+# ============================================================================
+
+
+class TestGetLearningCurve:
+    """Tests for get_learning_curve method with CardReviewHistory."""
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_no_activity(self, mock_db):
+        """Test empty data points when no review history exists."""
+        service = MasteryService(mock_db)
+
+        # Mock all queries to return empty results
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.get_learning_curve(days=30)
+
+        assert result.data_points == []
+        assert result.trend == MasteryTrend.STABLE
+        assert result.projected_mastery_30d is None
+
+    @pytest.mark.asyncio
+    async def test_aggregates_reviews_by_date(self, mock_db):
+        """Test that review history is aggregated by date."""
+        service = MasteryService(mock_db)
+        today = datetime.now(timezone.utc).date()
+        yesterday = today - timedelta(days=1)
+
+        # Track which query is being made
+        call_count = [0]
+
+        def execute_side_effect(query):
+            result = MagicMock()
+            call_count[0] += 1
+
+            if call_count[0] == 1:
+                # CardReviewHistory query - return reviews on two days
+                result.fetchall.return_value = [
+                    MagicMock(review_date=yesterday, cards_reviewed=5),
+                    MagicMock(review_date=today, cards_reviewed=3),
+                ]
+            elif call_count[0] == 2:
+                # Fallback SpacedRepCard query
+                result.fetchall.return_value = []
+            elif call_count[0] == 3:
+                # ExerciseAttempt query
+                result.fetchall.return_value = []
+            elif call_count[0] == 4:
+                # LearningTimeLog query
+                result.fetchall.return_value = []
+            elif call_count[0] == 5:
+                # MasterySnapshot query
+                result.scalars.return_value.all.return_value = []
+            else:
+                result.fetchall.return_value = []
+                result.scalars.return_value.all.return_value = []
+
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=execute_side_effect)
+
+        result = await service.get_learning_curve(days=7)
+
+        # Should have data points for both days
+        assert len(result.data_points) == 2
+        dates = [dp.date.date() for dp in result.data_points]
+        assert yesterday in dates
+        assert today in dates
+
+    @pytest.mark.asyncio
+    async def test_combines_card_and_exercise_activity(self, mock_db):
+        """Test that both card reviews and exercise attempts are included."""
+        service = MasteryService(mock_db)
+        today = datetime.now(timezone.utc).date()
+
+        call_count = [0]
+
+        def execute_side_effect(query):
+            result = MagicMock()
+            call_count[0] += 1
+
+            if call_count[0] == 1:
+                # CardReviewHistory query
+                result.fetchall.return_value = [
+                    MagicMock(review_date=today, cards_reviewed=5),
+                ]
+            elif call_count[0] == 2:
+                # Fallback query
+                result.fetchall.return_value = []
+            elif call_count[0] == 3:
+                # ExerciseAttempt query - same day
+                result.fetchall.return_value = [
+                    MagicMock(attempt_date=today, attempt_count=3, avg_score=0.85),
+                ]
+            elif call_count[0] == 4:
+                # LearningTimeLog query
+                result.fetchall.return_value = [
+                    MagicMock(log_date=today, total_minutes=30),
+                ]
+            elif call_count[0] == 5:
+                # MasterySnapshot query
+                result.scalars.return_value.all.return_value = []
+            else:
+                result.fetchall.return_value = []
+                result.scalars.return_value.all.return_value = []
+
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=execute_side_effect)
+
+        result = await service.get_learning_curve(days=7)
+
+        assert len(result.data_points) == 1
+        dp = result.data_points[0]
+        assert dp.cards_reviewed == 5
+        assert dp.exercises_attempted == 3
+        assert dp.time_minutes == 30
+
+
+# ============================================================================
+# Test get_practice_history
+# ============================================================================
+
+
+class TestGetPracticeHistory:
+    """Tests for get_practice_history method combining cards and exercises."""
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_no_practice(self, mock_db):
+        """Test empty response when no practice activity exists."""
+        service = MasteryService(mock_db)
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.get_practice_history(weeks=4)
+
+        assert result.days == []
+        assert result.total_practice_days == 0
+        assert result.total_items == 0
+
+    @pytest.mark.asyncio
+    async def test_combines_cards_and_exercises(self, mock_db):
+        """Test that both card reviews and exercises are counted."""
+        service = MasteryService(mock_db)
+        today = datetime.now(timezone.utc).date()
+
+        call_count = [0]
+
+        def execute_side_effect(query):
+            result = MagicMock()
+            call_count[0] += 1
+
+            if call_count[0] == 1:
+                # Card reviews query
+                result.fetchall.return_value = [
+                    (today, 5),  # 5 cards reviewed today
+                ]
+            elif call_count[0] == 2:
+                # Exercise attempts query
+                result.fetchall.return_value = [
+                    (today, 3),  # 3 exercises attempted today
+                ]
+            elif call_count[0] == 3:
+                # Time logs query
+                result.fetchall.return_value = [
+                    (today, 1800),  # 30 minutes (1800 seconds)
+                ]
+            else:
+                result.fetchall.return_value = []
+
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=execute_side_effect)
+
+        result = await service.get_practice_history(weeks=4)
+
+        assert len(result.days) == 1
+        assert result.days[0].count == 8  # 5 cards + 3 exercises
+        assert result.days[0].minutes == 30
+        assert result.total_items == 8
+        assert result.total_practice_days == 1
+
+    @pytest.mark.asyncio
+    async def test_handles_different_days_for_cards_and_exercises(self, mock_db):
+        """Test that cards and exercises on different days are both shown."""
+        service = MasteryService(mock_db)
+        today = datetime.now(timezone.utc).date()
+        yesterday = today - timedelta(days=1)
+
+        call_count = [0]
+
+        def execute_side_effect(query):
+            result = MagicMock()
+            call_count[0] += 1
+
+            if call_count[0] == 1:
+                # Card reviews - today only
+                result.fetchall.return_value = [(today, 5)]
+            elif call_count[0] == 2:
+                # Exercise attempts - yesterday only
+                result.fetchall.return_value = [(yesterday, 3)]
+            elif call_count[0] == 3:
+                # Time logs - none
+                result.fetchall.return_value = []
+            else:
+                result.fetchall.return_value = []
+
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=execute_side_effect)
+
+        result = await service.get_practice_history(weeks=4)
+
+        assert len(result.days) == 2
+        dates = {day.date for day in result.days}
+        assert yesterday in dates
+        assert today in dates
+        assert result.total_practice_days == 2
+
+    @pytest.mark.asyncio
+    async def test_calculates_activity_levels(self, mock_db):
+        """Test that activity levels are calculated based on count."""
+        service = MasteryService(mock_db)
+        today = datetime.now(timezone.utc).date()
+        yesterday = today - timedelta(days=1)
+
+        call_count = [0]
+
+        def execute_side_effect(query):
+            result = MagicMock()
+            call_count[0] += 1
+
+            if call_count[0] == 1:
+                # Card reviews - high on today, low yesterday
+                result.fetchall.return_value = [
+                    (yesterday, 2),
+                    (today, 20),
+                ]
+            elif call_count[0] == 2:
+                # Exercise attempts
+                result.fetchall.return_value = []
+            elif call_count[0] == 3:
+                # Time logs
+                result.fetchall.return_value = []
+            else:
+                result.fetchall.return_value = []
+
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=execute_side_effect)
+
+        result = await service.get_practice_history(weeks=4)
+
+        # Find the day with high activity
+        high_day = next(d for d in result.days if d.count == 20)
+        low_day = next(d for d in result.days if d.count == 2)
+
+        # High activity day should have higher level
+        assert high_day.level > low_day.level
+        assert high_day.level == 4  # Max activity
+        assert low_day.level >= 1  # Some activity

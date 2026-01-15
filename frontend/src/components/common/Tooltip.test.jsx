@@ -188,7 +188,9 @@ describe('Tooltip', () => {
   })
 
   describe('Positioning', () => {
-    it('applies top position classes by default', () => {
+    // Note: After refactoring to use portals with fixed positioning,
+    // the tooltip uses transform classes instead of positioning classes
+    it('applies top position transform by default', () => {
       render(
         <Tooltip content="Tooltip text" delay={0}>
           <button>Hover me</button>
@@ -202,10 +204,12 @@ describe('Tooltip', () => {
       })
 
       const tooltip = screen.getByRole('tooltip')
-      expect(tooltip).toHaveClass('bottom-full')
+      // Top position uses translateY(-100%) to move above
+      expect(tooltip).toHaveClass('-translate-y-full')
+      expect(tooltip).toHaveClass('-translate-x-1/2')
     })
 
-    it('applies bottom position classes', () => {
+    it('applies bottom position transform', () => {
       render(
         <Tooltip content="Tooltip text" side="bottom" delay={0}>
           <button>Hover me</button>
@@ -219,10 +223,11 @@ describe('Tooltip', () => {
       })
 
       const tooltip = screen.getByRole('tooltip')
-      expect(tooltip).toHaveClass('top-full')
+      // Bottom position uses translateX(-50%) to center
+      expect(tooltip).toHaveClass('-translate-x-1/2')
     })
 
-    it('applies left position classes', () => {
+    it('applies left position transform', () => {
       render(
         <Tooltip content="Tooltip text" side="left" delay={0}>
           <button>Hover me</button>
@@ -236,10 +241,12 @@ describe('Tooltip', () => {
       })
 
       const tooltip = screen.getByRole('tooltip')
-      expect(tooltip).toHaveClass('right-full')
+      // Left position uses translateX(-100%) to move left
+      expect(tooltip).toHaveClass('-translate-x-full')
+      expect(tooltip).toHaveClass('-translate-y-1/2')
     })
 
-    it('applies right position classes', () => {
+    it('applies right position transform', () => {
       render(
         <Tooltip content="Tooltip text" side="right" delay={0}>
           <button>Hover me</button>
@@ -253,7 +260,8 @@ describe('Tooltip', () => {
       })
 
       const tooltip = screen.getByRole('tooltip')
-      expect(tooltip).toHaveClass('left-full')
+      // Right position uses translateY(-50%) to center vertically
+      expect(tooltip).toHaveClass('-translate-y-1/2')
     })
   })
 
@@ -293,6 +301,128 @@ describe('Tooltip', () => {
 
       expect(clearTimeoutSpy).toHaveBeenCalled()
       clearTimeoutSpy.mockRestore()
+    })
+  })
+
+  describe('Portal Rendering', () => {
+    it('renders tooltip in document.body via portal', () => {
+      render(
+        <div style={{ overflow: 'hidden', position: 'relative' }}>
+          <Tooltip content="Portal tooltip" delay={0}>
+            <button>Hover me</button>
+          </Tooltip>
+        </div>
+      )
+
+      const trigger = screen.getByRole('button', { name: 'Hover me' })
+      fireEvent.mouseEnter(trigger)
+      act(() => {
+        vi.advanceTimersByTime(0)
+      })
+
+      // Tooltip should exist
+      const tooltip = screen.getByRole('tooltip')
+      expect(tooltip).toBeInTheDocument()
+      
+      // Tooltip should be in body (not inside the overflow:hidden parent)
+      // This tests that the portal works correctly
+      expect(document.body.querySelector('[role="tooltip"]')).toBeInTheDocument()
+    })
+
+    it('tooltip not clipped by parent overflow hidden', () => {
+      const { container } = render(
+        <div style={{ overflow: 'hidden', width: '100px', height: '50px' }}>
+          <Tooltip content="This is a longer tooltip that would be clipped" delay={0}>
+            <button>Hover</button>
+          </Tooltip>
+        </div>
+      )
+
+      const trigger = screen.getByRole('button', { name: 'Hover' })
+      fireEvent.mouseEnter(trigger)
+      act(() => {
+        vi.advanceTimersByTime(0)
+      })
+
+      const tooltip = screen.getByRole('tooltip')
+      
+      // Tooltip should NOT be a descendant of the overflow:hidden container
+      // It should be rendered in the portal (document.body)
+      expect(container.contains(tooltip)).toBe(false)
+      expect(document.body.contains(tooltip)).toBe(true)
+    })
+
+    it('tooltip has fixed positioning for portal', () => {
+      render(
+        <Tooltip content="Fixed position tooltip" delay={0}>
+          <button>Hover me</button>
+        </Tooltip>
+      )
+
+      const trigger = screen.getByRole('button', { name: 'Hover me' })
+      fireEvent.mouseEnter(trigger)
+      act(() => {
+        vi.advanceTimersByTime(0)
+      })
+
+      const tooltip = screen.getByRole('tooltip')
+      expect(tooltip).toHaveClass('fixed')
+    })
+
+    it('tooltip has high z-index to render above other content', () => {
+      render(
+        <Tooltip content="High z-index tooltip" delay={0}>
+          <button>Hover me</button>
+        </Tooltip>
+      )
+
+      const trigger = screen.getByRole('button', { name: 'Hover me' })
+      fireEvent.mouseEnter(trigger)
+      act(() => {
+        vi.advanceTimersByTime(0)
+      })
+
+      const tooltip = screen.getByRole('tooltip')
+      // Check for z-index class (z-[9999])
+      expect(tooltip.className).toMatch(/z-\[9999\]/)
+    })
+  })
+
+  describe('Arrow Rendering', () => {
+    it('renders arrow pointing to correct direction for top tooltip', () => {
+      render(
+        <Tooltip content="Top tooltip" side="top" delay={0}>
+          <button>Hover me</button>
+        </Tooltip>
+      )
+
+      const trigger = screen.getByRole('button', { name: 'Hover me' })
+      fireEvent.mouseEnter(trigger)
+      act(() => {
+        vi.advanceTimersByTime(0)
+      })
+
+      // Arrow should be at bottom for top tooltip
+      const arrow = document.querySelector('.border-t-slate-700')
+      expect(arrow).toBeInTheDocument()
+    })
+
+    it('renders arrow pointing to correct direction for bottom tooltip', () => {
+      render(
+        <Tooltip content="Bottom tooltip" side="bottom" delay={0}>
+          <button>Hover me</button>
+        </Tooltip>
+      )
+
+      const trigger = screen.getByRole('button', { name: 'Hover me' })
+      fireEvent.mouseEnter(trigger)
+      act(() => {
+        vi.advanceTimersByTime(0)
+      })
+
+      // Arrow should be at top for bottom tooltip
+      const arrow = document.querySelector('.border-b-slate-700')
+      expect(arrow).toBeInTheDocument()
     })
   })
 })
@@ -370,6 +500,8 @@ describe('TooltipWithShortcut', () => {
     })
 
     const tooltip = screen.getByRole('tooltip')
-    expect(tooltip).toHaveClass('top-full')
+    // Bottom side uses center transform
+    expect(tooltip).toHaveClass('-translate-x-1/2')
+    expect(tooltip).toHaveClass('fixed')
   })
 })

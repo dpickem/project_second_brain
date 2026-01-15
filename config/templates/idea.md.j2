@@ -2,46 +2,67 @@
 type: idea
 title: "{{ title }}"
 tags: {{ tags | default([], true) | tojson }}
+domain: {{ domain | default('general') }}
+complexity: {{ complexity | default('medium') }}
 status: {{ status | default('status/actionable') }}
 created: {{ created_date }}
+processed: {{ processed_date }}
 ---
 
 ## Idea
-{% if idea %}
+
 {{ idea }}
-{% else %}
+
+{% if summary and summary != idea %}
+## Summary
+
+{{ summary }}
 
 {% endif %}
+{% if key_findings and key_findings | length > 0 %}
+## Key Insights
 
-## Context
-{% if context %}
-{{ context }}
-{% else %}
-
-{% endif %}
-
-## Why It Matters
-{% if importance %}
-{{ importance }}
-{% else %}
+{% for finding in key_findings %}
+- {{ finding }}
+{% endfor %}
 
 {% endif %}
+{% if concepts and concepts | length > 0 %}
+## Concepts
 
+{% for concept in concepts %}
+### {{ concept.name }}
+{{ concept.definition }}
+{% endfor %}
+
+{% endif %}
+{% if next_steps and next_steps | length > 0 %}
 ## Next Steps
-{% if next_steps %}
+
 {% for step in next_steps %}
 - [ ] {{ step }}
 {% endfor %}
 {% else %}
-- [ ] 
+## Next Steps
+
+- [ ] Review and refine this idea
 {% endif %}
 
+{% if mastery_questions and mastery_questions | length > 0 %}
+## Questions to Explore
+
+{% for q in mastery_questions %}
+- [ ] {{ q.question }}
+{% endfor %}
+
+{% endif %}
 ## Related
-{% if related %}
+
+{% if related and related | length > 0 %}
 {% for note in related %}
 - [[{{ note }}]]
 {% endfor %}
 {% else %}
-- [[Related Note]]
+*No connections discovered yet*
 {% endif %}
 

@@ -48,17 +48,18 @@ export function Dashboard() {
   })
 
   // Use API data with empty defaults
+  // API returns: streak_days, due_cards_count, cards_reviewed_today
   const stats = dailyStats || {
-    streak: 0,
-    due_count: 0,
-    today_reviewed: 0,
-    daily_goal: 20,
+    streak_days: 0,
+    due_cards_count: 0,
+    cards_reviewed_today: 0,
   }
+  const dailyGoal = 20 // Frontend constant for now
 
   const dueCards = dueCardsData?.cards || []
-  const totalDue = dueCardsData?.total_due ?? stats.due_count ?? 0
+  const totalDue = dueCardsData?.total_due ?? stats.due_cards_count ?? 0
   const topics = weakSpots?.topics || []
-  const activity = activityData?.activity || []
+  const activity = activityData?.days || []
 
   const isInitialLoading = statsLoading && dueLoading && weakSpotsLoading
 
@@ -78,10 +79,10 @@ export function Dashboard() {
           {/* Stats Header */}
           <motion.div variants={fadeInUp}>
             <StatsHeader
-              streak={stats.streak}
+              streak={stats.streak_days}
               dueCount={totalDue}
-              todayReviewed={stats.today_reviewed}
-              dailyGoal={stats.daily_goal}
+              todayReviewed={stats.cards_reviewed_today}
+              dailyGoal={dailyGoal}
             />
           </motion.div>
 

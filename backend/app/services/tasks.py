@@ -157,20 +157,24 @@ llm_processing_retry = retry(
 # =============================================================================
 
 
-async def _run_llm_processing_impl(content_id: str) -> dict[str, Any]:
+async def _run_llm_processing_impl(
+    content_id: str,
+    config: PipelineConfig,
+) -> dict[str, Any]:
     """
     Internal async implementation of LLM processing.
 
     Runs the full LLM processing pipeline to generate:
     - Summaries (brief, standard, detailed)
     - Concepts and key findings
-    - Spaced repetition cards
-    - Practice exercises
+    - Spaced repetition cards (if config.generate_cards=True)
+    - Practice exercises (if config.generate_exercises=True)
     - Tags, connections, follow-ups, mastery questions
     - Obsidian notes and Neo4j nodes
 
     Args:
         content_id: UUID of the content to process
+        config: Pipeline configuration controlling which stages to run
 
     Returns:
         Dictionary with processing results including card/exercise counts
@@ -202,9 +206,6 @@ async def _run_llm_processing_impl(content_id: str) -> dict[str, Any]:
     # Run LLM processing pipeline with a new database session for card/exercise generation
     try:
         async with task_session_maker() as db_session:
-            # Explicitly enable cards/exercises to avoid relying on defaults.
-            # (Defaults may change over time; we always want these generated during processing.)
-            config = PipelineConfig(generate_cards=True, generate_exercises=True)
             processing_result = await run_llm_pipeline(
                 unified_content, config, db=db_session
             )
@@ -279,21 +280,27 @@ async def _run_llm_processing_impl(content_id: str) -> dict[str, Any]:
 
 
 @llm_processing_retry
-def _process_content_with_retry(content_id: str) -> dict[str, Any]:
+def _process_content_with_retry(
+    content_id: str,
+    config: PipelineConfig,
+) -> dict[str, Any]:
     """Run LLM processing (pipeline) with tenacity retry logic."""
-    return asyncio.run(_run_llm_processing_impl(content_id))
+    return asyncio.run(_run_llm_processing_impl(content_id, config))
 
 
 @celery_app.task(name="app.services.tasks.process_content")
-def process_content(content_id: str) -> dict[str, Any]:
+def process_content(
+    content_id: str,
+    config_dict: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """
     Celery task to run the LLM processing pipeline on already-ingested content.
 
     This task runs the full LLM processing pipeline to generate:
     - Summaries (brief, standard, detailed)
     - Concepts and key findings
-    - Spaced repetition cards
-    - Practice exercises
+    - Spaced repetition cards (if config.generate_cards=True)
+    - Practice exercises (if config.generate_exercises=True)
     - Tags, connections, follow-ups, mastery questions
     - Obsidian notes and Neo4j nodes
 
@@ -304,12 +311,24 @@ def process_content(content_id: str) -> dict[str, Any]:
 
     Args:
         content_id: UUID of the content to process
+        config_dict: Optional dictionary of PipelineConfig fields to override defaults.
+            Common fields:
+            - generate_cards (bool): Generate spaced repetition cards
+            - generate_exercises (bool): Generate practice exercises
+            - generate_summaries (bool): Generate summaries
+            - extract_concepts (bool): Extract concepts
+            - create_obsidian_note (bool): Create Obsidian note
+            - create_neo4j_nodes (bool): Create Neo4j nodes
+            If None, uses PipelineConfig defaults (all stages enabled).
 
     Returns:
         Dictionary with processing results
     """
+    # Build PipelineConfig from dict (Celery requires serializable args)
+    config = PipelineConfig(**(config_dict or {}))
+
     try:
-        return _process_content_with_retry(content_id)
+        return _process_content_with_retry(content_id, config)
     except RetryError as e:
         logger.error(f"LLM processing failed for {content_id} after all retries: {e}")
         # Status already updated to FAILED in _run_llm_processing_impl
@@ -401,7 +420,11 @@ def _ingest_content_impl(
     # Auto-queue LLM processing if enabled
     if auto_process:
         logger.info(f"Queuing {content_id} for LLM processing...")
-        process_content.delay(content_id)
+        # Ingested content (PDFs, articles, etc.) should generate cards and exercises by default
+        process_content.delay(
+            content_id,
+            config_dict={"generate_cards": True, "generate_exercises": True},
+        )
 
         return {
             "status": ProcessingRunStatus.INGESTED.value,
@@ -589,7 +612,11 @@ def _process_book_impl(
     # Auto-queue LLM processing if enabled
     if auto_process:
         logger.info(f"Queuing book {content_id} for LLM processing...")
-        process_content.delay(content_id)
+        # Book content should generate cards and exercises by default
+        process_content.delay(
+            content_id,
+            config_dict={"generate_cards": True, "generate_exercises": True},
+        )
 
         return {
             "status": ProcessingRunStatus.INGESTED.value,

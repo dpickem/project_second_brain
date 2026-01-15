@@ -285,7 +285,9 @@ async def list_notes(
     content_type: Optional[str] = Query(None, description="Filter by content type"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Notes per page"),
-    sort_by: str = Query("modified", description="Sort by: modified, name, title, size"),
+    sort_by: str = Query(
+        "modified", description="Sort by: modified, name, title, size"
+    ),
     sort_desc: bool = Query(True, description="Sort descending"),
 ):
     """List notes in the vault with filtering and pagination.

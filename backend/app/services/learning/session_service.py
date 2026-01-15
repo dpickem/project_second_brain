@@ -705,7 +705,11 @@ class SessionService:
 
     def _interleave_items(self, items: list[SessionItem]) -> list[SessionItem]:
         """
-        Interleave session items for optimal learning.
+        Interleave session items by content type for optimal learning.
+
+        This method handles CONTENT-TYPE interleaving: mixing cards with exercises
+        within a practice session. It operates on SessionItem objects which can
+        be either cards or exercises.
 
         Strategy:
         1. Worked examples placed first (scaffolding for novices)
@@ -716,6 +720,15 @@ class SessionService:
         - Worked examples help novices build initial schemas
         - Interleaving improves transfer and discrimination
         - Mixing content types prevents blocking effects
+
+        Note:
+            This is complementary to SpacedRepService._interleave_by_topic(),
+            which handles TOPIC interleaving (mixing cards from different topics).
+            When cards come from get_due_cards(), they are already topic-interleaved;
+            this method then mixes those cards with exercises.
+
+        See Also:
+            SpacedRepService._interleave_by_topic: Topic-based card interleaving
 
         Args:
             items: Session items to interleave

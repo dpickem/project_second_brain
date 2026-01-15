@@ -5,6 +5,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { clsx } from 'clsx'
 
@@ -44,12 +45,45 @@ export function Tooltip({
   className,
 }) {
   const [isVisible, setIsVisible] = useState(false)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
   const triggerRef = useRef(null)
   const timeoutRef = useRef(null)
+
+  const updatePosition = () => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+
+    // For fixed positioning, use viewport-relative coordinates directly
+    let top, left
+    switch (side) {
+      case 'top':
+        top = rect.top - 8 // 8px gap above
+        left = rect.left + rect.width / 2
+        break
+      case 'bottom':
+        top = rect.bottom + 8
+        left = rect.left + rect.width / 2
+        break
+      case 'left':
+        top = rect.top + rect.height / 2
+        left = rect.left - 8
+        break
+      case 'right':
+        top = rect.top + rect.height / 2
+        left = rect.right + 8
+        break
+      default:
+        top = rect.top - 8
+        left = rect.left + rect.width / 2
+    }
+
+    setPosition({ top, left })
+  }
 
   const showTooltip = () => {
     if (disabled) return
     timeoutRef.current = setTimeout(() => {
+      updatePosition()
       setIsVisible(true)
     }, delay)
   }
@@ -80,48 +114,57 @@ export function Tooltip({
     right: 'left-[-4px] top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-l-transparent border-r-slate-700',
   }
 
+  const tooltipPositionStyles = {
+    top: '-translate-x-1/2 -translate-y-full',
+    bottom: '-translate-x-1/2',
+    left: '-translate-x-full -translate-y-1/2',
+    right: '-translate-y-1/2',
+  }
+
   return (
-    <div className="relative inline-block">
+    <>
       <div
         ref={triggerRef}
         onMouseEnter={showTooltip}
         onMouseLeave={hideTooltip}
         onFocus={showTooltip}
         onBlur={hideTooltip}
+        className="inline-block"
       >
         {children}
       </div>
 
-      <AnimatePresence>
-        {isVisible && (
-          <motion.div
-            initial={positions[side].initial}
-            animate={positions[side].animate}
-            exit={positions[side].exit}
-            transition={{ duration: 0.15 }}
-            className={clsx(
-              'absolute z-tooltip px-2 py-1 text-xs font-medium text-white bg-slate-700 rounded shadow-lg',
-              'whitespace-nowrap pointer-events-none',
-              side === 'top' && 'bottom-full mb-2 left-1/2 -translate-x-1/2',
-              side === 'bottom' && 'top-full mt-2 left-1/2 -translate-x-1/2',
-              side === 'left' && 'right-full mr-2 top-1/2 -translate-y-1/2',
-              side === 'right' && 'left-full ml-2 top-1/2 -translate-y-1/2',
-              className
-            )}
-            role="tooltip"
-          >
-            {content}
-            {/* Arrow */}
-            <div
+      {createPortal(
+        <AnimatePresence>
+          {isVisible && (
+            <motion.div
+              initial={positions[side].initial}
+              animate={positions[side].animate}
+              exit={positions[side].exit}
+              transition={{ duration: 0.15 }}
+              style={{ top: position.top, left: position.left }}
               className={clsx(
-                'absolute w-0 h-0 border-4',
-                arrowStyles[side]
+                'fixed z-[9999] px-2 py-1 text-xs font-medium text-white bg-slate-700 rounded shadow-lg',
+                'whitespace-nowrap pointer-events-none',
+                tooltipPositionStyles[side],
+                className
               )}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+              role="tooltip"
+            >
+              {content}
+              {/* Arrow */}
+              <div
+                className={clsx(
+                  'absolute w-0 h-0 border-4',
+                  arrowStyles[side]
+                )}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+    </>
   )
 }
 

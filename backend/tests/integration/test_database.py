@@ -337,14 +337,16 @@ class TestSpacedRepCardModel:
     @pytest.mark.asyncio
     async def test_card_linked_to_content(self, clean_db: AsyncSession) -> None:
         """Cards can be linked to source content."""
+        content_uuid = make_content_uuid()
         content = Content(
-            content_uuid=make_content_uuid(), content_type="paper", title="Source Paper"
+            content_uuid=content_uuid, content_type="paper", title="Source Paper"
         )
         clean_db.add(content)
         await clean_db.commit()
 
         card = SpacedRepCard(
-            content_id=content.id,
+            content_id=content_uuid,  # UUID string for the app-facing identifier
+            source_content_pk=content.id,  # Integer FK for ORM relationship
             card_type="concept",
             front="Question from paper",
             back="Answer from paper",
@@ -353,7 +355,8 @@ class TestSpacedRepCardModel:
         await clean_db.commit()
         await clean_db.refresh(card)
 
-        assert card.content_id == content.id
+        assert card.content_id == content_uuid
+        assert card.source_content_pk == content.id
 
 
 class TestMasterySnapshotModel:

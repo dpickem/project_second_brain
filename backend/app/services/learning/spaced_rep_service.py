@@ -20,14 +20,16 @@ Usage:
     ))
 """
 
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+import random
 from typing import Optional
 import logging
 
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models_learning import SpacedRepCard
+from app.db.models_learning import SpacedRepCard, CardReviewHistory
 from app.enums.learning import CardState as CardStateEnum, Rating
 from app.models.learning import (
     CardCreate,
@@ -40,6 +42,7 @@ from app.models.learning import (
 )
 from app.services.learning.fsrs import CardState, create_scheduler
 from app.services.tag_service import TagService
+from app.config.settings import settings
 
 # Import fsrs State enum for conversion from DB string states
 from fsrs import State as FSRSState
@@ -70,21 +73,23 @@ class SpacedRepService:
     def __init__(
         self,
         db: AsyncSession,
-        target_retention_probability: float = 0.9,
-        max_interval: int = 365,
+        target_retention_probability: float = None,
+        max_interval: int = None,
     ):
         """
         Initialize the spaced repetition service.
 
         Args:
             db: Async database session
-            target_retention_probability: Target retention probability (default 0.9)
-            max_interval: Maximum interval in days (default 365)
+            target_retention_probability: Target retention probability
+                (defaults to settings.FSRS_DEFAULT_RETENTION)
+            max_interval: Maximum interval in days
+                (defaults to settings.FSRS_MAX_INTERVAL_DAYS)
         """
         self.db = db
         self.scheduler = create_scheduler(
-            retention=target_retention_probability,
-            max_interval=max_interval,
+            retention=target_retention_probability or settings.FSRS_DEFAULT_RETENTION,
+            max_interval=max_interval or settings.FSRS_MAX_INTERVAL_DAYS,
         )
 
     async def create_card(self, card_data: CardCreate) -> CardResponse:
@@ -122,8 +127,8 @@ class SpacedRepService:
             test_cases=card_data.test_cases,
             # FSRS initial state
             state=CardStateEnum.NEW.value,
-            stability=0.0,
-            difficulty=0.3,
+            stability=settings.FSRS_INITIAL_STABILITY,
+            difficulty=settings.FSRS_INITIAL_DIFFICULTY,
             due_date=datetime.utcnow(),
             lapses=0,
             scheduled_days=0,
@@ -151,22 +156,43 @@ class SpacedRepService:
 
     async def get_due_cards(
         self,
-        limit: int = 50,
+        limit: int = None,
         topic_filter: Optional[str] = None,
     ) -> DueCardsResponse:
         """
-        Get cards due for review.
+        Get cards due for review with topic interleaving.
+
+        Cards are returned in an interleaved order to prevent reviewing
+        multiple cards from the same topic consecutively. This improves
+        learning by forcing context switches between topics.
+
+        Interleaving is performed by _interleave_by_topic() which:
+        1. Fetches due cards (up to 2x limit for better interleaving options)
+        2. Groups cards by their primary topic (first tag)
+        3. Shuffles cards within each topic group
+        4. Round-robin interleaves across topic groups
+        5. Returns the requested limit
+
+        Note:
+            This topic interleaving is separate from content-type interleaving
+            done by SessionService._interleave_items(), which mixes cards with
+            exercises. Both work together for optimal learning.
 
         Args:
             limit: Maximum number of cards to return
+                (defaults to settings.REVIEW_DEFAULT_LIMIT)
             topic_filter: Optional topic to filter by (matches tags)
 
         Returns:
             Due cards response with forecast
         """
+        if limit is None:
+            limit = settings.REVIEW_DEFAULT_LIMIT
+
         now = datetime.now(timezone.utc)
 
         # Build query for due cards
+        # Fetch more than limit to have better interleaving options
         query = select(SpacedRepCard).where(SpacedRepCard.due_date <= now)
 
         # Apply topic filter if provided
@@ -174,11 +200,19 @@ class SpacedRepService:
             # PostgreSQL array contains operator
             query = query.where(SpacedRepCard.tags.any(topic_filter))
 
-        # Order by due date (oldest first) and limit
-        query = query.order_by(SpacedRepCard.due_date.asc()).limit(limit)
+        # Get cards ordered by due date first (prioritize overdue cards)
+        # but fetch more than needed for interleaving
+        fetch_limit = min(
+            limit * settings.REVIEW_INTERLEAVE_FETCH_MULTIPLIER,
+            settings.REVIEW_INTERLEAVE_MAX_FETCH,
+        )
+        query = query.order_by(SpacedRepCard.due_date.asc()).limit(fetch_limit)
 
         result = await self.db.execute(query)
-        cards = result.scalars().all()
+        cards = list(result.scalars().all())
+
+        # Interleave cards by topic
+        interleaved_cards = self._interleave_by_topic(cards, limit)
 
         # Get total count of due cards
         count_query = select(func.count(SpacedRepCard.id)).where(
@@ -194,10 +228,81 @@ class SpacedRepService:
         forecast = await self._get_review_forecast(topic_filter)
 
         return DueCardsResponse(
-            cards=[self._to_response(c) for c in cards],
+            cards=[self._to_response(c) for c in interleaved_cards],
             total_due=total_due,
             review_forecast=forecast,
         )
+
+    def _interleave_by_topic(
+        self,
+        cards: list[SpacedRepCard],
+        limit: int,
+    ) -> list[SpacedRepCard]:
+        """
+        Interleave cards by topic to prevent same-topic clustering.
+
+        This method handles TOPIC interleaving: ensuring cards from the same
+        topic (e.g., ML, Databases) don't appear consecutively. It operates
+        on SpacedRepCard objects and uses the first tag as the primary topic.
+
+        Algorithm:
+        1. Group cards by their primary topic (first tag)
+        2. Shuffle cards within each topic group
+        3. Round-robin pick from each topic group
+
+        This improves learning by forcing context switches between topics,
+        which research shows enhances long-term retention and discrimination.
+
+        Note:
+            This is complementary to SessionService._interleave_items(),
+            which handles CONTENT-TYPE interleaving (mixing cards with exercises).
+            Topic interleaving happens first at the card retrieval level;
+            content-type interleaving happens later when building sessions.
+
+        See Also:
+            SessionService._interleave_items: Content-type session interleaving
+
+        Args:
+            cards: List of cards to interleave
+            limit: Maximum number of cards to return
+
+        Returns:
+            Interleaved list of cards
+        """
+        if len(cards) <= 1:
+            return cards[:limit]
+
+        # Group cards by primary topic (first tag, or 'no-topic' if no tags)
+        topic_groups: dict[str, list[SpacedRepCard]] = defaultdict(list)
+        for card in cards:
+            primary_topic = card.tags[0] if card.tags else "_no_topic"
+            topic_groups[primary_topic].append(card)
+
+        # Shuffle cards within each topic group
+        for topic_cards in topic_groups.values():
+            random.shuffle(topic_cards)
+
+        # Round-robin interleave across topic groups
+        # Shuffle the order of topics too for variety
+        topics = list(topic_groups.keys())
+        random.shuffle(topics)
+
+        interleaved: list[SpacedRepCard] = []
+        topic_indices = {topic: 0 for topic in topics}
+
+        while len(interleaved) < limit:
+            added_any = False
+            for topic in topics:
+                if topic_indices[topic] < len(topic_groups[topic]):
+                    interleaved.append(topic_groups[topic][topic_indices[topic]])
+                    topic_indices[topic] += 1
+                    added_any = True
+                    if len(interleaved) >= limit:
+                        break
+            if not added_any:
+                break  # All groups exhausted
+
+        return interleaved
 
     async def review_card(
         self,
@@ -235,8 +340,16 @@ class SpacedRepService:
         is_new_card = card.last_reviewed is None
         card_state = CardState(
             state=fsrs_state,
-            difficulty=None if is_new_card else (card.difficulty or 0.3),
-            stability=None if is_new_card else (card.stability or 1.0),
+            difficulty=(
+                None
+                if is_new_card
+                else (card.difficulty or settings.FSRS_FALLBACK_DIFFICULTY)
+            ),
+            stability=(
+                None
+                if is_new_card
+                else (card.stability or settings.FSRS_FALLBACK_STABILITY)
+            ),
             due=card.due_date,
             last_review=card.last_reviewed,
             reps=card.repetitions or 0,
@@ -261,6 +374,19 @@ class SpacedRepService:
         card.total_reviews = (card.total_reviews or 0) + 1
         if request.rating != Rating.AGAIN:
             card.correct_reviews = (card.correct_reviews or 0) + 1
+
+        # Create review history record for analytics
+        history_record = CardReviewHistory(
+            card_id=card.id,
+            rating=request.rating.value,
+            reviewed_at=new_state.last_review,
+            time_spent_seconds=request.time_spent_seconds,
+            state_before=log.state_before.name.lower() if log.state_before else None,
+            state_after=log.state_after.name.lower() if log.state_after else None,
+            stability_after=new_state.stability,
+            scheduled_days=new_state.scheduled_days,
+        )
+        self.db.add(history_record)
 
         await self.db.commit()
         await self.db.refresh(card)
@@ -495,8 +621,8 @@ class SpacedRepService:
             hints=card.hints or [],
             tags=card.tags or [],
             state=CardStateEnum(card.state or CardStateEnum.NEW.value),
-            stability=card.stability or 0.0,
-            difficulty=card.difficulty or 0.3,
+            stability=card.stability or settings.FSRS_INITIAL_STABILITY,
+            difficulty=card.difficulty or settings.FSRS_INITIAL_DIFFICULTY,
             due_date=card.due_date,
             last_reviewed=card.last_reviewed,
             repetitions=card.repetitions or 0,
