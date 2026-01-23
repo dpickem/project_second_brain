@@ -434,6 +434,56 @@ class TestGetOverview:
 
                     assert abs(result.overall_mastery - expected_avg) < 0.01
 
+    @pytest.mark.asyncio
+    async def test_includes_card_review_time_in_total(self):
+        """Test that card review time from CardReviewHistory is included in total practice time."""
+        mock_db = MagicMock()
+
+        # Mock returns for different queries (in order they're called):
+        # 1. total spaced cards: 10
+        # 2. mastered cards: 5
+        # 3. learning cards: 3
+        # 4. new cards: 2
+        # 5. total reviews: 20
+        # 6. exercises total: 0
+        # 7. exercises completed: 0
+        # 8. exercises mastered: 0
+        # 9. exercises attempts: 0
+        # 10. exercises avg score: 0
+        # 11. practice session minutes: 60 (1 hour)
+        # 12. card review time seconds: 1800 (30 minutes)
+        query_results = iter([10, 5, 3, 2, 20, 0, 0, 0, 0, 0.0, 60, 1800])
+
+        def execute_side_effect(query):
+            result = MagicMock()
+            result.scalar.return_value = next(query_results, 0)
+            return result
+
+        mock_db.execute = AsyncMock(side_effect=execute_side_effect)
+        service = MasteryService(mock_db)
+
+        with patch.object(
+            service, "_get_all_topics", new_callable=AsyncMock
+        ) as mock_topics:
+            mock_topics.return_value = []
+            with patch.object(
+                service, "_calculate_mastery_batch", new_callable=AsyncMock
+            ) as mock_batch:
+                mock_batch.return_value = []
+                with patch.object(
+                    service, "_enhance_with_exercise_data", new_callable=AsyncMock
+                ) as mock_enhance:
+                    mock_enhance.return_value = []
+                    with patch.object(
+                        service, "_calculate_streak", new_callable=AsyncMock
+                    ) as mock_streak:
+                        mock_streak.return_value = 0
+                        result = await service.get_overview()
+
+                        # Total time should include both practice sessions and card reviews
+                        # 60 minutes from sessions + 30 minutes from card reviews = 90 minutes = 1.5 hours
+                        assert result.total_practice_time_hours == 1.5
+
 
 # ============================================================================
 # Test _fetch_cards_dataframe

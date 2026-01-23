@@ -311,13 +311,23 @@ class MasteryService:
 
         streak_days = await self._calculate_streak()
 
+        # Get time from practice sessions
         practice_time_result = await self.db.execute(
             select(func.sum(PracticeSession.duration_minutes)).where(
                 PracticeSession.ended_at.isnot(None)
             )
         )
         total_practice_minutes = practice_time_result.scalar() or 0
-        total_practice_time_hours = total_practice_minutes / 60.0
+
+        # Also include time from card reviews (CardReviewHistory.time_spent_seconds)
+        card_review_time_result = await self.db.execute(
+            select(func.sum(CardReviewHistory.time_spent_seconds))
+        )
+        total_card_review_seconds = card_review_time_result.scalar() or 0
+        total_card_review_minutes = total_card_review_seconds / 60.0
+
+        # Combined total
+        total_practice_time_hours = (total_practice_minutes + total_card_review_minutes) / 60.0
 
         # ==== RETURN COMPLETE OVERVIEW ====
 

@@ -526,6 +526,7 @@ class Neo4jClient:
         note_type: str,
         tags: list[str],
         file_path: Optional[str] = None,
+        source_url: Optional[str] = None,
     ) -> str:
         """
         Create or update a Note node from an Obsidian vault file.
@@ -540,6 +541,7 @@ class Neo4jClient:
             note_type: Content type (paper, article, daily, etc.)
             tags: Combined frontmatter and inline tags
             file_path: Relative path to the note file from vault root
+            source_url: Original source URL if available (from frontmatter)
 
         Returns:
             The node's ID
@@ -556,6 +558,7 @@ class Neo4jClient:
                 note_type=note_type,
                 tags=tags,
                 file_path=file_path,
+                source_url=source_url,
             )
             record = await result.single()
             return record["id"]

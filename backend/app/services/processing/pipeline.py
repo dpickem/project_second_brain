@@ -122,8 +122,8 @@ class PipelineConfig:
     generate_summaries: bool = True
     extract_concepts: bool = True
     assign_tags: bool = True
-    generate_cards: bool = True  # Generate spaced repetition cards
-    generate_exercises: bool = True  # Generate practice exercises
+    generate_cards: bool = False  # Generate spaced repetition cards (disabled by default, use on-demand generation)
+    generate_exercises: bool = False  # Generate practice exercises (disabled by default, use on-demand generation)
     discover_connections: bool = True
     generate_followups: bool = True
     generate_questions: bool = True

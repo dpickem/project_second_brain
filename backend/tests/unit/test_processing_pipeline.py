@@ -275,9 +275,10 @@ class TestPipelineConfig:
     """Tests for the PipelineConfig class."""
 
     def test_default_config_enables_all_stages(self):
-        """Test default configuration enables all stages."""
+        """Test default configuration enables most stages (cards/exercises disabled by default)."""
         config = PipelineConfig()
 
+        # Most stages enabled by default
         assert all(
             [
                 config.generate_summaries,
@@ -292,6 +293,22 @@ class TestPipelineConfig:
             ]
         )
         assert config.max_connection_candidates == 10
+
+    def test_card_and_exercise_generation_disabled_by_default(self):
+        """Test that card and exercise generation are disabled by default (on-demand only)."""
+        config = PipelineConfig()
+
+        # Card and exercise generation should be disabled by default
+        # Users generate these on-demand from the Knowledge page UI
+        assert config.generate_cards is False
+        assert config.generate_exercises is False
+
+    def test_card_and_exercise_generation_can_be_enabled(self):
+        """Test that card and exercise generation can be explicitly enabled."""
+        config = PipelineConfig(generate_cards=True, generate_exercises=True)
+
+        assert config.generate_cards is True
+        assert config.generate_exercises is True
 
     @pytest.mark.parametrize(
         "field,value",

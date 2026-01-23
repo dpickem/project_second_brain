@@ -19,6 +19,7 @@ export function ReviewComplete({
 }) {
   const {
     reviewed = 0,
+    skipped = 0,
     sessionDurationFormatted = '0:00',
     avgResponseTime = 0,
     againCount = 0,
@@ -100,6 +101,15 @@ export function ReviewComplete({
               <p className="text-sm text-text-secondary">Avg Response</p>
             </div>
           </div>
+
+          {/* Skipped cards (if any) */}
+          {skipped > 0 && (
+            <div className="mt-4 text-center p-3 bg-slate-700/30 rounded-lg">
+              <span className="text-sm text-text-muted">
+                {skipped} card{skipped !== 1 ? 's' : ''} skipped
+              </span>
+            </div>
+          )}
 
           {/* Rating Distribution */}
           <div className="mt-6 pt-6 border-t border-border-primary">

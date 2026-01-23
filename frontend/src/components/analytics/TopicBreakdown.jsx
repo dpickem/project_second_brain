@@ -60,6 +60,26 @@ export function TopicBreakdown({
   className,
 }) {
   const sortedData = [...data].sort((a, b) => b.mastery - a.mastery)
+  const hasData = data.length > 0 && data.some(d => d.mastery > 0)
+
+  // Empty state for no data
+  if (!hasData) {
+    return (
+      <div className={clsx('flex flex-col', className)}>
+        {/* Explanatory subtitle */}
+        <p className="text-xs text-text-muted mb-2">
+          Based on card review performance per topic tag.
+        </p>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <span className="text-4xl mb-3">📈</span>
+          <p className="text-sm text-text-secondary mb-1">No progress data yet</p>
+          <p className="text-xs text-text-muted max-w-[250px]">
+            Review cards with topic tags to see your progress by topic. Each topic&apos;s mastery is based on your review success rate and card stability.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   if (type === 'list') {
     return (
@@ -69,6 +89,10 @@ export function TopicBreakdown({
         animate="show"
         className={clsx('space-y-3', className)}
       >
+        {/* Explanatory subtitle */}
+        <p className="text-xs text-text-muted mb-2">
+          Based on card review performance per topic tag. Higher mastery = better recall + longer retention.
+        </p>
         {sortedData.map((topic, index) => (
           <motion.div
             key={topic.topic}
@@ -115,6 +139,10 @@ export function TopicBreakdown({
 
   return (
     <motion.div variants={listItem} className={clsx('w-full', className)}>
+      {/* Explanatory subtitle for chart view */}
+      <p className="text-xs text-text-muted mb-2">
+        Based on card review performance per topic tag. Higher mastery = better recall + longer retention.
+      </p>
       <ResponsiveContainer width="100%" height={height}>
         <BarChart
           data={sortedData}

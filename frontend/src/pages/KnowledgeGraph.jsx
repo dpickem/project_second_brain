@@ -149,10 +149,30 @@ function NodeDetailsPanel({ nodeId, onClose, onViewInVault }) {
   )
 }
 
+// Node type filter configuration
+const NODE_TYPE_CONFIG = [
+  { key: 'Content', label: 'Content', icon: '📄', color: 'bg-indigo-500', textColor: 'text-indigo-400' },
+  { key: 'Concept', label: 'Concepts', icon: '💡', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
+  { key: 'Note', label: 'Notes', icon: '📝', color: 'bg-amber-500', textColor: 'text-amber-400' },
+]
+
 export default function KnowledgeGraphPage() {
   const navigate = useNavigate()
   const [selectedNode, setSelectedNode] = useState(null)
   const [centerId, setCenterId] = useState(null)
+  
+  // Node type filters - all enabled by default
+  const [enabledNodeTypes, setEnabledNodeTypes] = useState({
+    Content: true,
+    Concept: true,
+    Note: true,
+  })
+  
+  // Convert enabled filters to comma-separated string for GraphViewer
+  const nodeTypesString = Object.entries(enabledNodeTypes)
+    .filter(([, enabled]) => enabled)
+    .map(([type]) => type)
+    .join(',')
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['graph-stats'],
@@ -273,6 +293,7 @@ export default function KnowledgeGraphPage() {
         <main className="flex-1 relative min-w-0">
           <GraphViewer
             onNodeClick={handleNodeClick}
+            nodeTypes={nodeTypesString}
             limit={200}
           />
 
@@ -290,6 +311,68 @@ export default function KnowledgeGraphPage() {
 
         {/* Stats Sidebar */}
         <aside className="w-72 flex-shrink-0 bg-slate-900 border-l border-slate-800 p-5 overflow-y-auto">
+          {/* Node Type Filters */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+              <svg
+                className="w-5 h-5 text-indigo-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                />
+              </svg>
+              Filters
+            </h2>
+            <div className="space-y-2">
+              {NODE_TYPE_CONFIG.map(({ key, label, icon, color, textColor }) => (
+                <label
+                  key={key}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/50 cursor-pointer transition-colors"
+                >
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={enabledNodeTypes[key]}
+                      onChange={(e) => setEnabledNodeTypes(prev => ({
+                        ...prev,
+                        [key]: e.target.checked,
+                      }))}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-5 h-5 rounded border-2 transition-colors ${
+                      enabledNodeTypes[key] 
+                        ? `${color} border-transparent` 
+                        : 'border-slate-600 bg-slate-800'
+                    }`}>
+                      {enabledNodeTypes[key] && (
+                        <svg className="w-full h-full text-white p-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-lg">{icon}</span>
+                  <span className={`text-sm font-medium ${enabledNodeTypes[key] ? textColor : 'text-slate-500'}`}>
+                    {label}
+                  </span>
+                </label>
+              ))}
+            </div>
+            {!nodeTypesString && (
+              <p className="text-xs text-amber-400 mt-2 px-2">
+                ⚠️ Select at least one node type
+              </p>
+            )}
+          </div>
+
+          <hr className="border-slate-800 mb-5" />
+
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <svg
               className="w-5 h-5 text-indigo-400"

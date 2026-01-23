@@ -10,11 +10,12 @@ import { clsx } from 'clsx'
 export function ReviewStats({
   remaining,
   reviewed,
+  skipped = 0,
   dueToday,
   avgResponseTime,
   className,
 }) {
-  const progress = dueToday > 0 ? Math.round((reviewed / dueToday) * 100) : 0
+  const progress = dueToday > 0 ? Math.round(((reviewed + skipped) / dueToday) * 100) : 0
 
   return (
     <div className={clsx('flex items-center gap-6', className)}>
@@ -58,6 +59,7 @@ export function ReviewStats({
         <div>
           <p className="text-sm font-medium text-text-primary">
             {reviewed}/{dueToday}
+            {skipped > 0 && <span className="text-text-muted ml-1">({skipped} skipped)</span>}
           </p>
           <p className="text-xs text-text-muted">Completed</p>
         </div>

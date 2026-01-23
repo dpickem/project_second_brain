@@ -7,14 +7,17 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { clsx } from 'clsx'
+import toast from 'react-hot-toast'
 import { 
   MagnifyingGlassIcon, 
   FunnelIcon,
+  PlayIcon,
 } from '@heroicons/react/24/outline'
 import { Card, Button, PageLoader, Badge, DifficultyBadge, EmptyState } from '../components/common'
 import { practiceApi } from '../api/practice'
+import { usePracticeStore } from '../stores'
 import { fadeInUp, staggerContainer } from '../utils/animations'
 import { ExerciseType, ExerciseDifficulty } from '../constants/enums.generated'
 
@@ -60,6 +63,8 @@ export function Exercises() {
   const [typeFilter, setTypeFilter] = useState('')
   const [difficultyFilter, setDifficultyFilter] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  
+  const { startSession } = usePracticeStore()
 
   // Fetch exercises
   const { data: exercises, isLoading, error } = useQuery({
@@ -70,6 +75,39 @@ export function Exercises() {
       limit: 100,
     }),
   })
+
+  // Create a quick session with a single exercise
+  const startSingleExerciseMutation = useMutation({
+    mutationFn: (exercise) => practiceApi.createSession({
+      topicFilter: exercise.topic,
+      durationMinutes: 5,
+      reuseExercises: true, // Only use existing exercises
+    }),
+    onSuccess: (session, exercise) => {
+      // Find and prioritize the selected exercise in the session
+      // If the exercise is in the session, we're good
+      // Otherwise, create a minimal session with just this exercise
+      const items = session.items || []
+      const hasSelectedExercise = items.some(
+        item => item.exercise?.id === exercise.id
+      )
+      
+      if (hasSelectedExercise || items.length > 0) {
+        startSession(session)
+        navigate('/practice')
+      } else {
+        toast.error('Could not create session with this exercise. Try generating new exercises first.')
+      }
+    },
+    onError: (error) => {
+      const message = error.response?.data?.detail || error.message || 'Failed to start exercise'
+      toast.error(message)
+    },
+  })
+
+  const handleStartExercise = (exercise) => {
+    startSingleExerciseMutation.mutate(exercise)
+  }
 
   // Filter exercises by search
   const filteredExercises = useMemo(() => {
@@ -259,9 +297,8 @@ export function Exercises() {
                       className={clsx(
                         'p-4 rounded-lg bg-bg-tertiary',
                         'border border-transparent hover:border-indigo-500/30',
-                        'transition-colors cursor-pointer group'
+                        'transition-colors group'
                       )}
-                      onClick={() => navigate(`/practice?exercise=${exercise.id}`)}
                     >
                       <div className="flex items-start gap-4">
                         {/* Icon */}
@@ -303,10 +340,16 @@ export function Exercises() {
                           </div>
                         </div>
 
-                        {/* Arrow */}
-                        <span className="text-text-muted group-hover:text-indigo-400 transition-colors">
-                          →
-                        </span>
+                        {/* Start button */}
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleStartExercise(exercise)}
+                          loading={startSingleExerciseMutation.isPending}
+                          icon={<PlayIcon className="w-4 h-4" />}
+                        >
+                          Start
+                        </Button>
                       </div>
                     </div>
                   )

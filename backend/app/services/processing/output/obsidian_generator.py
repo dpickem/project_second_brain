@@ -239,6 +239,11 @@ async def generate_obsidian_note(
     - Follow-up tasks
     - Wiki-links for connections
 
+    Cleanup on Reprocessing:
+        If content.obsidian_path is set (from previous processing) and the new
+        note would have a different filename (due to title change), the old file
+        is deleted to prevent orphaned duplicate notes.
+
     Args:
         content: Original unified content
         result: Processing result with all stages
@@ -273,6 +278,24 @@ async def generate_obsidian_note(
         # Get output folder via VaultManager (uses ContentTypeRegistry)
         content_type = result.analysis.content_type
         output_dir = vault.get_source_folder(content_type)
+
+        # Check if content already has an existing obsidian note (from previous processing)
+        # If so, and the filename would change, delete the old file to prevent duplicates
+        old_note_path = None
+        if content.obsidian_path:
+            old_note_path = vault.vault_path / content.obsidian_path
+            # Compute what the new filename would be
+            new_filename = vault.sanitize_filename(content.title)
+            old_filename = old_note_path.stem
+            
+            if old_filename != new_filename and old_note_path.exists():
+                try:
+                    old_note_path.unlink()
+                    logger.info(
+                        f"Deleted old note on reprocessing (title changed): {old_note_path}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to delete old note {old_note_path}: {e}")
 
         # Get unique path (handles duplicates automatically)
         output_path = await vault.get_unique_path(output_dir, content.title)

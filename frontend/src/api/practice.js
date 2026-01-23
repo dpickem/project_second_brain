@@ -59,9 +59,9 @@ export const practiceApi = {
       body: {
         topic_filter: params.topicFilter,
         duration_minutes: params.durationMinutes || 15,
-        exercise_types: params.exerciseTypes,
-        difficulty: params.difficulty,
-        reuse_exercises: params.reuseExercises ?? true, // Default to reusing existing exercises
+        // Map reuseExercises boolean to exercise_source enum value
+        // true = existing_only (no generation), false = generate_new
+        exercise_source: params.reuseExercises === false ? 'generate_new' : 'existing_only',
       }
     }).then(r => r.data),
 

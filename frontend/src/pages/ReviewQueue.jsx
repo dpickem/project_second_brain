@@ -206,6 +206,7 @@ export function ReviewQueue() {
     currentIndex,
     setCards,
     nextCard,
+    skipCard,
     recordRating,
     getCurrentCard,
     getSessionStats,
@@ -219,11 +220,12 @@ export function ReviewQueue() {
   const [evaluation, setEvaluation] = useState(null)
   const [showFeedback, setShowFeedback] = useState(false)
 
-  // Fetch due cards
+  // Fetch due cards - don't cache so we get fresh shuffled cards each session
   const { data: dueCards, isLoading, error } = useQuery({
     queryKey: ['review', 'due'],
     queryFn: reviewApi.getDueCards,
-    staleTime: 60000,
+    staleTime: 0, // Always refetch to get freshly shuffled cards
+    gcTime: 0, // Don't cache (formerly cacheTime)
   })
 
   // Evaluate answer mutation (active recall)
@@ -254,9 +256,14 @@ export function ReviewQueue() {
     },
   })
 
+  // Clear store on mount to ensure fresh cards
+  useEffect(() => {
+    setCards([], 0)
+  }, [setCards])
+
   // Initialize queue when cards load
   useEffect(() => {
-    if (dueCards?.cards && cards.length === 0) {
+    if (dueCards?.cards && dueCards.cards.length > 0 && cards.length === 0) {
       setCards(dueCards.cards, dueCards.total_due)
     }
   }, [dueCards, cards.length, setCards])
@@ -302,13 +309,24 @@ export function ReviewQueue() {
     })
   }, [currentCard, cardStartTime, rateMutation])
 
+  // Handle skipping a card (no rating recorded)
+  const handleSkip = useCallback(() => {
+    if (!currentCard) return
+    
+    // Reset state and move to next card
+    setEvaluation(null)
+    setShowFeedback(false)
+    skipCard()
+  }, [currentCard, skipCard])
+
   // Keyboard shortcuts for rating confirmation (after evaluation)
   useKeyboardShortcuts({
     '1': () => showFeedback && handleConfirmRating(1),
     '2': () => showFeedback && handleConfirmRating(2),
     '3': () => showFeedback && handleConfirmRating(3),
     '4': () => showFeedback && handleConfirmRating(4),
-  }, { enabled: !isComplete && showFeedback })
+    's': () => handleSkip(), // Skip card without rating
+  }, { enabled: !isComplete })
 
   // Reset function to clear the store
   const handleReset = useCallback(() => {
@@ -401,6 +419,7 @@ export function ReviewQueue() {
             <ReviewStats
               remaining={progress.remaining}
               reviewed={progress.reviewed}
+              skipped={stats.skipped}
               dueToday={progress.total}
               avgResponseTime={stats.reviewed > 0 
                 ? Math.round((Date.now() - sessionStartTime) / 1000 / stats.reviewed)
@@ -426,6 +445,19 @@ export function ReviewQueue() {
                   onSubmitAnswer={handleSubmitAnswer}
                   isEvaluating={evaluateMutation.isPending}
                 />
+
+                {/* Skip button - always visible */}
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSkip}
+                    disabled={rateMutation.isPending || evaluateMutation.isPending}
+                    className="text-text-muted hover:text-text-secondary"
+                  >
+                    Skip card {showKeyboardHints && <span className="ml-1 text-xs opacity-60">(S)</span>}
+                  </Button>
+                </div>
 
                 {/* Rating Buttons (shown after evaluation) */}
                 <AnimatePresence mode="wait">

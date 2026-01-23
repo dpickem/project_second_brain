@@ -17,6 +17,7 @@ export const useReviewStore = create((set, get) => ({
   
   // Session stats
   reviewedCount: 0,
+  skippedCount: 0,
   totalDueToday: 0,
   sessionStartTime: null,
   
@@ -39,6 +40,7 @@ export const useReviewStore = create((set, get) => ({
     cards,
     currentIndex: 0,
     reviewedCount: 0,
+    skippedCount: 0,
     totalDueToday: totalDue || cards.length,
     sessionStartTime: Date.now(),
     showAnswer: false,
@@ -71,6 +73,13 @@ export const useReviewStore = create((set, get) => ({
   nextCard: () => set((state) => ({
     currentIndex: state.currentIndex + 1,
     reviewedCount: state.reviewedCount + 1,
+    showAnswer: false,
+    answerShownTime: null,
+  })),
+  
+  skipCard: () => set((state) => ({
+    currentIndex: state.currentIndex + 1,
+    skippedCount: state.skippedCount + 1,
     showAnswer: false,
     answerShownTime: null,
   })),
@@ -129,7 +138,7 @@ export const useReviewStore = create((set, get) => ({
   },
   
   getSessionStats: () => {
-    const { reviewedCount, totalDueToday, sessionStartTime, ratingsHistory } = get()
+    const { reviewedCount, skippedCount, totalDueToday, sessionStartTime, ratingsHistory } = get()
     
     const sessionDuration = sessionStartTime 
       ? Date.now() - sessionStartTime 
@@ -152,12 +161,16 @@ export const useReviewStore = create((set, get) => ({
       ? Math.round(totalResponseTime / ratingsHistory.length / 1000) 
       : 0
     
+    // Remaining = total - reviewed - skipped
+    const remaining = Math.max(0, totalDueToday - reviewedCount - skippedCount)
+    
     return {
       reviewed: reviewedCount,
+      skipped: skippedCount,
       totalDue: totalDueToday,
-      remaining: totalDueToday - reviewedCount,
+      remaining,
       percentComplete: totalDueToday > 0 
-        ? Math.round((reviewedCount / totalDueToday) * 100) 
+        ? Math.round(((reviewedCount + skippedCount) / totalDueToday) * 100) 
         : 0,
       sessionDuration,
       sessionDurationFormatted: formatDuration(sessionDuration),
@@ -201,6 +214,7 @@ export const useReviewStore = create((set, get) => ({
     cards: [],
     currentIndex: 0,
     reviewedCount: 0,
+    skippedCount: 0,
     totalDueToday: 0,
     sessionStartTime: null,
     showAnswer: false,

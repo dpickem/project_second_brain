@@ -15,17 +15,20 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { ChevronRightIcon, XMarkIcon, TagIcon, CalendarIcon, FolderIcon } from '@heroicons/react/24/outline'
+import { ChevronRightIcon, XMarkIcon, TagIcon, CalendarIcon, FolderIcon, SparklesIcon } from '@heroicons/react/24/outline'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
-import { Input, Badge, PageLoader, EmptyState, Skeleton, IconButton, TagBadge } from '../components/common'
+import toast from 'react-hot-toast'
+import { Input, Badge, PageLoader, EmptyState, Skeleton, IconButton, TagBadge, Button } from '../components/common'
 import { vaultApi } from '../api/vault'
+import { reviewApi } from '../api/review'
+import { practiceApi } from '../api/practice'
 import { useUiStore } from '../stores'
 import { useDebounce } from '../hooks/useDebouncedSearch'
 import { fadeInUp, staggerContainer } from '../utils/animations'
@@ -46,11 +49,69 @@ function getFolderDisplayName(folder) {
 
 // Inline note content component that fills available space
 function InlineNoteContent({ notePath, onClose }) {
+  const queryClient = useQueryClient()
+  
   const { data: note, isLoading, error } = useQuery({
     queryKey: ['note-content', notePath],
     queryFn: () => vaultApi.getNoteContent(notePath),
     enabled: !!notePath,
   })
+
+  // Extract topic from note folder or path for generation
+  const getTopic = () => {
+    if (!note) return null
+    // Use folder as topic, or extract from path
+    if (note.folder) return note.folder
+    // Fallback: use path without filename
+    const parts = notePath.split('/')
+    return parts.slice(0, -1).join('/') || 'general'
+  }
+
+  // Generate cards mutation
+  const generateCardsMutation = useMutation({
+    mutationFn: ({ topic }) => reviewApi.generateCards({ topic, count: 10, difficulty: 'mixed' }),
+    onSuccess: (data) => {
+      toast.success(`Generated ${data.generated_count} cards for "${data.topic}"`)
+      queryClient.invalidateQueries({ queryKey: ['cards'] })
+    },
+    onError: (error) => {
+      const message = error.response?.data?.detail || error.message || 'Failed to generate cards'
+      toast.error(message)
+    },
+  })
+
+  // Generate exercises mutation
+  const generateExercisesMutation = useMutation({
+    mutationFn: ({ topic }) => practiceApi.generateExercise({ topicId: topic, exerciseType: 'free_recall' }),
+    onSuccess: () => {
+      toast.success('Generated exercise successfully!')
+      queryClient.invalidateQueries({ queryKey: ['exercises'] })
+    },
+    onError: (error) => {
+      const message = error.response?.data?.detail || error.message || 'Failed to generate exercise'
+      toast.error(message)
+    },
+  })
+
+  const handleGenerateCards = () => {
+    const topic = getTopic()
+    if (!topic) {
+      toast.error('Could not determine topic for this note')
+      return
+    }
+    generateCardsMutation.mutate({ topic })
+  }
+
+  const handleGenerateExercises = () => {
+    const topic = getTopic()
+    if (!topic) {
+      toast.error('Could not determine topic for this note')
+      return
+    }
+    generateExercisesMutation.mutate({ topic })
+  }
+
+  const isGenerating = generateCardsMutation.isPending || generateExercisesMutation.isPending
 
   if (isLoading) {
     return (
@@ -105,6 +166,27 @@ function InlineNoteContent({ notePath, onClose }) {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Generation buttons */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleGenerateCards}
+            loading={generateCardsMutation.isPending}
+            disabled={isGenerating}
+            icon={<SparklesIcon className="w-4 h-4" />}
+          >
+            Generate Cards
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleGenerateExercises}
+            loading={generateExercisesMutation.isPending}
+            disabled={isGenerating}
+            icon={<SparklesIcon className="w-4 h-4" />}
+          >
+            Generate Exercises
+          </Button>
           <IconButton
             icon={<XMarkIcon className="w-5 h-5" />}
             label="Close"
@@ -355,10 +437,28 @@ export function Knowledge() {
     queryFn: vaultApi.getFolders,
   })
 
-  // Fetch notes with optional search
+  // Fetch all notes with pagination - tree view needs the full list
   const { data: notesData, isLoading: notesLoading } = useQuery({
-    queryKey: ['vault', 'notes', debouncedSearch],
-    queryFn: () => vaultApi.getNotes({ search: debouncedSearch || undefined }),
+    queryKey: ['vault', 'notes', 'all', debouncedSearch],
+    queryFn: async () => {
+      const allNotes = []
+      let page = 1
+      let hasMore = true
+      const pageSize = 200 // Fetch in reasonable chunks
+      
+      while (hasMore) {
+        const response = await vaultApi.getNotes({ 
+          search: debouncedSearch || undefined, 
+          page,
+          pageSize 
+        })
+        allNotes.push(...(response.notes || []))
+        hasMore = response.has_more
+        page++
+      }
+      
+      return { notes: allNotes, total: allNotes.length }
+    },
   })
 
   const topics = topicsData?.folders || []
@@ -433,12 +533,21 @@ export function Knowledge() {
   }, [notes, notesLoading, selectedNote, setSearchParams, debouncedSearch])
 
   // Group notes by folder for tree view
+  // Notes in subfolders (e.g., sources/articles/tech) should be grouped under
+  // their parent content type folder (e.g., sources/articles)
   const notesByTopic = useMemo(() => {
     const grouped = {}
+    const topicFolders = topics.map(t => t.folder)
+    
     sortedNotes.forEach(note => {
-      const folder = note.folder || 'Uncategorized'
-      if (!grouped[folder]) grouped[folder] = []
-      grouped[folder].push(note)
+      const noteFolder = note.folder || ''
+      // Find the matching content type folder (note folder may be a subfolder)
+      const matchingTopic = topicFolders.find(topicFolder => 
+        noteFolder === topicFolder || noteFolder.startsWith(topicFolder + '/')
+      )
+      const groupKey = matchingTopic || noteFolder || 'Uncategorized'
+      if (!grouped[groupKey]) grouped[groupKey] = []
+      grouped[groupKey].push(note)
     })
 
     // Ensure notes are always alphabetically sorted within each folder
@@ -449,7 +558,7 @@ export function Knowledge() {
     }
 
     return grouped
-  }, [sortedNotes, collator])
+  }, [sortedNotes, topics, collator])
 
   if (isLoading) {
     return <PageLoader message="Loading knowledge base..." />

@@ -30,8 +30,8 @@ export function Dashboard() {
   })
 
   const { data: dueCardsData, isLoading: dueLoading } = useQuery({
-    queryKey: ['due-cards', { limit: 5 }],
-    queryFn: () => reviewApi.getDueCards({ limit: 5 }),
+    queryKey: ['due-cards', { limit: 3 }],
+    queryFn: () => reviewApi.getDueCards({ limit: 3 }),
     staleTime: 60 * 1000,
   })
 

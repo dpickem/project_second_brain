@@ -462,6 +462,10 @@ class VaultSyncService:
             )
             title = fm.get("title", note_path.stem)
             note_type = fm.get("type", "note")
+            
+            # Extract source_url from frontmatter (used for deduplication)
+            # Templates write this field, so synced notes can be linked to their sources
+            source_url = fm.get("source_url") or fm.get("url") or fm.get("source")
 
             # Update Neo4j node if client is available
             neo4j = await self._ensure_neo4j()
@@ -480,6 +484,7 @@ class VaultSyncService:
                     tags=all_tags,
                     file_path=file_path,
                     metadata=fm,
+                    source_url=source_url,
                 )
 
                 # Sync outgoing links
@@ -521,6 +526,7 @@ class VaultSyncService:
         tags: list[str],
         file_path: str,
         metadata: dict,
+        source_url: Optional[str] = None,
     ):
         """
         Create or update a Note node in Neo4j via the client.
@@ -535,6 +541,7 @@ class VaultSyncService:
             tags: List of all tags (frontmatter + inline)
             file_path: Relative path to the note file from vault root
             metadata: Full frontmatter dict (reserved for future use)
+            source_url: Original source URL if available (from frontmatter)
         """
         neo4j = await self._ensure_neo4j()
         if not neo4j:
@@ -547,6 +554,7 @@ class VaultSyncService:
                 note_type=note_type,
                 tags=tags,
                 file_path=file_path,
+                source_url=source_url,
             )
         except Exception as e:
             logger.error(f"Failed to update Neo4j node {node_id}: {e}")

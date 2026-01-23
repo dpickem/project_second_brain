@@ -414,6 +414,7 @@ SET n.title = $title,
     n.type = $note_type,
     n.tags = $tags,
     n.file_path = $file_path,
+    n.source_url = $source_url,
     n.updated_at = datetime()
 RETURN n.id AS id
 """
