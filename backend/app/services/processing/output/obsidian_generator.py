@@ -28,6 +28,7 @@ Usage:
 """
 
 import logging
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -41,6 +42,72 @@ from app.models.processing import Concept, ProcessingResult
 from app.services.obsidian.vault import get_vault_manager
 
 logger = logging.getLogger(__name__)
+
+# UUID pattern to detect UUID-like titles
+UUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
+)
+
+
+def _get_best_title(content: UnifiedContent, result: ProcessingResult) -> str:
+    """
+    Get the best title to use for the note filename.
+
+    Priority:
+    1. Original filename from metadata (if stored)
+    2. Content title (if not a UUID)
+    3. First line of summary that looks like a title
+    4. First key topic from analysis
+    5. Fallback to content ID
+
+    Args:
+        content: Original unified content
+        result: Processing result with analysis and summaries
+
+    Returns:
+        Best available title for the note
+    """
+    # Check if content.title looks like a UUID
+    title = content.title
+    is_uuid_title = bool(UUID_PATTERN.match(title))
+
+    if not is_uuid_title and title and title != "Untitled PDF":
+        return title
+
+    # Try to get original filename from metadata
+    original_filename = content.metadata.get("original_filename") if content.metadata else None
+    if original_filename:
+        # Clean up: remove .pdf extension
+        if original_filename.lower().endswith(".pdf"):
+            original_filename = original_filename[:-4]
+        original_filename = original_filename.replace("_", " ").strip()
+        if original_filename and not UUID_PATTERN.match(original_filename):
+            return original_filename
+
+    # Try to extract title from summary (look for "Title:" or first heading)
+    standard_summary = result.summaries.get(SummaryLevel.STANDARD.value, "")
+    if standard_summary:
+        # Look for patterns like "### Summary: Paper Title" or "**Paper Title**"
+        title_patterns = [
+            r"###\s*Summary[:\s]+(.+?)(?:\n|$)",  # ### Summary: Title
+            r"\*\*(.+?)\*\*",  # **Bold title**
+        ]
+        for pattern in title_patterns:
+            match = re.search(pattern, standard_summary)
+            if match:
+                extracted = match.group(1).strip()
+                # Only use if it's reasonable length and not generic
+                if 10 < len(extracted) < 200 and not extracted.lower().startswith("the problem"):
+                    return extracted
+
+    # Try first key topic from analysis
+    if result.analysis.key_topics:
+        first_topic = result.analysis.key_topics[0]
+        if len(first_topic) > 10:
+            return first_topic.title()
+
+    # Fallback to content ID
+    return content.id
 
 
 def _get_template_env() -> Environment:
@@ -96,6 +163,8 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
     highlights = []
     handwritten_notes = []
 
+    logger.debug(f"Processing {len(content.annotations)} annotations for '{content.title}'")
+    
     if content.annotations:
         for a in content.annotations:
             if a.type == AnnotationType.DIGITAL_HIGHLIGHT:
@@ -113,6 +182,8 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
                         "context": a.context,
                     }
                 )
+    
+    logger.info(f"Found {len(highlights)} highlights and {len(handwritten_notes)} handwritten notes")
 
     # Format concepts
     concepts = []
@@ -167,10 +238,19 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
     # Get standard summary for idea/context
     standard_summary = result.summaries.get(SummaryLevel.STANDARD.value, "")
 
+    # Get the best title (handles UUID titles)
+    best_title = _get_best_title(content, result)
+
+    # Get source path from metadata if available
+    source_path = ""
+    if content.metadata:
+        source_path = content.metadata.get("source_path", "") or content.metadata.get("file_path", "")
+    
     return {
         # Basic metadata
         "content_type": result.analysis.content_type,
-        "title": _escape_yaml_string(content.title),
+        "title": _escape_yaml_string(best_title),
+        "content_id": content.id,
         "authors": content.authors or [],
         "author": content.authors[0] if content.authors else "",
         "tags": result.tags.domain_tags + result.tags.meta_tags,
@@ -180,8 +260,9 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
         # Dates
         "created_date": now.strftime("%Y-%m-%d"),
         "processed_date": now.strftime("%Y-%m-%d"),
-        # Source info (for articles)
+        # Source info
         "source_url": content.source_url or "",
+        "source_path": source_path,
         # Summaries
         "summary": standard_summary,
         "summary_brief": result.summaries.get(SummaryLevel.BRIEF.value, ""),
@@ -279,16 +360,22 @@ async def generate_obsidian_note(
         content_type = result.analysis.content_type
         output_dir = vault.get_source_folder(content_type)
 
+        # Get the best title to use for the filename
+        note_title = _get_best_title(content, result)
+        logger.debug(f"Using title for note: {note_title}")
+
         # Check if content already has an existing obsidian note (from previous processing)
         # If so, and the filename would change, delete the old file to prevent duplicates
         old_note_path = None
         if content.obsidian_path:
             old_note_path = vault.vault_path / content.obsidian_path
             # Compute what the new filename would be
-            new_filename = vault.sanitize_filename(content.title)
+            new_filename = vault.sanitize_filename(note_title)
             old_filename = old_note_path.stem
-            
-            if old_filename != new_filename and old_note_path.exists():
+            # Strip any _N suffix from old filename for comparison
+            old_filename_base = re.sub(r"_\d+$", "", old_filename)
+
+            if old_filename_base != new_filename and old_note_path.exists():
                 try:
                     old_note_path.unlink()
                     logger.info(
@@ -297,8 +384,11 @@ async def generate_obsidian_note(
                 except Exception as e:
                     logger.warning(f"Failed to delete old note {old_note_path}: {e}")
 
-        # Get unique path (handles duplicates automatically)
-        output_path = await vault.get_unique_path(output_dir, content.title)
+        # Get path for update (reuses existing note) or create new
+        # This prevents creating duplicates like "Paper_1.md", "Paper_2.md" on reprocessing
+        output_path = vault.get_path_for_update(
+            output_dir, note_title, existing_path=content.obsidian_path
+        )
 
         # Write the note via VaultManager
         await vault.write_note(output_path, note_content)

@@ -5,11 +5,14 @@ authors: {{ authors | default([], true) | tojson }}
 year: {{ year | default('') }}
 venue: "{{ venue | default('') }}"
 doi: "{{ doi | default('') }}"
+source_url: "{{ source_url | default('') }}"
+source_path: "{{ source_path | default('') }}"
 tags: {{ tags | default([], true) | tojson }}
 status: {{ status | default('unread') }}
 has_handwritten_notes: {{ has_handwritten_notes | default(false) | lower }}
 created: {{ created_date }}
 processed: {{ processed_date | default('') }}
+id: {{ content_id | default('') }}
 ---
 
 ## Summary

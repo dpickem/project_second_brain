@@ -1,13 +1,15 @@
 ---
 type: article
 title: "{{ title }}"
-source: "{{ source_url | default('') }}"
+source_url: "{{ source_url | default('') }}"
+source_path: "{{ source_path | default('') }}"
 author: "{{ author | default('') }}"
 published: {{ published_date | default('') }}
 tags: {{ tags | default([], true) | tojson }}
 status: {{ status | default('unread') }}
 created: {{ created_date }}
 processed: {{ processed_date | default('') }}
+id: {{ content_id | default('') }}
 ---
 
 ## Summary

@@ -847,6 +847,94 @@ class TestFollowupGeneration:
         assert len(usages) == 1
 
     @pytest.mark.asyncio
+    async def test_generate_followups_with_many_annotations(
+        self,
+        sample_content,
+        sample_analysis,
+        sample_extraction,
+        mock_llm_client,
+        sample_usage,
+    ):
+        """Test follow-up generation with many annotations (like from a PDF)."""
+        # Add many annotations like from a real PDF
+        sample_content.annotations = [
+            Annotation(
+                type=AnnotationType.DIGITAL_HIGHLIGHT,
+                content=f"Important highlight number {i} about some key concept",
+                page_number=i % 20 + 1,
+            )
+            for i in range(50)
+        ]
+        
+        mock_llm_client.complete.return_value = (make_followup_response(), sample_usage)
+        
+        tasks, usages = await generate_followups(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
+        
+        assert len(tasks) == 2
+        # Verify the LLM was called with annotations in the prompt
+        call_args = mock_llm_client.complete.call_args
+        prompt_content = call_args[1]["messages"][0]["content"]
+        # The prompt should include annotations (or truncated subset)
+        assert "highlight" in prompt_content.lower() or "annotation" in prompt_content.lower()
+
+    @pytest.mark.asyncio
+    async def test_generate_followups_includes_citation_highlights(
+        self,
+        sample_content,
+        sample_analysis,
+        sample_extraction,
+        mock_llm_client,
+        sample_usage,
+    ):
+        """Test that citation highlights are included for follow-up research tasks."""
+        # Add annotation with citation pattern
+        sample_content.annotations = [
+            Annotation(
+                type=AnnotationType.DIGITAL_HIGHLIGHT,
+                content="as shown by Smith et al. (2023) in their seminal work",
+                page_number=5,
+            ),
+            Annotation(
+                type=AnnotationType.DIGITAL_HIGHLIGHT,
+                content="[Johnson, 2022] demonstrated that this approach works",
+                page_number=8,
+            ),
+        ]
+        
+        # Mock response with research task for cited papers
+        mock_llm_client.complete.return_value = (
+            make_followup_response(
+                tasks=[
+                    {
+                        "task": "Read Smith et al. (2023) to understand the foundational concepts",
+                        "type": "RESEARCH",
+                        "priority": "HIGH",
+                        "estimated_time": "1HR",
+                    },
+                ]
+            ),
+            sample_usage,
+        )
+        
+        tasks, _ = await generate_followups(
+            sample_content,
+            sample_analysis,
+            "Summary",
+            sample_extraction,
+            mock_llm_client,
+        )
+        
+        assert len(tasks) == 1
+        assert tasks[0].task_type == "RESEARCH"
+        assert "Smith" in tasks[0].task
+
+    @pytest.mark.asyncio
     async def test_generate_followups_skips_empty_tasks(
         self,
         sample_content,
@@ -944,6 +1032,110 @@ class TestFollowupGeneration:
         """Test annotation formatting with no annotations."""
         sample_content.annotations = []
         assert format_followup_annotations(sample_content) == "None provided"
+
+
+class TestDynamicTaskRange:
+    """Tests for the dynamic task range calculation."""
+
+    def test_calculate_task_range_minimal_content(self):
+        """Test task range with minimal content (no annotations, no concepts)."""
+        from app.services.processing.stages.followups import _calculate_task_range
+        
+        min_tasks, max_tasks = _calculate_task_range(0, 0)
+        
+        assert min_tasks == 3  # Base minimum
+        assert max_tasks == 5  # Base maximum
+
+    def test_calculate_task_range_moderate_annotations(self):
+        """Test task range with moderate annotations."""
+        from app.services.processing.stages.followups import _calculate_task_range
+        
+        # 50 annotations = 5 annotation bonus
+        min_tasks, max_tasks = _calculate_task_range(50, 0)
+        
+        assert min_tasks >= 3
+        assert max_tasks >= 10  # 5 + 5 annotation bonus
+
+    def test_calculate_task_range_many_annotations(self):
+        """Test task range with many annotations (like a PDF with 255 highlights)."""
+        from app.services.processing.stages.followups import _calculate_task_range
+        
+        # 255 annotations = 10 annotation bonus (capped)
+        min_tasks, max_tasks = _calculate_task_range(255, 0)
+        
+        assert min_tasks >= 5  # 3 + 5//2 = 8, capped at 10
+        assert max_tasks >= 15  # 5 + 10 annotation bonus
+
+    def test_calculate_task_range_with_concepts(self):
+        """Test task range includes concept bonus."""
+        from app.services.processing.stages.followups import _calculate_task_range
+        
+        # 50 annotations + 20 concepts
+        min_tasks, max_tasks = _calculate_task_range(50, 20)
+        
+        # 20 concepts = 4 concept bonus (20//5)
+        assert max_tasks > _calculate_task_range(50, 0)[1]
+
+    def test_calculate_task_range_caps_at_maximum(self):
+        """Test that task range is capped at reasonable limits."""
+        from app.services.processing.stages.followups import _calculate_task_range
+        
+        # Very large numbers should be capped
+        min_tasks, max_tasks = _calculate_task_range(1000, 100)
+        
+        assert min_tasks <= 10  # Capped at 10
+        assert max_tasks <= 20  # Capped at 20
+
+    def test_calculate_task_range_min_less_than_max(self):
+        """Test that min_tasks is always less than max_tasks."""
+        from app.services.processing.stages.followups import _calculate_task_range
+        
+        test_cases = [(0, 0), (10, 5), (100, 50), (255, 30)]
+        for annotations, concepts in test_cases:
+            min_tasks, max_tasks = _calculate_task_range(annotations, concepts)
+            assert min_tasks < max_tasks, f"Failed for {annotations} annotations, {concepts} concepts"
+
+
+class TestFormatAnnotationsWithLimit:
+    """Tests for annotation formatting with dynamic limits."""
+
+    def test_format_annotations_default_limit(self, sample_content):
+        """Test annotation formatting uses provided limit."""
+        from app.services.processing.stages.followups import _format_annotations
+        
+        # Add many annotations
+        sample_content.annotations = [
+            Annotation(
+                type=AnnotationType.DIGITAL_HIGHLIGHT,
+                content=f"Highlight {i}",
+                page_number=i,
+            )
+            for i in range(30)
+        ]
+        
+        # With limit of 10
+        result = _format_annotations(sample_content, max_annotations=10)
+        lines = [l for l in result.split('\n') if l.strip().startswith('-')]
+        assert len(lines) == 10
+
+    def test_format_annotations_high_limit(self, sample_content):
+        """Test annotation formatting with higher limit."""
+        from app.services.processing.stages.followups import _format_annotations
+        
+        # Add 25 annotations
+        sample_content.annotations = [
+            Annotation(
+                type=AnnotationType.DIGITAL_HIGHLIGHT,
+                content=f"Highlight {i}",
+                page_number=i,
+            )
+            for i in range(25)
+        ]
+        
+        # With limit of 50 (higher than actual count)
+        result = _format_annotations(sample_content, max_annotations=50)
+        lines = [l for l in result.split('\n') if l.strip().startswith('-')]
+        assert len(lines) == 25  # Should return all 25
 
 
 # =============================================================================

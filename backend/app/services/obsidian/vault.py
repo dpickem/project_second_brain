@@ -325,6 +325,50 @@ class VaultManager:
 
         return path
 
+    def get_path_for_update(
+        self, folder: Path, title: str, existing_path: Optional[str] = None
+    ) -> Path:
+        """
+        Get the path to use for updating/creating a note.
+
+        Unlike get_unique_path(), this method is designed for reprocessing scenarios
+        where we want to UPDATE an existing note rather than create a new one.
+
+        Priority:
+        1. If existing_path is provided, use it (for reprocessing the same content)
+        2. If a note with this title already exists (no suffix), return that path
+        3. Otherwise, return the base path (no suffix) for new notes
+
+        This prevents creating duplicate files like "Paper_1.md", "Paper_2.md" etc.
+        when reprocessing the same content multiple times.
+
+        Args:
+            folder: Target folder for the note
+            title: Desired title (will be sanitized)
+            existing_path: Optional existing vault path from database
+
+        Returns:
+            Path to write to (may or may not already exist)
+        """
+        # If we have an existing path from DB, use it (preserves location on reprocess)
+        if existing_path:
+            full_existing = self.vault_path / existing_path
+            if full_existing.exists():
+                logger.debug(f"Using existing path for update: {full_existing}")
+                return full_existing
+
+        # Check for base filename (without suffix)
+        filename = self.sanitize_filename(title)
+        base_path = folder / f"{filename}.md"
+
+        if base_path.exists():
+            logger.debug(f"Found existing note to update: {base_path}")
+            return base_path
+
+        # New note - use base path
+        logger.debug(f"Creating new note at: {base_path}")
+        return base_path
+
     async def write_note(self, path: Path, content: str) -> Path:
         """
         Write note content to file.

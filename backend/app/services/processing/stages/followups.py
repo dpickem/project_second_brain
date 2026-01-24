@@ -72,46 +72,100 @@ _priority_section = "\n".join(
     ]
 )
 
-FOLLOWUP_PROMPT = f"""Generate actionable follow-up tasks based on this content.
+FOLLOWUP_PROMPT_TEMPLATE = """Generate actionable follow-up tasks based on this content.
 
 Content:
-- Title: {{title}}
-- Type: {{content_type}}
-- Domain: {{domain}}
+- Title: {title}
+- Type: {content_type}
+- Domain: {domain}
 
-Summary: {{summary}}
+Summary: {summary}
 
-Key Concepts: {{concepts}}
+Key Concepts: {concepts}
 
 Reader's Highlights (what they found important):
-{{annotations}}
+{annotations}
 
-Generate 3-5 follow-up tasks that are:
+Generate {min_tasks}-{max_tasks} follow-up tasks that are:
 1. **Actionable**: Can be completed in a single session
 2. **Specific**: Clear what needs to be done, not vague
 3. **Deepening**: Go beyond surface understanding
 4. **Connected**: Relate to other knowledge areas when possible
 
+**IMPORTANT for Research Articles/Papers:**
+If the reader highlighted any citations or references (e.g., "[Smith et al., 2023]", "as shown by Johnson (2022)", 
+or any academic citation format), create HIGH priority RESEARCH tasks to read those referenced papers.
+Format these as: "Read '[Paper Title]' by [Authors] to understand [specific concept from the highlight context]"
+
+**IMPORTANT: Generate MORE tasks for content with more highlights!**
+- Each highlighted citation should become a RESEARCH task
+- Key concepts should become PRACTICE or CONNECT tasks
+- Aim for comprehensive coverage of the reader's interests
+
 Task Types:
-{_task_types_section}
+""" + _task_types_section + """
 
 Priority Guidelines:
-{_priority_section}
+""" + _priority_section + """
 
 Return as JSON:
-{{{{
+{{
   "tasks": [
-    {{{{
+    {{
       "task": "Specific, actionable task description",
-      "type": "{"|".join(t.value for t in FollowupTaskType)}",
-      "priority": "{"|".join(p.value for p in FollowupPriority)}",
-      "estimated_time": "{"|".join(t.value for t in FollowupTimeEstimate)}"
-    }}}}
+      "type": """ + '"{}"'.format("|".join(t.value for t in FollowupTaskType)) + """,
+      "priority": """ + '"{}"'.format("|".join(p.value for p in FollowupPriority)) + """,
+      "estimated_time": """ + '"{}"'.format("|".join(t.value for t in FollowupTimeEstimate)) + """
+    }}
   ]
-}}}}
+}}
 
 Make tasks specific to THIS content, not generic learning advice.
+For highlighted references/citations, always include them as RESEARCH tasks with HIGH priority.
 """
+
+
+def _calculate_task_range(annotation_count: int, concept_count: int) -> tuple[int, int]:
+    """
+    Calculate the min/max number of tasks to generate based on content richness.
+    
+    More annotations and concepts = more potential follow-up tasks.
+    
+    Uses settings from processing_settings for all thresholds and limits.
+    """
+    settings = processing_settings
+    
+    # Base tasks for minimal content
+    base_min = settings.FOLLOWUP_BASE_MIN_TASKS
+    base_max = settings.FOLLOWUP_BASE_MAX_TASKS
+    
+    # Add tasks for annotations (capped contribution)
+    annotation_bonus = min(
+        annotation_count // settings.FOLLOWUP_ANNOTATIONS_PER_BONUS,
+        settings.FOLLOWUP_MAX_ANNOTATION_BONUS
+    )
+    
+    # Add tasks for concepts
+    concept_bonus = min(
+        concept_count // settings.FOLLOWUP_CONCEPTS_PER_BONUS,
+        settings.FOLLOWUP_MAX_CONCEPT_BONUS
+    )
+    
+    # Calculate min/max with conservative min scaling
+    min_tasks = base_min + (annotation_bonus // 2)
+    max_tasks = base_max + annotation_bonus + concept_bonus
+    
+    # Cap at configured limits
+    min_tasks = max(
+        settings.FOLLOWUP_MIN_TASKS_FLOOR,
+        min(min_tasks, settings.FOLLOWUP_MIN_TASKS_CEILING)
+    )
+    max_tasks = max(
+        min_tasks + 2,
+        min(max_tasks, settings.FOLLOWUP_MAX_TASKS_CEILING)
+    )
+    
+    return min_tasks, max_tasks
 
 
 async def generate_followups(
@@ -134,8 +188,17 @@ async def generate_followups(
     Returns:
         Tuple of (list of FollowupTask objects, list of LLMUsage)
     """
-    # Format annotations
-    annotations_text = _format_annotations(content)
+    # Format annotations - use higher limit for richer content
+    annotation_count = len(content.annotations) if content.annotations else 0
+    concept_count = len(extraction.concepts) if extraction.concepts else 0
+    
+    # Dynamic limit: include more annotations for content-rich documents
+    max_annotations = min(
+        max(processing_settings.FOLLOWUP_MAX_ANNOTATIONS, annotation_count // processing_settings.FOLLOWUP_CONCEPTS_PER_BONUS),
+        processing_settings.FOLLOWUP_ANNOTATIONS_HARD_CAP
+    )
+    annotations_text = _format_annotations(content, max_annotations)
+    logger.info(f"Follow-up generation: {annotation_count} annotations, using {max_annotations} in prompt")
 
     # Format concepts
     concepts_text = (
@@ -151,7 +214,11 @@ async def generate_followups(
         else "None extracted"
     )
 
-    prompt = FOLLOWUP_PROMPT.format(
+    # Calculate dynamic task range based on content richness
+    min_tasks, max_tasks = _calculate_task_range(annotation_count, concept_count)
+    logger.info(f"Follow-up task range: {min_tasks}-{max_tasks} tasks (based on {annotation_count} annotations, {concept_count} concepts)")
+
+    prompt = FOLLOWUP_PROMPT_TEMPLATE.format(
         title=content.title,
         content_type=analysis.content_type,
         domain=analysis.domain,
@@ -160,6 +227,8 @@ async def generate_followups(
         ),
         concepts=concepts_text,
         annotations=annotations_text,
+        min_tasks=min_tasks,
+        max_tasks=max_tasks,
     )
 
     try:
@@ -171,6 +240,8 @@ async def generate_followups(
             json_mode=True,
             content_id=content.id,
         )
+        
+        logger.info(f"Follow-up LLM response: {data}")
 
         tasks = []
         for t in data.get("tasks", []):
@@ -200,15 +271,20 @@ async def generate_followups(
         return [], []
 
 
-def _format_annotations(content: UnifiedContent) -> str:
-    """Format annotations for inclusion in prompt."""
+def _format_annotations(content: UnifiedContent, max_annotations: int = None) -> str:
+    """Format annotations for inclusion in prompt.
+    
+    Args:
+        content: Content with annotations
+        max_annotations: Maximum annotations to include (defaults to settings value)
+    """
     if not content.annotations:
         return "None provided"
 
+    limit = max_annotations or processing_settings.FOLLOWUP_MAX_ANNOTATIONS
+    
     formatted = []
-    for annotation in content.annotations[
-        : processing_settings.FOLLOWUP_MAX_ANNOTATIONS
-    ]:
+    for annotation in content.annotations[:limit]:
         text = annotation.content[: processing_settings.FOLLOWUP_ANNOTATION_TRUNCATE]
         formatted.append(f"- {text}")
 
