@@ -101,6 +101,33 @@ async def get_card(
     return card
 
 
+@router.get("/cards", response_model=list[CardResponse])
+async def list_cards(
+    topic: Optional[str] = Query(None, description="Filter by topic tag"),
+    card_type: Optional[str] = Query(None, description="Filter by card type"),
+    state: Optional[str] = Query(None, description="Filter by card state (new, learning, review, mastered)"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum cards to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    service: SpacedRepService = Depends(get_spaced_rep_service),
+) -> list[CardResponse]:
+    """
+    List all cards with optional filters.
+    
+    Browse the entire card catalogue with filtering by topic, type, or state.
+    """
+    try:
+        return await service.list_cards(
+            topic_filter=topic,
+            card_type=card_type,
+            state_filter=state,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception as e:
+        logger.error(f"Failed to list cards: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ===========================================
 # Review Endpoints
 # ===========================================

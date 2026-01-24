@@ -114,6 +114,27 @@ export const reviewApi = {
     }).then(r => r.data),
 
   /**
+   * List all cards with optional filters (card catalogue)
+   * @param {Object} [options] - Query options
+   * @param {string} [options.topic] - Filter by topic tag
+   * @param {string} [options.cardType] - Filter by card type
+   * @param {string} [options.state] - Filter by state (new, learning, review, mastered)
+   * @param {number} [options.limit=100] - Maximum cards to return
+   * @param {number} [options.offset=0] - Pagination offset
+   * @returns {Promise<Array<{id: string, front: string, back: string, card_type: string, tags: Array<string>, state: string, due_date: string}>>} List of cards
+   */
+  listCards: ({ topic, cardType, state, limit = 100, offset = 0 } = {}) => {
+    const params = { limit, offset }
+    if (topic) params.topic = topic
+    if (cardType) params.card_type = cardType
+    if (state) params.state = state
+    
+    return typedApi.GET('/api/review/cards', {
+      params: { query: params }
+    }).then(r => r.data)
+  },
+
+  /**
    * Get all cards for a specific topic
    * @param {string} topicId - Topic identifier
    * @param {Object} [options] - Query options

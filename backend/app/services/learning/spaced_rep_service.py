@@ -154,6 +154,48 @@ class SpacedRepService:
 
         return self._to_response(card)
 
+    async def list_cards(
+        self,
+        topic_filter: Optional[str] = None,
+        card_type: Optional[str] = None,
+        state_filter: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[CardResponse]:
+        """
+        List all cards with optional filters.
+
+        Args:
+            topic_filter: Filter by topic tag (partial match)
+            card_type: Filter by card type
+            state_filter: Filter by state (new, learning, review, mastered)
+            limit: Maximum cards to return
+            offset: Pagination offset
+
+        Returns:
+            List of card responses
+        """
+        query = select(SpacedRepCard)
+
+        # Apply filters
+        if topic_filter:
+            # Match any tag that contains the topic filter
+            query = query.where(SpacedRepCard.tags.any(topic_filter))
+
+        if card_type:
+            query = query.where(SpacedRepCard.card_type == card_type)
+
+        if state_filter:
+            query = query.where(SpacedRepCard.state == state_filter)
+
+        # Order by created date (newest first) and apply pagination
+        query = query.order_by(SpacedRepCard.id.desc()).limit(limit).offset(offset)
+
+        result = await self.db.execute(query)
+        cards = result.scalars().all()
+
+        return [self._to_response(card) for card in cards]
+
     async def get_due_cards(
         self,
         limit: int = None,
