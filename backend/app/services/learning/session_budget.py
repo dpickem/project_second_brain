@@ -166,7 +166,15 @@ class SessionTimeBudget:
         if settings.SESSION_MIN_TIME_FOR_EXERCISE <= self.total_remaining:
             available = max(available, self.total_remaining)
 
-        return max(0, int(available / time))
+        # Calculate how many exercises fit
+        count = int(available / time)
+
+        # Allow at least one exercise if we meet the minimum time threshold
+        # This prevents 0 exercises for short sessions (e.g., 5 min with 10 min default)
+        if count == 0 and available >= settings.SESSION_MIN_TIME_FOR_EXERCISE:
+            count = 1
+
+        return max(0, count)
 
     def max_cards(self, time_per_card: Optional[float] = None) -> int:
         """

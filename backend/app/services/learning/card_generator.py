@@ -397,25 +397,23 @@ class CardGeneratorService:
             or empty string if no relevant content found.
         """
         context_parts = []
+        seen_content_ids = set()  # Avoid duplicates
 
         # Search for topic keywords in the topic path (e.g., "ml/transformers" -> "ml", "transformers")
         topic_keywords = (
             topic.replace("/", " ").replace("-", " ").replace("_", " ").split()
         )
 
-        # Get content with matching title or summary
+        # Get content with matching title, summary, or raw_text
         # Use ILIKE for case-insensitive matching on any keyword
         for keyword in topic_keywords:
             if len(keyword) < settings.CARD_CONTEXT_MIN_KEYWORD_LENGTH:
                 continue
 
+            # Search by title first (most relevant)
             content_query = (
                 select(Content)
-                .where(Content.summary.isnot(None))
-                .where(
-                    (Content.title.ilike(f"%{keyword}%"))
-                    | (Content.summary.ilike(f"%{keyword}%"))
-                )
+                .where(Content.title.ilike(f"%{keyword}%"))
                 .limit(settings.CARD_CONTEXT_CONTENT_PER_KEYWORD)
             )
 
@@ -423,8 +421,20 @@ class CardGeneratorService:
             contents = result.scalars().all()
 
             for content in contents:
-                if content.summary:
-                    context_parts.append(f"From '{content.title}':\n{content.summary}")
+                if content.id in seen_content_ids:
+                    continue
+                seen_content_ids.add(content.id)
+
+                # Use summary if available, otherwise use truncated raw_text
+                text_content = content.summary if content.summary else None
+                if not text_content and content.raw_text:
+                    # Use first portion of raw_text as context
+                    text_content = content.raw_text[
+                        : settings.CARD_CONTEXT_MAX_LENGTH // 2
+                    ]
+
+                if text_content:
+                    context_parts.append(f"From '{content.title}':\n{text_content}")
 
         # Get existing exercises for the topic
         exercise_query = (

@@ -80,7 +80,7 @@ from app.models.learning import (
 )
 from app.models.processing import ExtractionResult
 from app.models.llm_usage import LLMUsage
-from app.services.llm.client import LLMClient, build_messages
+from app.services.llm.client import LLMClient, build_messages, get_default_text_model
 from app.services.tag_service import TagService
 from app.config import settings
 
@@ -359,7 +359,7 @@ class ExerciseGenerator:
         self,
         llm_client: LLMClient,
         db: AsyncSession,
-        model: str = "gpt-4-turbo",
+        model: str | None = None,
     ):
         """
         Initialize exercise generator.
@@ -367,11 +367,11 @@ class ExerciseGenerator:
         Args:
             llm_client: LLM client for generation
             db: Database session
-            model: Model to use for generation
+            model: Model to use for generation (defaults to TEXT_MODEL from settings)
         """
         self.llm = llm_client
         self.db = db
-        self.model = model
+        self.model = model or get_default_text_model()
 
     async def generate_exercise(
         self,
