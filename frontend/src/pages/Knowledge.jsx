@@ -18,7 +18,18 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { ChevronRightIcon, XMarkIcon, TagIcon, CalendarIcon, FolderIcon, SparklesIcon } from '@heroicons/react/24/outline'
+import { 
+  ChevronRightIcon, 
+  XMarkIcon, 
+  TagIcon, 
+  CalendarIcon, 
+  FolderIcon, 
+  SparklesIcon,
+  AdjustmentsHorizontalIcon,
+  DocumentArrowDownIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from '@heroicons/react/24/outline'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -32,6 +43,70 @@ import { practiceApi } from '../api/practice'
 import { useUiStore } from '../stores'
 import { useDebounce } from '../hooks/useDebouncedSearch'
 import { fadeInUp, staggerContainer } from '../utils/animations'
+
+// Section visibility configuration
+const TOGGLEABLE_SECTIONS = {
+  summary: { label: 'Summary', heading: '## Summary', default: true },
+  keyFindings: { label: 'Key Findings', heading: '## Key Findings', default: true },
+  concepts: { label: 'Core Concepts', heading: '## Core Concepts', default: true },
+  highlights: { label: 'My Highlights', heading: '## My Highlights', default: true },
+  handwrittenNotes: { label: 'Handwritten Notes', heading: '## My Handwritten Notes', default: true },
+  masteryQuestions: { label: 'Mastery Questions', heading: '## Mastery Questions', default: true },
+  followupTasks: { label: 'Follow-up Tasks', heading: '## Follow-up Tasks', default: true },
+  connections: { label: 'Connections', heading: '## Connections', default: true },
+  detailedNotes: { label: 'Detailed Notes', heading: '## Detailed Notes', default: true },
+}
+
+// Get default visibility state
+const getDefaultVisibility = () => {
+  const stored = localStorage.getItem('knowledge-section-visibility')
+  if (stored) {
+    try {
+      return JSON.parse(stored)
+    } catch {
+      // Fall through to defaults
+    }
+  }
+  return Object.fromEntries(
+    Object.entries(TOGGLEABLE_SECTIONS).map(([key, config]) => [key, config.default])
+  )
+}
+
+// Filter markdown content based on visible sections
+const filterMarkdownSections = (content, visibility) => {
+  if (!content) return content
+  
+  // Get list of sections to hide
+  const sectionsToHide = Object.entries(visibility)
+    .filter(([_, visible]) => !visible)
+    .map(([key]) => TOGGLEABLE_SECTIONS[key]?.heading)
+    .filter(Boolean)
+  
+  if (sectionsToHide.length === 0) return content
+  
+  // Split content into lines and process
+  const lines = content.split('\n')
+  const result = []
+  let skipUntilNextH2 = false
+  
+  for (const line of lines) {
+    // Check if this is a heading we should skip
+    if (line.startsWith('## ')) {
+      if (sectionsToHide.some(heading => line.startsWith(heading))) {
+        skipUntilNextH2 = true
+        continue
+      } else {
+        skipUntilNextH2 = false
+      }
+    }
+    
+    if (!skipUntilNextH2) {
+      result.push(line)
+    }
+  }
+  
+  return result.join('\n')
+}
 
 function getNoteDisplayTitle(note) {
   return (
@@ -50,28 +125,108 @@ function getFolderDisplayName(folder) {
 // Inline note content component that fills available space
 function InlineNoteContent({ notePath, onClose }) {
   const queryClient = useQueryClient()
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false)
+  const [sectionVisibility, setSectionVisibility] = useState(getDefaultVisibility)
   
   const { data: note, isLoading, error } = useQuery({
     queryKey: ['note-content', notePath],
     queryFn: () => vaultApi.getNoteContent(notePath),
     enabled: !!notePath,
   })
+  
+  // Get the topic for the note (using title for better matching)
+  const topic = note?.title || note?.frontmatter?.title || note?.name || ''
+  
+  // Get source URL from frontmatter
+  const sourceUrl = note?.frontmatter?.source_url || note?.frontmatter?.url || note?.frontmatter?.doi
+  const sourcePath = note?.frontmatter?.source_path
+  
+  // Fetch existing exercises for this topic
+  const { data: exercisesData } = useQuery({
+    queryKey: ['exercises', 'topic', topic],
+    queryFn: () => practiceApi.listExercises({ topic, limit: 100 }),
+    enabled: !!topic,
+  })
+  
+  // Fetch existing cards for this topic
+  const { data: cardsData } = useQuery({
+    queryKey: ['cards', 'topic', topic],
+    queryFn: () => reviewApi.getCardsByTopic(topic, { limit: 100, includeNotDue: true }),
+    enabled: !!topic,
+  })
+  
+  const exerciseCount = exercisesData?.length || 0
+  const cardCount = cardsData?.cards?.length || cardsData?.total || 0
+  
+  // Toggle section visibility
+  const toggleSection = (sectionKey) => {
+    setSectionVisibility(prev => {
+      const newState = { ...prev, [sectionKey]: !prev[sectionKey] }
+      localStorage.setItem('knowledge-section-visibility', JSON.stringify(newState))
+      return newState
+    })
+  }
+  
+  // Toggle all sections
+  const toggleAllSections = (visible) => {
+    const newState = Object.fromEntries(
+      Object.keys(TOGGLEABLE_SECTIONS).map(key => [key, visible])
+    )
+    setSectionVisibility(newState)
+    localStorage.setItem('knowledge-section-visibility', JSON.stringify(newState))
+  }
+  
+  // Filter content based on visibility
+  const filteredContent = useMemo(() => {
+    return filterMarkdownSections(note?.content, sectionVisibility)
+  }, [note?.content, sectionVisibility])
+  
+  // Count visible sections
+  const visibleCount = Object.values(sectionVisibility).filter(Boolean).length
+  const totalSections = Object.keys(TOGGLEABLE_SECTIONS).length
 
-  // Extract topic from note folder or path for generation
+  // Extract topic from note - use title for better context matching
   const getTopic = () => {
     if (!note) return null
-    // Use folder as topic, or extract from path
+    // Use note title as the primary topic for better context matching
+    // The card generator searches for content by title/summary keywords
+    const title = note.title || note.frontmatter?.title || note.name
+    if (title) return title
+    // Fallback to folder if no title
     if (note.folder) return note.folder
-    // Fallback: use path without filename
+    // Last resort: use path without filename
     const parts = notePath.split('/')
     return parts.slice(0, -1).join('/') || 'general'
+  }
+
+  // Get display name for the note
+  const getNoteDisplayName = () => {
+    return note?.title || note?.frontmatter?.title || note?.name || notePath
   }
 
   // Generate cards mutation
   const generateCardsMutation = useMutation({
     mutationFn: ({ topic }) => reviewApi.generateCards({ topic, count: 10, difficulty: 'mixed' }),
     onSuccess: (data) => {
-      toast.success(`Generated ${data.generated_count} cards for "${data.topic}"`)
+      if (data.generated_count > 0) {
+        toast.success(
+          <div>
+            <strong>Generated {data.generated_count} cards</strong>
+            <p className="text-sm opacity-80">Topic: {data.topic}</p>
+            <p className="text-sm opacity-80">Total cards for topic: {data.total_cards}</p>
+          </div>,
+          { duration: 5000 }
+        )
+      } else {
+        toast.error(
+          <div>
+            <strong>No cards generated</strong>
+            <p className="text-sm opacity-80">No matching content found for &quot;{data.topic}&quot;</p>
+            <p className="text-sm opacity-80">Try processing this content first via ingestion.</p>
+          </div>,
+          { duration: 6000 }
+        )
+      }
       queryClient.invalidateQueries({ queryKey: ['cards'] })
     },
     onError: (error) => {
@@ -80,12 +235,48 @@ function InlineNoteContent({ notePath, onClose }) {
     },
   })
 
+  // Human-readable exercise type labels
+  const exerciseTypeLabels = {
+    free_recall: 'Free Recall',
+    self_explain: 'Self Explain',
+    worked_example: 'Worked Example',
+    code_debug: 'Debug Code',
+    code_complete: 'Code Completion',
+    code_implement: 'Implementation',
+    code_refactor: 'Refactor Code',
+    code_explain: 'Explain Code',
+    teach_back: 'Teach Back',
+    application: 'Application',
+    compare_contrast: 'Compare & Contrast',
+  }
+
   // Generate exercises mutation
   const generateExercisesMutation = useMutation({
     mutationFn: ({ topic }) => practiceApi.generateExercise({ topicId: topic, exerciseType: 'free_recall' }),
-    onSuccess: () => {
-      toast.success('Generated exercise successfully!')
+    onSuccess: (data) => {
+      const exerciseType = data?.exercise_type || 'free_recall'
+      const typeLabel = exerciseTypeLabels[exerciseType] || exerciseType
+      const prompt = data?.prompt?.substring(0, 80) || ''
+      const exerciseTopic = data?.topic || getTopic()
+      
+      toast.success(
+        <div className="space-y-2">
+          <strong>Generated {typeLabel} Exercise</strong>
+          {prompt && (
+            <p className="text-sm opacity-90 line-clamp-2">&quot;{prompt}...&quot;</p>
+          )}
+          <p className="text-xs opacity-70">Topic: {exerciseTopic}</p>
+          <Link 
+            to={`/exercises?topic=${encodeURIComponent(exerciseTopic)}`}
+            className="inline-block text-xs text-indigo-300 hover:text-indigo-200 underline mt-1"
+          >
+            View in Exercise Catalogue →
+          </Link>
+        </div>,
+        { duration: 6000 }
+      )
       queryClient.invalidateQueries({ queryKey: ['exercises'] })
+      queryClient.invalidateQueries({ queryKey: ['exercises', 'topic'] })
     },
     onError: (error) => {
       const message = error.response?.data?.detail || error.message || 'Failed to generate exercise'
@@ -99,7 +290,10 @@ function InlineNoteContent({ notePath, onClose }) {
       toast.error('Could not determine topic for this note')
       return
     }
-    generateCardsMutation.mutate({ topic })
+    toast.loading(`Generating cards for "${getNoteDisplayName()}"...`, { id: 'generate-cards' })
+    generateCardsMutation.mutate({ topic }, {
+      onSettled: () => toast.dismiss('generate-cards')
+    })
   }
 
   const handleGenerateExercises = () => {
@@ -108,7 +302,10 @@ function InlineNoteContent({ notePath, onClose }) {
       toast.error('Could not determine topic for this note')
       return
     }
-    generateExercisesMutation.mutate({ topic })
+    toast.loading(`Generating exercise for "${getNoteDisplayName()}"...`, { id: 'generate-exercise' })
+    generateExercisesMutation.mutate({ topic }, {
+      onSettled: () => toast.dismiss('generate-exercise')
+    })
   }
 
   const isGenerating = generateCardsMutation.isPending || generateExercisesMutation.isPending
@@ -157,15 +354,91 @@ function InlineNoteContent({ notePath, onClose }) {
           <h1 className="text-2xl font-bold text-text-primary font-heading truncate">
             {getNoteDisplayTitle(note) || 'Untitled'}
           </h1>
-          {note?.modified && (
-            <p className="text-sm text-text-muted mt-1 flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4" />
-              Modified {format(new Date(note.modified), 'MMM d, yyyy')}
-            </p>
-          )}
+          <div className="flex items-center gap-4 mt-1">
+            {note?.modified && (
+              <p className="text-sm text-text-muted flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4" />
+                Modified {format(new Date(note.modified), 'MMM d, yyyy')}
+              </p>
+            )}
+            {/* Source link */}
+            {(sourceUrl || sourcePath) && (
+              <a
+                href={sourceUrl || `file://${sourcePath}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 transition-colors"
+              >
+                <DocumentArrowDownIcon className="w-4 h-4" />
+                {sourceUrl ? 'View Original Source' : 'Open Source File'}
+              </a>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Section visibility settings */}
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSettingsPanel(!showSettingsPanel)}
+              icon={<AdjustmentsHorizontalIcon className="w-4 h-4" />}
+              className={clsx(showSettingsPanel && 'bg-bg-hover')}
+            >
+              Sections ({visibleCount}/{totalSections})
+            </Button>
+            
+            {/* Settings panel dropdown */}
+            <AnimatePresence>
+              {showSettingsPanel && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute right-0 top-full mt-2 w-64 bg-bg-elevated border border-border-primary rounded-lg shadow-xl z-50"
+                >
+                  <div className="p-3 border-b border-border-primary">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-text-primary">Show Sections</span>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => toggleAllSections(true)}
+                          className="text-xs text-indigo-400 hover:text-indigo-300"
+                        >
+                          All
+                        </button>
+                        <span className="text-text-muted">|</span>
+                        <button
+                          onClick={() => toggleAllSections(false)}
+                          className="text-xs text-indigo-400 hover:text-indigo-300"
+                        >
+                          None
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2 max-h-80 overflow-y-auto">
+                    {Object.entries(TOGGLEABLE_SECTIONS).map(([key, config]) => (
+                      <button
+                        key={key}
+                        onClick={() => toggleSection(key)}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-bg-hover transition-colors"
+                      >
+                        <span className="text-sm text-text-secondary">{config.label}</span>
+                        {sectionVisibility[key] ? (
+                          <EyeIcon className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <EyeSlashIcon className="w-4 h-4 text-text-muted" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          
           {/* Generation buttons */}
           <Button
             variant="secondary"
@@ -214,6 +487,16 @@ function InlineNoteContent({ notePath, onClose }) {
               ))}
             </div>
           )}
+          {/* Learning content stats */}
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-text-muted">|</span>
+            <span className="text-text-secondary">
+              <span className="text-indigo-400">{cardCount}</span> cards
+            </span>
+            <span className="text-text-secondary">
+              <span className="text-emerald-400">{exerciseCount}</span> exercises
+            </span>
+          </div>
           {note.frontmatter?.type && (
             <Badge variant="primary" size="xs">
               {note.frontmatter.type}
@@ -223,9 +506,9 @@ function InlineNoteContent({ notePath, onClose }) {
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" onClick={() => setShowSettingsPanel(false)}>
         <div className="max-w-4xl mx-auto px-8 py-8">
-          {note?.content ? (
+          {filteredContent ? (
             <article className="prose prose-invert prose-lg max-w-none">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
@@ -275,7 +558,7 @@ function InlineNoteContent({ notePath, onClose }) {
                   ),
                 }}
               >
-                {note.content}
+                {filteredContent}
               </ReactMarkdown>
             </article>
           ) : (
