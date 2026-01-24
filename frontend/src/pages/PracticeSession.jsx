@@ -23,7 +23,7 @@
  */
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { clsx } from 'clsx'
@@ -46,6 +46,10 @@ import { isCodeExercise } from '../constants/enums.generated'
 export function PracticeSession() {
   const { topicId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  
+  // Get topic from URL query param (e.g., /practice?topic=ml/agents) or path param
+  const topicFromUrl = searchParams.get('topic') || topicId || ''
   
   const preferredSessionLength = useSettingsStore((s) => s.preferredSessionLength)
   
@@ -68,7 +72,7 @@ export function PracticeSession() {
   const [isConfiguring, setIsConfiguring] = useState(!session)
   const [sessionConfig, setSessionConfig] = useState({
     duration: preferredSessionLength,
-    topic: topicId || '',
+    topic: topicFromUrl,
     topicName: '',
     reuseExercises: true, // Default to reusing existing exercises (faster, no API cost)
   })
@@ -101,6 +105,21 @@ export function PracticeSession() {
     }
     return flatten(topicsData?.roots || [])
   }, [topicsData])
+  
+  // Update topic when URL changes (after flattenedTopics is defined)
+  useEffect(() => {
+    if (topicFromUrl && flattenedTopics.length > 0) {
+      // Find the topic name from the topics list
+      const topic = flattenedTopics.find(t => t.path === topicFromUrl || t.id === topicFromUrl)
+      if (topic || topicFromUrl) {
+        setSessionConfig(prev => ({
+          ...prev,
+          topic: topicFromUrl,
+          topicName: topic?.name || topicFromUrl,
+        }))
+      }
+    }
+  }, [topicFromUrl, flattenedTopics])
 
   // Filter and sort topics
   const filteredTopics = useMemo(() => {

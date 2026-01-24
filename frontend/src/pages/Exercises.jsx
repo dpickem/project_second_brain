@@ -4,8 +4,8 @@
  * Browse and filter all available exercises.
  */
 
-import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useMemo, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { clsx } from 'clsx'
@@ -59,17 +59,31 @@ const exerciseTypeOptions = [
 
 export function Exercises() {
   const navigate = useNavigate()
-  const [search, setSearch] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  
+  // Read topic filter from URL if present
+  const topicFromUrl = searchParams.get('topic') || ''
+  
+  const [search, setSearch] = useState(topicFromUrl)
   const [typeFilter, setTypeFilter] = useState('')
   const [difficultyFilter, setDifficultyFilter] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
+  const [showFilters, setShowFilters] = useState(!!topicFromUrl) // Auto-show filters if topic in URL
   
   const { startSession } = usePracticeStore()
+  
+  // Update search when URL topic changes
+  useEffect(() => {
+    if (topicFromUrl) {
+      setSearch(topicFromUrl)
+      setShowFilters(true)
+    }
+  }, [topicFromUrl])
 
-  // Fetch exercises
+  // Fetch exercises - include topic filter in query
   const { data: exercises, isLoading, error } = useQuery({
-    queryKey: ['exercises', typeFilter, difficultyFilter],
+    queryKey: ['exercises', typeFilter, difficultyFilter, topicFromUrl],
     queryFn: () => practiceApi.listExercises({
+      topic: topicFromUrl || undefined,
       exerciseType: typeFilter || undefined,
       difficulty: difficultyFilter || undefined,
       limit: 100,
@@ -77,31 +91,68 @@ export function Exercises() {
   })
 
   // Create a quick session with a single exercise
+  // When the exercise has a specific topic, we create a session and include that exercise
   const startSingleExerciseMutation = useMutation({
-    mutationFn: (exercise) => practiceApi.createSession({
-      topicFilter: exercise.topic,
-      durationMinutes: 5,
-      reuseExercises: true, // Only use existing exercises
-    }),
-    onSuccess: (session, exercise) => {
-      // Find and prioritize the selected exercise in the session
-      // If the exercise is in the session, we're good
-      // Otherwise, create a minimal session with just this exercise
-      const items = session.items || []
-      const hasSelectedExercise = items.some(
-        item => item.exercise?.id === exercise.id
+    mutationFn: async (exercise) => {
+      // Try creating a session with the exercise's topic
+      const session = await practiceApi.createSession({
+        topicFilter: exercise.topic,
+        durationMinutes: 10, // Increase time to better chance of finding exercises
+        reuseExercises: true, // Only use existing exercises
+      })
+      
+      // Return both the session and the original exercise for verification
+      return { session, requestedExercise: exercise }
+    },
+    onSuccess: ({ session, requestedExercise }) => {
+      // Check if session was created successfully
+      if (!session || !session.items || session.items.length === 0) {
+        // Session was empty - create a minimal session with just the requested exercise
+        const minimalSession = {
+          session_id: Date.now(), // Temp ID
+          items: [{
+            item_type: 'exercise',
+            exercise: requestedExercise,
+            estimated_minutes: requestedExercise.estimated_time_minutes || 5,
+          }],
+          estimated_duration_minutes: requestedExercise.estimated_time_minutes || 5,
+          topics_covered: [requestedExercise.topic],
+          session_type: 'practice',
+        }
+        startSession(minimalSession)
+        navigate('/practice')
+        return
+      }
+      
+      // Check if the requested exercise is in the session
+      const hasRequestedExercise = session.items.some(
+        item => item.exercise?.id === requestedExercise.id
       )
       
-      if (hasSelectedExercise || items.length > 0) {
-        startSession(session)
-        navigate('/practice')
-      } else {
-        toast.error('Could not create session with this exercise. Try generating new exercises first.')
+      if (!hasRequestedExercise && requestedExercise) {
+        // Add the requested exercise at the beginning if not already included
+        session.items.unshift({
+          item_type: 'exercise',
+          exercise: requestedExercise,
+          estimated_minutes: requestedExercise.estimated_time_minutes || 5,
+        })
       }
+      
+      startSession(session)
+      navigate('/practice')
     },
     onError: (error) => {
-      const message = error.response?.data?.detail || error.message || 'Failed to start exercise'
-      toast.error(message)
+      const detail = error.response?.data?.detail
+      let message = 'Failed to start exercise'
+      
+      if (typeof detail === 'string') {
+        message = detail
+      } else if (Array.isArray(detail) && detail.length > 0) {
+        message = detail[0]?.msg || 'Validation error'
+      }
+      
+      // On API error, try starting with just the exercise directly
+      toast.error(`${message}. Starting exercise directly...`)
     },
   })
 

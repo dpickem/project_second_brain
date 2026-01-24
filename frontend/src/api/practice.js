@@ -59,6 +59,8 @@ export const practiceApi = {
       body: {
         topic_filter: params.topicFilter,
         duration_minutes: params.durationMinutes || 15,
+        // Practice page is for exercises only (cards are on /review page)
+        content_mode: 'exercises_only',
         // Map reuseExercises boolean to exercise_source enum value
         // true = existing_only (no generation), false = generate_new
         exercise_source: params.reuseExercises === false ? 'generate_new' : 'existing_only',
@@ -108,15 +110,15 @@ export const practiceApi = {
   /**
    * Generate a new exercise on demand
    * @param {Object} params - Exercise parameters
-   * @param {string} params.topicId - Topic ID to generate exercise for
+   * @param {string} params.topicId - Topic to generate exercise for
    * @param {string} params.exerciseType - Type of exercise to generate
-   * @param {string} [params.difficulty] - Difficulty level ('easy', 'medium', 'hard')
-   * @returns {Promise<{id: string, type: string, question: string, options?: Array<string>, topic_id: string, difficulty: string}>} Generated exercise
+   * @param {string} [params.difficulty] - Difficulty level ('foundational', 'intermediate', 'advanced')
+   * @returns {Promise<{id: number, exercise_type: string, prompt: string, topic: string, difficulty: string}>} Generated exercise
    */
   generateExercise: (params) => 
-    typedApi.POST('/api/practice/generate', {
+    typedApi.POST('/api/practice/exercise/generate', {
       body: {
-        topic_id: params.topicId,
+        topic: params.topicId, // Backend expects 'topic' not 'topic_id'
         exercise_type: params.exerciseType,
         difficulty: params.difficulty,
       }

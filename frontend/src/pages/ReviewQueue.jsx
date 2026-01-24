@@ -21,7 +21,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -198,6 +198,10 @@ function NoCardsState({ onNavigate, onRefresh }) {
 export function ReviewQueue() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
+  
+  // Get topic filter from URL (e.g., /review?topic=ml/agents)
+  const topicFromUrl = searchParams.get('topic') || ''
   
   const showKeyboardHints = useSettingsStore((s) => s.showKeyboardHints)
   
@@ -221,9 +225,10 @@ export function ReviewQueue() {
   const [showFeedback, setShowFeedback] = useState(false)
 
   // Fetch due cards - don't cache so we get fresh shuffled cards each session
+  // Pass topic filter if provided via URL
   const { data: dueCards, isLoading, error } = useQuery({
-    queryKey: ['review', 'due'],
-    queryFn: reviewApi.getDueCards,
+    queryKey: ['review', 'due', topicFromUrl],
+    queryFn: () => reviewApi.getDueCards({ topic: topicFromUrl || undefined }),
     staleTime: 0, // Always refetch to get freshly shuffled cards
     gcTime: 0, // Don't cache (formerly cacheTime)
   })

@@ -7,9 +7,11 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { clsx } from 'clsx'
 import ReactMarkdown from 'react-markdown'
+import { BookOpenIcon } from '@heroicons/react/24/outline'
 import { Badge, ContentTypeBadge, Button, Spinner } from '../common'
 
 /**
@@ -142,7 +144,12 @@ export function FlashCard({
               exit={{ opacity: 0, y: -10 }}
               className="flex-1 flex flex-col"
             >
-              <EvaluationFeedback evaluation={evaluation} expectedAnswer={card.back} />
+              <EvaluationFeedback 
+                evaluation={evaluation} 
+                expectedAnswer={card.back}
+                contentId={card.content_id}
+                tags={card.tags}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -154,7 +161,7 @@ export function FlashCard({
 /**
  * Evaluation Feedback Display
  */
-function EvaluationFeedback({ evaluation, expectedAnswer }) {
+function EvaluationFeedback({ evaluation, expectedAnswer, contentId, tags }) {
   if (!evaluation) return null
 
   const ratingLabels = {
@@ -165,6 +172,7 @@ function EvaluationFeedback({ evaluation, expectedAnswer }) {
   }
 
   const ratingInfo = ratingLabels[evaluation.rating] || ratingLabels[2]
+  const primaryTopic = tags?.[0]
 
   return (
     <div className="space-y-4">
@@ -183,6 +191,38 @@ function EvaluationFeedback({ evaluation, expectedAnswer }) {
           </span>
         </div>
       </div>
+
+      {/* Study Source Link - Show when answer needs improvement */}
+      {!evaluation.is_correct && (contentId || primaryTopic) && (
+        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+          <h4 className="text-sm font-medium text-amber-400 mb-2 flex items-center gap-2">
+            <BookOpenIcon className="w-4 h-4" />
+            Review the Source Material
+          </h4>
+          <p className="text-sm text-text-secondary mb-3">
+            It looks like you need to brush up on this topic. Check out the original content to reinforce your understanding.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {contentId && (
+              <Link
+                to={`/knowledge?content=${contentId}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 rounded-lg transition-colors"
+              >
+                <BookOpenIcon className="w-4 h-4" />
+                View Source Note
+              </Link>
+            )}
+            {primaryTopic && (
+              <Link
+                to={`/knowledge?topic=${encodeURIComponent(primaryTopic)}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 rounded-lg transition-colors"
+              >
+                Browse Topic: {primaryTopic}
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Feedback */}
       <div className="p-4 bg-bg-tertiary rounded-xl">
