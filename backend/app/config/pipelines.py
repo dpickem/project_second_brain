@@ -12,7 +12,7 @@ Usage:
 
 Environment Variables:
     PIPELINE_OCR_MODEL - Vision model for OCR (default: mistral/mistral-ocr-latest)
-    PIPELINE_TEXT_MODEL - Text model for inference (default: openai/gpt-5-mini)
+    PIPELINE_TEXT_MODEL - Text model for inference (default: gemini/gemini-3-flash-preview)
     PIPELINE_PDF_HANDWRITING_DETECTION - Enable handwriting detection (default: True)
     etc.
 """
@@ -61,7 +61,7 @@ class PipelineSettings(BaseSettings):
     # ===========================================
     # Text Model for Metadata/Inference
     # ===========================================
-    TEXT_MODEL: str = "openai/gpt-5-mini"
+    TEXT_MODEL: str = "gemini/gemini-3-flash-preview"
 
     # ===========================================
     # Raindrop.io Sync

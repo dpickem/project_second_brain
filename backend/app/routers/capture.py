@@ -453,6 +453,15 @@ async def capture_pdf(
         if ext != "pdf":
             raise HTTPException(400, "File must be a PDF")
 
+    # Capture original filename BEFORE saving (save_upload may rename)
+    original_filename = file.filename or "Untitled PDF"
+    # Clean up the title: remove .pdf extension and clean up
+    title = original_filename
+    if title.lower().endswith(".pdf"):
+        title = title[:-4]
+    # Replace underscores with spaces for readability
+    title = title.replace("_", " ").strip()
+
     # Save file
     file_path = await save_upload(file, directory="pdfs")
 
@@ -461,7 +470,7 @@ async def capture_pdf(
     ucf = UnifiedContent(
         source_type=ContentType.PAPER,
         source_file_path=str(file_path),
-        title=file.filename or "Untitled PDF",
+        title=title,
         created_at=datetime.now(),
         full_text="",  # Will be extracted
         asset_paths=[str(file_path)],
@@ -469,6 +478,7 @@ async def capture_pdf(
         metadata={
             "content_type_hint": content_type_hint,
             "detect_handwriting": detect_handwriting,
+            "original_filename": original_filename,  # Preserve original filename
         },
     )
 

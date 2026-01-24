@@ -237,6 +237,9 @@ class UnifiedContent(BaseModel):
         SQLAlchemy Content models to Pydantic UnifiedContent models,
         used when loading content for LLM processing.
 
+        Note: For annotations to be included, the db_content must be loaded
+        with selectinload(Content.annotations).
+
         Args:
             db_content: SQLAlchemy Content model instance from the database
 
@@ -246,11 +249,35 @@ class UnifiedContent(BaseModel):
         Example:
             >>> async with async_session_maker() as session:
             ...     result = await session.execute(
-            ...         select(Content).where(Content.content_uuid == content_id)
+            ...         select(Content)
+            ...         .where(Content.content_uuid == content_id)
+            ...         .options(selectinload(Content.annotations))
             ...     )
             ...     db_content = result.scalar_one()
             ...     unified = UnifiedContent.from_db_content(db_content)
         """
+        # Convert database annotations to Pydantic Annotation objects
+        annotations = []
+        if hasattr(db_content, 'annotations') and db_content.annotations:
+            for db_annot in db_content.annotations:
+                try:
+                    annotations.append(
+                        Annotation(
+                            id=str(db_annot.id),
+                            type=AnnotationType(db_annot.annotation_type.upper()),
+                            content=db_annot.text or "",
+                            page_number=db_annot.page_number,
+                            context=db_annot.context,
+                            confidence=db_annot.ocr_confidence,
+                        )
+                    )
+                except (ValueError, AttributeError) as e:
+                    # Skip invalid annotations but log warning
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        f"Skipping invalid annotation {db_annot.id}: {e}"
+                    )
+
         return cls(
             id=db_content.content_uuid,
             source_type=ContentType(db_content.content_type.upper()),
@@ -263,6 +290,7 @@ class UnifiedContent(BaseModel):
                 if db_content.metadata_json
                 else []
             ),
+            annotations=annotations,
             metadata=db_content.metadata_json or {},
         )
 

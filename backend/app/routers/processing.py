@@ -185,10 +185,12 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
     logger.info(f"Starting background processing for content {content_id}")
 
     try:
-        # Load content from database
+        # Load content from database (include annotations for follow-up generation)
         async with async_session_maker() as session:
             result = await session.execute(
-                select(Content).where(Content.content_uuid == content_id)
+                select(Content)
+                .where(Content.content_uuid == content_id)
+                .options(selectinload(Content.annotations))
             )
             db_content = result.scalar_one_or_none()
 
@@ -196,7 +198,7 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
                 logger.error(f"Content {content_id} not found")
                 return
 
-            # Convert to UnifiedContent
+            # Convert to UnifiedContent (annotations are now loaded)
             content = UnifiedContent.from_db_content(db_content)
 
             # Update status to processing
@@ -232,6 +234,41 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
                     processing_result=processing_result,
                 )
                 session.add(run)
+                await session.flush()  # Get run.id for relationships
+                
+                # Create related records (followups, questions, connections)
+                from app.db.models_processing import FollowupRecord, QuestionRecord
+                
+                # Save follow-up tasks
+                for followup in processing_result.followups:
+                    followup_record = FollowupRecord(
+                        processing_run_id=run.id,
+                        content_id=db_content.id,  # Required FK to content
+                        task=followup.task,
+                        task_type=followup.task_type.value if hasattr(followup.task_type, 'value') else followup.task_type,
+                        priority=followup.priority.value if hasattr(followup.priority, 'value') else followup.priority,
+                        estimated_time=followup.estimated_time.value if hasattr(followup.estimated_time, 'value') else followup.estimated_time,
+                    )
+                    session.add(followup_record)
+                
+                # Save mastery questions
+                for question in processing_result.mastery_questions:
+                    question_record = QuestionRecord(
+                        processing_run_id=run.id,
+                        content_id=db_content.id,  # Required FK to content
+                        question=question.question,
+                        question_type=question.question_type.value if hasattr(question.question_type, 'value') else question.question_type,
+                        difficulty=question.difficulty.value if hasattr(question.difficulty, 'value') else question.difficulty,
+                        hints=question.hints,
+                        key_points=question.key_points,
+                    )
+                    session.add(question_record)
+                
+                # Note: Connection saving is skipped for now due to complex FK resolution
+                # Connections use content UUID strings but DB requires integer FKs
+                
+                logger.info(f"Saved {len(processing_result.followups)} followups, "
+                           f"{len(processing_result.mastery_questions)} questions")
 
                 # Update content status and metadata
                 db_content.status = ProcessingStatus.PROCESSED

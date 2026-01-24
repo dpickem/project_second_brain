@@ -18,11 +18,12 @@ from app.services.processing.pipeline import PipelineConfig
 class TestPipelineConfig:
     """Tests for PipelineConfig with generate_cards/generate_exercises flags."""
 
-    def test_config_defaults_cards_and_exercises_true(self):
-        """Test that PipelineConfig defaults have cards/exercises enabled."""
+    def test_config_defaults_cards_and_exercises_false(self):
+        """Test that PipelineConfig defaults have cards/exercises disabled (on-demand generation)."""
         config = PipelineConfig()
-        assert config.generate_cards is True
-        assert config.generate_exercises is True
+        # Cards and exercises are disabled by default to use on-demand generation
+        assert config.generate_cards is False
+        assert config.generate_exercises is False
 
     def test_config_cards_false(self):
         """Test PipelineConfig with cards disabled."""

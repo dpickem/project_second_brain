@@ -201,15 +201,29 @@ class ProcessingSettings(BaseSettings):
     # Max chars of summary for followup prompt
     FOLLOWUP_SUMMARY_TRUNCATE: int = 2000
 
-    # Max annotations to include in followup prompt
-    FOLLOWUP_MAX_ANNOTATIONS: int = 10
+    # Max annotations to include in followup prompt (base value, can scale up dynamically)
+    FOLLOWUP_MAX_ANNOTATIONS: int = 20
+
+    # Hard cap for annotations in prompt to avoid token limits
+    FOLLOWUP_ANNOTATIONS_HARD_CAP: int = 50
 
     # Max chars per annotation in followup prompt
-    FOLLOWUP_ANNOTATION_TRUNCATE: int = 200
+    FOLLOWUP_ANNOTATION_TRUNCATE: int = 300
 
     # LLM parameters for followup generation
     FOLLOWUP_TEMPERATURE: float = 0.4
-    FOLLOWUP_MAX_TOKENS: int = 1000
+    FOLLOWUP_MAX_TOKENS: int = 2500  # Increased to support up to 20 tasks
+
+    # Dynamic task range calculation settings
+    FOLLOWUP_BASE_MIN_TASKS: int = 3  # Minimum tasks for minimal content
+    FOLLOWUP_BASE_MAX_TASKS: int = 5  # Base maximum tasks
+    FOLLOWUP_ANNOTATIONS_PER_BONUS: int = 10  # Annotations needed per bonus task
+    FOLLOWUP_MAX_ANNOTATION_BONUS: int = 10  # Max bonus from annotations
+    FOLLOWUP_CONCEPTS_PER_BONUS: int = 5  # Concepts needed per bonus task
+    FOLLOWUP_MAX_CONCEPT_BONUS: int = 5  # Max bonus from concepts
+    FOLLOWUP_MIN_TASKS_FLOOR: int = 3  # Absolute minimum tasks
+    FOLLOWUP_MIN_TASKS_CEILING: int = 10  # Maximum for min_tasks
+    FOLLOWUP_MAX_TASKS_CEILING: int = 20  # Absolute maximum tasks
 
     # =========================================================================
     # MASTERY QUESTION GENERATION SETTINGS

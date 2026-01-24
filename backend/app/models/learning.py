@@ -512,10 +512,21 @@ class MasteryState(BaseModel):
     Combines card-based metrics (stability, success rate) with practice history
     to estimate topic mastery. The retention_estimate predicts current recall
     probability based on time since last review and card stability.
+    
+    Now includes separate card and exercise mastery for filtered views.
     """
 
     topic_path: str
-    mastery_score: float = Field(ge=0.0, le=1.0)
+    mastery_score: float = Field(ge=0.0, le=1.0, description="Combined mastery score")
+    # Separate mastery scores for cards vs exercises
+    card_mastery_score: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Card-based mastery score"
+    )
+    exercise_mastery_score: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Exercise-based mastery score"
+    )
+    card_count: int = Field(0, description="Number of cards for this topic")
+    exercise_count: int = Field(0, description="Number of exercises for this topic")
     confidence_avg: Optional[float] = None
     practice_count: int = 0
     success_rate: Optional[float] = None
@@ -613,6 +624,7 @@ class LearningCurveDataPoint(BaseModel):
     retention_estimate: Optional[float] = None
     # Card activity
     cards_reviewed: int = Field(0, description="Number of cards reviewed on this day")
+    card_time_minutes: int = Field(0, description="Time spent on card reviews in minutes")
     # Exercise activity
     exercises_attempted: int = Field(
         0, description="Number of exercise attempts on this day"
@@ -620,7 +632,10 @@ class LearningCurveDataPoint(BaseModel):
     exercise_score: Optional[float] = Field(
         None, description="Average exercise score for this day (0-100)"
     )
-    # Time tracking
+    exercise_time_minutes: int = Field(
+        0, description="Time spent on exercises in minutes"
+    )
+    # Time tracking (total = card_time + exercise_time)
     time_minutes: int = Field(0, description="Total practice time in minutes")
 
 
