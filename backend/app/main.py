@@ -31,6 +31,7 @@ from app.routers import (
     review_router,
     analytics_router,
     assistant_router,
+    llm_usage_router,
 )
 from app.services.obsidian.lifecycle import (
     startup_vault_services,
@@ -137,6 +138,7 @@ app.include_router(practice_router.router)
 app.include_router(review_router.router)
 app.include_router(analytics_router.router)
 app.include_router(assistant_router.router)
+app.include_router(llm_usage_router.router)
 
 
 @app.get("/graph")

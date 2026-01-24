@@ -10,6 +10,7 @@ from app.routers import practice as practice_router
 from app.routers import review as review_router
 from app.routers import analytics as analytics_router
 from app.routers import assistant as assistant_router
+from app.routers import llm_usage as llm_usage_router
 
 __all__ = [
     "health_router",
@@ -22,4 +23,5 @@ __all__ = [
     "review_router",
     "analytics_router",
     "assistant_router",
+    "llm_usage_router",
 ]

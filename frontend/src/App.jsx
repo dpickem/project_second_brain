@@ -20,9 +20,11 @@ const Knowledge = lazy(() => import('./pages/Knowledge'))
 const KnowledgeGraphPage = lazy(() => import('./pages/KnowledgeGraph'))
 const PracticeSession = lazy(() => import('./pages/PracticeSession'))
 const Exercises = lazy(() => import('./pages/Exercises'))
+const CardCatalogue = lazy(() => import('./pages/CardCatalogue'))
 const ReviewQueue = lazy(() => import('./pages/ReviewQueue'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const Assistant = lazy(() => import('./pages/Assistant'))
+const LLMUsage = lazy(() => import('./pages/LLMUsage'))
 const Settings = lazy(() => import('./pages/Settings'))
 
 // Create a query client
@@ -69,11 +71,13 @@ function Navigation() {
         <NavItem to="/" icon={<HomeIcon />} title="Dashboard" shortcut="⌘1" />
         <NavItem to="/practice" icon={<PracticeIcon />} title="Practice" shortcut="⌘2" />
         <NavItem to="/exercises" icon={<ExercisesIcon />} title="Exercises" shortcut="⌘3" />
-        <NavItem to="/review" icon={<ReviewIcon />} title="Review" shortcut="⌘4" />
-        <NavItem to="/knowledge" icon={<KnowledgeIcon />} title="Knowledge" shortcut="⌘5" />
-        <NavItem to="/graph" icon={<GraphIcon />} title="Graph" shortcut="⌘6" />
-        <NavItem to="/analytics" icon={<AnalyticsIcon />} title="Analytics" shortcut="⌘7" />
-        <NavItem to="/assistant" icon={<AssistantIcon />} title="Assistant" shortcut="⌘8" />
+        <NavItem to="/cards" icon={<CardsIcon />} title="Cards" shortcut="⌘4" />
+        <NavItem to="/review" icon={<ReviewIcon />} title="Review" shortcut="⌘5" />
+        <NavItem to="/knowledge" icon={<KnowledgeIcon />} title="Knowledge" shortcut="⌘6" />
+        <NavItem to="/graph" icon={<GraphIcon />} title="Graph" shortcut="⌘7" />
+        <NavItem to="/analytics" icon={<AnalyticsIcon />} title="Analytics" shortcut="⌘8" />
+        <NavItem to="/assistant" icon={<AssistantIcon />} title="Assistant" shortcut="⌘9" />
+        <NavItem to="/llm-usage" icon={<CostIcon />} title="LLM Costs" />
       </div>
 
       {/* Spacer */}
@@ -140,6 +144,14 @@ function ExercisesIcon() {
   )
 }
 
+function CardsIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+    </svg>
+  )
+}
+
 function ReviewIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,6 +198,14 @@ function AssistantIcon() {
   )
 }
 
+function CostIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+}
+
 function SettingsIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,12 +245,14 @@ function App() {
                 <Route path="/practice" element={<AnimatedPage><PracticeSession /></AnimatedPage>} />
                 <Route path="/practice/:topicId" element={<AnimatedPage><PracticeSession /></AnimatedPage>} />
                 <Route path="/exercises" element={<AnimatedPage><Exercises /></AnimatedPage>} />
+                <Route path="/cards" element={<AnimatedPage><CardCatalogue /></AnimatedPage>} />
                 <Route path="/review" element={<AnimatedPage><ReviewQueue /></AnimatedPage>} />
                 <Route path="/knowledge" element={<AnimatedPage><Knowledge /></AnimatedPage>} />
                 <Route path="/graph" element={<AnimatedPage><KnowledgeGraphPage /></AnimatedPage>} />
                 <Route path="/analytics" element={<AnimatedPage><Analytics /></AnimatedPage>} />
                 <Route path="/analytics/:topicId" element={<AnimatedPage><Analytics /></AnimatedPage>} />
                 <Route path="/assistant" element={<AnimatedPage><Assistant /></AnimatedPage>} />
+                <Route path="/llm-usage" element={<AnimatedPage><LLMUsage /></AnimatedPage>} />
                 <Route path="/settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
               </Routes>
             </AnimatePresence>
