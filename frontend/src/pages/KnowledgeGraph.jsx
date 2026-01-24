@@ -4,12 +4,63 @@
  * Full-page graph visualization with stats sidebar and node details panel.
  */
 
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GraphViewer } from '../components/GraphViewer'
-import { fetchGraphStats, fetchNodeDetails } from '../api/knowledge'
+import { fetchGraphStats, fetchNodeDetails, fetchGraph } from '../api/knowledge'
+
+/**
+ * Fuzzy search scoring function
+ * Returns a score (0-1) indicating how well the query matches the text
+ * Higher scores mean better matches
+ */
+function fuzzyMatch(text, query) {
+  if (!text || !query) return 0
+  
+  const lowerText = text.toLowerCase()
+  const lowerQuery = query.toLowerCase()
+  
+  // Exact match gets highest score
+  if (lowerText === lowerQuery) return 1
+  
+  // Contains exact query
+  if (lowerText.includes(lowerQuery)) {
+    // Score based on how much of the text the query covers
+    return 0.9 * (lowerQuery.length / lowerText.length) + 0.1
+  }
+  
+  // Fuzzy character matching
+  let queryIndex = 0
+  let matchCount = 0
+  let consecutiveMatches = 0
+  let maxConsecutive = 0
+  let prevMatchIndex = -2
+  
+  for (let i = 0; i < lowerText.length && queryIndex < lowerQuery.length; i++) {
+    if (lowerText[i] === lowerQuery[queryIndex]) {
+      matchCount++
+      if (i === prevMatchIndex + 1) {
+        consecutiveMatches++
+        maxConsecutive = Math.max(maxConsecutive, consecutiveMatches)
+      } else {
+        consecutiveMatches = 1
+      }
+      prevMatchIndex = i
+      queryIndex++
+    }
+  }
+  
+  // All query characters must be found in order
+  if (queryIndex < lowerQuery.length) return 0
+  
+  // Score based on matches, consecutive bonus, and position
+  const matchRatio = matchCount / lowerQuery.length
+  const consecutiveBonus = maxConsecutive / lowerQuery.length * 0.3
+  
+  return Math.min(0.8, matchRatio * 0.5 + consecutiveBonus)
+}
 
 // Stat item component
 function StatItem({ icon, label, value, color = 'text-white' }) {
@@ -160,6 +211,7 @@ export default function KnowledgeGraphPage() {
   const navigate = useNavigate()
   const [selectedNode, setSelectedNode] = useState(null)
   const [centerId, setCenterId] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
   
   // Node type filters - all enabled by default
   const [enabledNodeTypes, setEnabledNodeTypes] = useState({
@@ -179,6 +231,40 @@ export default function KnowledgeGraphPage() {
     queryFn: fetchGraphStats,
     staleTime: 60_000, // Cache for 1 minute
   })
+  
+  // Fetch graph data for search functionality
+  const { data: graphData } = useQuery({
+    queryKey: ['graph-data', nodeTypesString],
+    queryFn: () => fetchGraph({ nodeTypes: nodeTypesString, limit: 200 }),
+    staleTime: 60_000,
+    enabled: !!nodeTypesString,
+  })
+  
+  // Compute highlighted node IDs based on fuzzy search
+  const highlightedNodeIds = useMemo(() => {
+    if (!searchQuery.trim() || !graphData?.nodes) return null
+    
+    const query = searchQuery.trim()
+    const matches = new Set()
+    
+    graphData.nodes.forEach(node => {
+      // Search in label, type, and any other relevant fields
+      const labelScore = fuzzyMatch(node.label || '', query)
+      const typeScore = fuzzyMatch(node.type || '', query) * 0.5 // Lower weight for type
+      
+      // If any field matches with sufficient score, highlight the node
+      if (labelScore > 0.3 || typeScore > 0.3) {
+        matches.add(node.id)
+      }
+    })
+    
+    return matches.size > 0 ? matches : null
+  }, [searchQuery, graphData?.nodes])
+  
+  // Clear search handler
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('')
+  }, [])
 
   const handleNodeClick = (node) => {
     setSelectedNode(node)
@@ -255,6 +341,60 @@ export default function KnowledgeGraphPage() {
               </button>
             )}
           </div>
+          
+          {/* Search Box */}
+          <div className="flex-1 max-w-md mx-8">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg
+                  className="h-5 w-5 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search nodes..."
+                className="block w-full pl-10 pr-10 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  <svg
+                    className="h-5 w-5 text-slate-400 hover:text-white transition-colors"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {highlightedNodeIds && (
+              <p className="mt-1 text-xs text-pink-400 text-center">
+                {highlightedNodeIds.size} node{highlightedNodeIds.size !== 1 ? 's' : ''} found
+              </p>
+            )}
+          </div>
+          
           <div className="flex items-center gap-3">
             {selectedNode && (
               <button
@@ -295,6 +435,7 @@ export default function KnowledgeGraphPage() {
             onNodeClick={handleNodeClick}
             nodeTypes={nodeTypesString}
             limit={200}
+            highlightedNodeIds={highlightedNodeIds}
           />
 
           {/* Selected Node Details */}

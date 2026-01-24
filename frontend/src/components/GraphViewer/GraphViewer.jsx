@@ -62,6 +62,7 @@ export function GraphViewer({
   nodeTypes = 'Content,Concept,Note',
   limit = 150,
   showLegend = true,
+  highlightedNodeIds = null, // Set of node IDs to highlight from search
 }) {
   const graphRef = useRef()
   const containerRef = useRef()
@@ -275,19 +276,26 @@ export function GraphViewer({
     const color = getNodeColor(node)
     const isSelected = node.id === selectedNodeId
     const isConnected = connectedNodeIds.has(node.id)
+    const isHighlighted = highlightedNodeIds?.has(node.id)
     const hasSelection = selectedNodeId !== null
+    const hasHighlights = highlightedNodeIds !== null && highlightedNodeIds.size > 0
     
-    // Determine opacity and size based on selection state
-    const isDimmed = hasSelection && !isSelected && !isConnected
+    // Determine opacity and size based on selection/highlight state
+    // If there's a search (highlights), dim non-highlighted nodes
+    // If there's a selection, dim non-connected nodes
+    const isDimmed = (hasHighlights && !isHighlighted && !isSelected) ||
+                     (hasSelection && !hasHighlights && !isSelected && !isConnected)
     const opacity = isDimmed ? 0.15 : 1
-    const radius = isSelected ? 10 : isConnected ? 8 : 6
+    const radius = isSelected ? 10 : isHighlighted ? 9 : isConnected ? 8 : 6
 
-    // Draw glow for selected/connected nodes
-    if (isSelected || isConnected) {
+    // Draw glow for selected/connected/highlighted nodes
+    if (isSelected || isConnected || isHighlighted) {
       ctx.beginPath()
       ctx.arc(node.x, node.y, radius + 4, 0, 2 * Math.PI)
       ctx.fillStyle = isSelected 
         ? `rgba(251, 191, 36, 0.3)` // golden glow for selected
+        : isHighlighted
+        ? `rgba(236, 72, 153, 0.35)` // pink glow for search matches
         : `rgba(129, 140, 248, 0.25)` // indigo glow for connected
       ctx.fill()
     }
@@ -296,28 +304,34 @@ export function GraphViewer({
     ctx.beginPath()
     ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
     ctx.globalAlpha = opacity
-    ctx.fillStyle = color
+    ctx.fillStyle = isHighlighted ? '#ec4899' : color // Pink for highlighted nodes
     ctx.fill()
     
-    // Add ring for selected node
+    // Add ring for selected or highlighted node
     if (isSelected) {
       ctx.strokeStyle = '#fbbf24'
+      ctx.lineWidth = 2
+      ctx.stroke()
+    } else if (isHighlighted) {
+      ctx.strokeStyle = '#f472b6'
       ctx.lineWidth = 2
       ctx.stroke()
     }
     
     ctx.globalAlpha = 1
 
-    // Draw label if zoomed in enough
-    if (globalScale > 0.5) {
+    // Draw label if zoomed in enough or if node is highlighted
+    if (globalScale > 0.5 || isHighlighted) {
       const label = node.label || node.id || ''
-      const fontSize = Math.min(Math.max(9 / globalScale, 3), 9)
+      const fontSize = isHighlighted 
+        ? Math.min(Math.max(11 / globalScale, 4), 11) // Larger font for highlighted
+        : Math.min(Math.max(9 / globalScale, 3), 9)
       const maxWidth = 70 // pixels for text wrapping
       
-      ctx.font = `${fontSize}px sans-serif`
+      ctx.font = isHighlighted ? `bold ${fontSize}px sans-serif` : `${fontSize}px sans-serif`
       ctx.textAlign = 'center'
       ctx.globalAlpha = isDimmed ? 0.2 : 1
-      ctx.fillStyle = isSelected ? '#fbbf24' : '#e2e8f0'
+      ctx.fillStyle = isSelected ? '#fbbf24' : isHighlighted ? '#f9a8d4' : '#e2e8f0'
       
       // Wrap text into lines
       const lines = wrapText(ctx, label, maxWidth)
@@ -336,7 +350,7 @@ export function GraphViewer({
       ctx.shadowBlur = 0
       ctx.globalAlpha = 1
     }
-  }, [getNodeColor, wrapText, selectedNodeId, connectedNodeIds])
+  }, [getNodeColor, wrapText, selectedNodeId, connectedNodeIds, highlightedNodeIds])
 
   // Handle click - toggle selection and notify parent
   const handleClick = useCallback((node) => {
