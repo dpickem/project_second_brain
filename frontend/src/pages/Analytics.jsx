@@ -101,14 +101,39 @@ export function Analytics() {
   const activityData = chartData?.data || []
   // Get mastery data from overview endpoint (topics array contains MasteryState objects)
   // TopicBreakdown expects: topic (name), mastery (0-100%), cardCount
-  const mastery = (overviewData?.topics || []).map(t => ({
-    id: t.topic_path,
-    topic: t.topic_path.split('/').pop(), // TopicBreakdown expects 'topic' not 'name'
-    mastery: Math.round((t.mastery_score || 0) * 100), // Convert 0-1 to percentage
-    cardCount: t.practice_count || 0, // Use practice_count as proxy for activity
-    practice_count: t.practice_count || 0,
-    last_practiced: t.last_practiced,
-  }))
+  // Transform data based on view mode to show card-specific or exercise-specific data
+  const mastery = (overviewData?.topics || []).map(t => {
+    // Choose the appropriate mastery score based on view mode
+    let masteryScore
+    let itemCount
+    if (viewMode === 'cards') {
+      masteryScore = t.card_mastery_score ?? t.mastery_score ?? 0
+      itemCount = t.card_count ?? 0
+    } else if (viewMode === 'exercises') {
+      masteryScore = t.exercise_mastery_score ?? 0
+      itemCount = t.exercise_count ?? 0
+    } else {
+      // Combined mode - use overall mastery
+      masteryScore = t.mastery_score ?? 0
+      itemCount = (t.card_count ?? 0) + (t.exercise_count ?? 0)
+    }
+    
+    return {
+      id: t.topic_path,
+      topic: t.topic_path.split('/').pop(), // TopicBreakdown expects 'topic' not 'name'
+      mastery: Math.round(masteryScore * 100), // Convert 0-1 to percentage
+      cardCount: itemCount,
+      practice_count: t.practice_count || 0,
+      last_practiced: t.last_practiced,
+      // Keep original values for debugging
+      card_mastery: t.card_mastery_score,
+      exercise_mastery: t.exercise_mastery_score,
+    }
+  })
+  // Filter out topics with 0 mastery in filtered modes to only show relevant data
+  const filteredMastery = viewMode === 'combined' 
+    ? mastery 
+    : mastery.filter(t => t.mastery > 0 || t.cardCount > 0)
   const weakSpots = weakSpotsData?.weak_spots || []
 
   return (
@@ -192,7 +217,7 @@ export function Analytics() {
                 type="area"
                 metrics={
                   viewMode === 'cards' 
-                    ? ['cardsReviewed', 'practiceTime'] 
+                    ? ['cardsReviewed', 'cardTime'] 
                     : viewMode === 'exercises'
                     ? ['exercisesAttempted', 'exerciseTime']
                     : ['cardsReviewed', 'exercisesAttempted', 'practiceTime']
@@ -204,34 +229,61 @@ export function Analytics() {
         </motion.div>
 
         {/* Mastery & Breakdown */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
           {/* Mastery Radar */}
-          <motion.div variants={fadeInUp}>
-            <Card>
-              <h2 className="text-xl font-semibold text-text-primary font-heading mb-6">
-                Topic Mastery
-              </h2>
-              <MasteryRadar
-                data={mastery.slice(0, 8)}
-                height={350}
-              />
+          <motion.div variants={fadeInUp} className="h-full">
+            <Card className="h-full flex flex-col">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-text-primary font-heading">
+                    {viewMode === 'cards' ? '🃏 Card Mastery' : 
+                     viewMode === 'exercises' ? '🏋️ Exercise Mastery' : 
+                     '📊 Topic Mastery'}
+                  </h2>
+                  <p className="text-xs text-text-muted mt-1">
+                    {viewMode === 'cards' ? 'Based on card review performance' : 
+                     viewMode === 'exercises' ? 'Based on exercise scores' : 
+                     'Combined cards & exercises'}
+                  </p>
+                </div>
+                <Badge variant="secondary">{filteredMastery.slice(0, 8).length} topics</Badge>
+              </div>
+              <div className="flex-1 min-h-[350px]">
+                <MasteryRadar
+                  data={filteredMastery.slice(0, 8)}
+                  height={350}
+                  viewMode={viewMode}
+                />
+              </div>
             </Card>
           </motion.div>
 
           {/* Topic Breakdown */}
-          <motion.div variants={fadeInUp}>
-            <Card>
+          <motion.div variants={fadeInUp} className="h-full">
+            <Card className="h-full flex flex-col">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-text-primary font-heading">
-                  Progress by Topic
-                </h2>
-                <Badge>{mastery.length} topics</Badge>
+                <div>
+                  <h2 className="text-xl font-semibold text-text-primary font-heading">
+                    {viewMode === 'cards' ? '🃏 Progress by Topic (Cards)' : 
+                     viewMode === 'exercises' ? '🏋️ Progress by Topic (Exercises)' : 
+                     '📊 Progress by Topic'}
+                  </h2>
+                  <p className="text-xs text-text-muted mt-1">
+                    {viewMode === 'cards' ? 'Card review activity per topic' : 
+                     viewMode === 'exercises' ? 'Exercise attempts per topic' : 
+                     'All learning activity'}
+                  </p>
+                </div>
+                <Badge>{filteredMastery.length} topics</Badge>
               </div>
-              <TopicBreakdown
-                data={mastery}
-                type="list"
-                height={350}
-              />
+              <div className="flex-1 min-h-[350px]">
+                <TopicBreakdown
+                  data={filteredMastery}
+                  type="list"
+                  height={350}
+                  viewMode={viewMode}
+                />
+              </div>
             </Card>
           </motion.div>
         </div>

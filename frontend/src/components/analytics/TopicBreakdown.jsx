@@ -28,11 +28,13 @@ const getMasteryColor = (mastery) => {
 }
 
 // Custom tooltip
-const CustomTooltip = ({ active, payload }) => {
+const CustomTooltip = ({ active, payload, viewMode }) => {
   if (!active || !payload?.length) return null
 
   const data = payload[0]?.payload
   if (!data) return null
+
+  const itemLabel = viewMode === 'exercises' ? 'exercises' : viewMode === 'cards' ? 'cards' : 'items'
 
   return (
     <div className="bg-bg-elevated border border-border-primary rounded-lg shadow-lg p-3">
@@ -42,7 +44,7 @@ const CustomTooltip = ({ active, payload }) => {
           Mastery: <span className="text-indigo-400 font-medium">{data.mastery}%</span>
         </p>
         {data.cardCount !== undefined && (
-          <p className="text-text-muted">{data.cardCount} cards</p>
+          <p className="text-text-muted">{data.cardCount} {itemLabel}</p>
         )}
         {data.dueCount !== undefined && data.dueCount > 0 && (
           <p className="text-amber-400">{data.dueCount} due</p>
@@ -57,10 +59,33 @@ export function TopicBreakdown({
   type = 'chart', // 'chart' | 'list'
   height = 300,
   showValues: _showValues = true,
+  viewMode = 'combined', // 'combined', 'cards', 'exercises'
   className,
 }) {
   const sortedData = [...data].sort((a, b) => b.mastery - a.mastery)
-  const hasData = data.length > 0 && data.some(d => d.mastery > 0)
+  // Show data if there are topics with mastery > 0 OR topics with items (cards/exercises)
+  const hasData = data.length > 0 && data.some(d => d.mastery > 0 || d.cardCount > 0)
+
+  // Dynamic labels based on view mode
+  const itemLabel = viewMode === 'exercises' ? 'exercises' : viewMode === 'cards' ? 'cards' : 'items'
+  
+  const getSubtitle = () => {
+    if (viewMode === 'exercises') {
+      return 'Based on exercise scores per topic. Higher mastery = better exercise performance.'
+    } else if (viewMode === 'cards') {
+      return 'Based on card review performance per topic. Higher mastery = better recall + longer retention.'
+    }
+    return 'Combined card & exercise performance. Higher scores = better mastery.'
+  }
+
+  const getEmptyMessage = () => {
+    if (viewMode === 'exercises') {
+      return 'Complete exercises with topic tags to see your progress by topic. Each topic\'s mastery is based on your exercise scores.'
+    } else if (viewMode === 'cards') {
+      return 'Review cards with topic tags to see your progress by topic. Each topic\'s mastery is based on your review success rate and card stability.'
+    }
+    return 'Review cards or complete exercises to see your progress by topic.'
+  }
 
   // Empty state for no data
   if (!hasData) {
@@ -68,13 +93,13 @@ export function TopicBreakdown({
       <div className={clsx('flex flex-col', className)}>
         {/* Explanatory subtitle */}
         <p className="text-xs text-text-muted mb-2">
-          Based on card review performance per topic tag.
+          {getSubtitle()}
         </p>
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <span className="text-4xl mb-3">📈</span>
           <p className="text-sm text-text-secondary mb-1">No progress data yet</p>
           <p className="text-xs text-text-muted max-w-[250px]">
-            Review cards with topic tags to see your progress by topic. Each topic&apos;s mastery is based on your review success rate and card stability.
+            {getEmptyMessage()}
           </p>
         </div>
       </div>
@@ -91,7 +116,7 @@ export function TopicBreakdown({
       >
         {/* Explanatory subtitle */}
         <p className="text-xs text-text-muted mb-2">
-          Based on card review performance per topic tag. Higher mastery = better recall + longer retention.
+          {getSubtitle()}
         </p>
         {sortedData.map((topic, index) => (
           <motion.div
@@ -105,7 +130,7 @@ export function TopicBreakdown({
               <p className="text-sm text-text-primary font-medium truncate">
                 {topic.topic}
               </p>
-              <p className="text-xs text-text-muted">{topic.cardCount} cards</p>
+              <p className="text-xs text-text-muted">{topic.cardCount} {itemLabel}</p>
             </div>
 
             {/* Progress bar */}
@@ -141,7 +166,7 @@ export function TopicBreakdown({
     <motion.div variants={listItem} className={clsx('w-full', className)}>
       {/* Explanatory subtitle for chart view */}
       <p className="text-xs text-text-muted mb-2">
-        Based on card review performance per topic tag. Higher mastery = better recall + longer retention.
+        {getSubtitle()}
       </p>
       <ResponsiveContainer width="100%" height={height}>
         <BarChart
@@ -175,7 +200,7 @@ export function TopicBreakdown({
             tick={{ fill: '#94a3b8' }}
           />
           
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(99, 102, 241, 0.1)' }} />
+          <Tooltip content={<CustomTooltip viewMode={viewMode} />} cursor={{ fill: 'rgba(99, 102, 241, 0.1)' }} />
           
           <Bar 
             dataKey="mastery" 

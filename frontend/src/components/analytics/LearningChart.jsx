@@ -59,8 +59,13 @@ export function LearningChart({
       color: '#6366f1',
       dataKey: 'cardsReviewed',
     },
+    cardTime: {
+      name: 'Card Time (min)',
+      color: '#34d399',
+      dataKey: 'cardTime',
+    },
     practiceTime: {
-      name: 'Practice (min)',
+      name: 'Total Time (min)',
       color: '#34d399',
       dataKey: 'practiceTime',
     },

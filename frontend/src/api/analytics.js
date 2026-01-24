@@ -194,12 +194,13 @@ export const analyticsApi = {
           date: point.date,
           // Card activity
           cardsReviewed: point.cards_reviewed || 0,
+          cardTime: Math.round(point.card_time_minutes || 0),
           // Exercise activity
           exercisesAttempted: point.exercises_attempted || 0,
           exerciseScore: point.exercise_score != null ? Math.round(point.exercise_score) : null,
-          // Time (split evenly between cards and exercises for now if not available separately)
+          exerciseTime: Math.round(point.exercise_time_minutes || 0),
+          // Total time (sum of card + exercise time)
           practiceTime: Math.round(point.time_minutes || 0),
-          exerciseTime: Math.round(point.time_minutes || 0), // Will use same time data for now
         }))
       }))
   },

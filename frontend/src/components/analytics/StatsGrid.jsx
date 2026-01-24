@@ -25,7 +25,7 @@ export function StatsGrid({
   
   const {
     // General stats
-    learningTime = 0,
+    learningTime = 0, // in minutes
     streak = 0,
     avgRetention = 0,
     // Spaced rep card stats
@@ -41,6 +41,22 @@ export function StatsGrid({
     exercisesAttemptsTotal = 0,
     exercisesAvgScore = 0,
   } = stats
+  
+  // Format time display - show hours, minutes, or seconds appropriately
+  const formatLearningTime = (minutes) => {
+    if (minutes >= 60) {
+      const hours = Math.round(minutes / 60)
+      return { value: `${hours}h`, description: `${Math.round(minutes)} min total` }
+    } else if (minutes >= 1) {
+      return { value: `${Math.round(minutes)}m`, description: 'All time' }
+    } else if (minutes > 0) {
+      const seconds = Math.round(minutes * 60)
+      return { value: `${seconds}s`, description: 'All time' }
+    }
+    return { value: '0m', description: 'Start learning!' }
+  }
+  
+  const timeDisplay = formatLearningTime(learningTime)
   
   // Compute combined totals for combined view
   const totalItems = spacedRepCardsTotal + exercisesTotal
@@ -69,21 +85,21 @@ export function StatsGrid({
           value: spacedRepCardsLearning.toLocaleString(),
           icon: '📖',
           color: 'amber',
-          description: 'In progress',
+          description: 'Cards in progress',
         },
         {
           label: 'New',
           value: spacedRepCardsNew.toLocaleString(),
           icon: '✨',
           color: 'purple',
-          description: 'Ready to learn',
+          description: 'New cards to learn',
         },
         {
           label: 'Reviews',
           value: spacedRepReviewsTotal.toLocaleString(),
           icon: '✅',
           color: 'teal',
-          description: 'Total reviews',
+          description: 'Total card reviews',
         },
         {
           label: 'Streak',
@@ -103,35 +119,35 @@ export function StatsGrid({
           value: exercisesTotal.toLocaleString(),
           icon: '🏋️',
           color: 'indigo',
-          description: 'Active learning tasks',
+          description: 'Practice exercises',
         },
         {
           label: 'Completed',
           value: exercisesCompleted.toLocaleString(),
           icon: '✅',
           color: 'emerald',
-          description: `${exercisesTotal > 0 ? Math.round((exercisesCompleted / exercisesTotal) * 100) : 0}% tried`,
+          description: `${exercisesTotal > 0 ? Math.round((exercisesCompleted / exercisesTotal) * 100) : 0}% of exercises`,
         },
         {
           label: 'Mastered',
           value: exercisesMastered.toLocaleString(),
           icon: '🎯',
           color: 'teal',
-          description: 'Score ≥ 80%',
+          description: 'Exercises with ≥80%',
         },
         {
           label: 'Attempts',
           value: exercisesAttemptsTotal.toLocaleString(),
           icon: '🔄',
           color: 'purple',
-          description: 'Total attempts',
+          description: 'Total exercise attempts',
         },
         {
           label: 'Avg Score',
           value: `${Math.round(exercisesAvgScore * 100)}%`,
           icon: '📊',
           color: exercisesAvgScore >= 0.8 ? 'emerald' : exercisesAvgScore >= 0.6 ? 'amber' : 'red',
-          description: 'Across all attempts',
+          description: 'Across all exercises',
         },
         {
           label: 'Streak',
@@ -169,10 +185,10 @@ export function StatsGrid({
       },
       {
         label: 'Learning Time',
-        value: `${Math.round(learningTime / 60)}h`,
+        value: timeDisplay.value,
         icon: '⏱️',
         color: 'amber',
-        description: 'All time',
+        description: timeDisplay.description,
       },
       {
         label: 'Streak',

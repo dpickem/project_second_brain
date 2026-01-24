@@ -976,24 +976,34 @@ class TestGetLearningCurve:
             call_count[0] += 1
 
             if call_count[0] == 1:
-                # CardReviewHistory query
+                # CardReviewHistory query (cards_by_date)
                 result.fetchall.return_value = [
                     MagicMock(review_date=today, cards_reviewed=5),
                 ]
             elif call_count[0] == 2:
-                # Fallback query
+                # Fallback SpacedRepCard query
                 result.fetchall.return_value = []
             elif call_count[0] == 3:
-                # ExerciseAttempt query - same day
+                # ExerciseAttempt query (exercise_by_date)
                 result.fetchall.return_value = [
                     MagicMock(attempt_date=today, attempt_count=3, avg_score=0.85),
                 ]
             elif call_count[0] == 4:
-                # LearningTimeLog query
+                # CardReviewHistory time query (card_time_by_date)
                 result.fetchall.return_value = [
-                    MagicMock(log_date=today, total_minutes=30),
+                    MagicMock(review_date=today, total_minutes=15),
                 ]
             elif call_count[0] == 5:
+                # ExerciseAttempt time query (exercise_time_by_date)
+                result.fetchall.return_value = [
+                    MagicMock(attempt_date=today, total_minutes=10),
+                ]
+            elif call_count[0] == 6:
+                # LearningTimeLog query (time_by_date)
+                result.fetchall.return_value = [
+                    MagicMock(log_date=today, total_minutes=5),
+                ]
+            elif call_count[0] == 7:
                 # MasterySnapshot query
                 result.scalars.return_value.all.return_value = []
             else:
@@ -1010,6 +1020,7 @@ class TestGetLearningCurve:
         dp = result.data_points[0]
         assert dp.cards_reviewed == 5
         assert dp.exercises_attempted == 3
+        # Time is sum of card_time + exercise_time + learning_time_log = 15 + 10 + 5 = 30
         assert dp.time_minutes == 30
 
 

@@ -392,16 +392,48 @@ class MasteryService:
             for row in exercise_stats.fetchall()
         }
 
+        # Get exercise counts per topic
+        exercise_count_query = (
+            select(
+                Exercise.topic,
+                func.count(Exercise.id).label("exercise_count"),
+            )
+            .where(Exercise.topic.in_(topic_paths))
+            .group_by(Exercise.topic)
+        )
+        exercise_count_result = await self.db.execute(exercise_count_query)
+        exercise_counts = {
+            row.topic: row.exercise_count for row in exercise_count_result.fetchall()
+        }
+
+        # Get card counts per topic using unnest to properly handle the tags array
+        # For cards, we count cards that have the topic in their tags array
+        card_counts = {}
+        for topic_path in topic_paths:
+            card_count_query = (
+                select(func.count(SpacedRepCard.id))
+                .where(SpacedRepCard.tags.any(topic_path))
+            )
+            result = await self.db.execute(card_count_query)
+            count = result.scalar() or 0
+            if count > 0:
+                card_counts[topic_path] = count
+
         # Enhance each topic state
         enhanced_states = []
         now = datetime.now(timezone.utc)
 
         for state in topic_states:
             topic_data = stats_by_topic.get(state.topic_path)
+            exercise_count = exercise_counts.get(state.topic_path, 0)
+            card_count = card_counts.get(state.topic_path, 0)
+
+            # Card mastery is the original state's mastery score
+            card_mastery = state.mastery_score
 
             if topic_data and topic_data["practice_count"] > 0:
-                # Compute mastery from exercise scores
-                mastery_score = topic_data["avg_score"]
+                # Compute exercise mastery from exercise scores
+                exercise_mastery = topic_data["avg_score"]
                 practice_count = topic_data["practice_count"]
                 success_rate = (
                     topic_data["correct_count"] / practice_count
@@ -416,11 +448,18 @@ class MasteryService:
                     delta = now - last_practiced
                     days_since = delta.days
 
-                # Create enhanced state
+                # Combined mastery is the max of card and exercise mastery
+                combined_mastery = max(card_mastery, exercise_mastery)
+
+                # Create enhanced state with separate scores
                 enhanced_states.append(
                     MasteryState(
                         topic_path=state.topic_path,
-                        mastery_score=max(state.mastery_score, mastery_score),
+                        mastery_score=combined_mastery,
+                        card_mastery_score=card_mastery if card_count > 0 else None,
+                        exercise_mastery_score=exercise_mastery,
+                        card_count=card_count,
+                        exercise_count=exercise_count,
                         practice_count=state.practice_count + practice_count,
                         success_rate=(
                             success_rate
@@ -437,7 +476,24 @@ class MasteryService:
                     )
                 )
             else:
-                enhanced_states.append(state)
+                # No exercise data, keep original state with card data
+                enhanced_states.append(
+                    MasteryState(
+                        topic_path=state.topic_path,
+                        mastery_score=state.mastery_score,
+                        card_mastery_score=card_mastery if card_count > 0 else None,
+                        exercise_mastery_score=None,
+                        card_count=card_count,
+                        exercise_count=exercise_count,
+                        practice_count=state.practice_count,
+                        success_rate=state.success_rate,
+                        trend=state.trend,
+                        last_practiced=state.last_practiced,
+                        days_since_review=state.days_since_review,
+                        retention_estimate=state.retention_estimate,
+                        confidence_avg=state.confidence_avg,
+                    )
+                )
 
         return enhanced_states
 
@@ -528,7 +584,43 @@ class MasteryService:
             for row in exercise_result.fetchall()
         }
 
-        # Get time logs grouped by date
+        # Get time from card review history (CardReviewHistory.time_spent_seconds)
+        card_time_query = (
+            select(
+                func.date(CardReviewHistory.reviewed_at).label("review_date"),
+                func.sum(CardReviewHistory.time_spent_seconds / 60.0).label(
+                    "total_minutes"
+                ),
+            )
+            .where(CardReviewHistory.reviewed_at >= start_date)
+            .group_by(func.date(CardReviewHistory.reviewed_at))
+        )
+
+        card_time_result = await self.db.execute(card_time_query)
+        card_time_by_date = {
+            row.review_date: int(row.total_minutes or 0)
+            for row in card_time_result.fetchall()
+        }
+
+        # Get time from exercise attempts (ExerciseAttempt.time_spent_seconds)
+        exercise_time_query = (
+            select(
+                func.date(ExerciseAttempt.attempted_at).label("attempt_date"),
+                func.sum(ExerciseAttempt.time_spent_seconds / 60.0).label(
+                    "total_minutes"
+                ),
+            )
+            .where(ExerciseAttempt.attempted_at >= start_date)
+            .group_by(func.date(ExerciseAttempt.attempted_at))
+        )
+
+        exercise_time_result = await self.db.execute(exercise_time_query)
+        exercise_time_by_date = {
+            row.attempt_date: int(row.total_minutes or 0)
+            for row in exercise_time_result.fetchall()
+        }
+
+        # Combined time for the time_by_date (also include LearningTimeLog for backwards compat)
         time_query = (
             select(
                 func.date(LearningTimeLog.started_at).label("log_date"),
@@ -547,6 +639,12 @@ class MasteryService:
         time_by_date = {
             row.log_date: int(row.total_minutes or 0) for row in time_result.fetchall()
         }
+
+        # Add card time and exercise time to combined total
+        for d, minutes in card_time_by_date.items():
+            time_by_date[d] = time_by_date.get(d, 0) + minutes
+        for d, minutes in exercise_time_by_date.items():
+            time_by_date[d] = time_by_date.get(d, 0) + minutes
 
         # Get mastery snapshots for mastery_score data (if available)
         snapshot_query = select(MasterySnapshot).where(
@@ -572,6 +670,8 @@ class MasteryService:
             set(cards_by_date.keys())
             | set(exercise_by_date.keys())
             | set(time_by_date.keys())
+            | set(card_time_by_date.keys())
+            | set(exercise_time_by_date.keys())
         )
 
         # Build data points for each date with activity
@@ -581,7 +681,9 @@ class MasteryService:
             exercise_data = exercise_by_date.get(
                 activity_date, {"count": 0, "avg_score": None}
             )
-            time_minutes = time_by_date.get(activity_date, 0)
+            card_time = card_time_by_date.get(activity_date, 0)
+            exercise_time = exercise_time_by_date.get(activity_date, 0)
+            total_time = time_by_date.get(activity_date, 0)
 
             # Get mastery score from snapshot if available
             snapshot = snapshot_by_date.get(activity_date)
@@ -596,13 +698,15 @@ class MasteryService:
                     mastery_score=mastery_score or 0.0,
                     retention_estimate=retention_estimate,
                     cards_reviewed=cards_reviewed,
+                    card_time_minutes=card_time,
                     exercises_attempted=exercise_data["count"],
                     exercise_score=(
                         exercise_data["avg_score"]
                         if exercise_data["avg_score"]
                         else None
                     ),
-                    time_minutes=time_minutes,
+                    exercise_time_minutes=exercise_time,
+                    time_minutes=total_time,
                 )
             )
 
