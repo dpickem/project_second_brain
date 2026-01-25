@@ -84,6 +84,8 @@ x-common-env: &common-env
   OBSIDIAN_VAULT_PATH: /vault
   UPLOAD_DIR: /uploads
   DATA_DIR: /data
+  # ----- API Authentication -----
+  CAPTURE_API_KEY: ${CAPTURE_API_KEY:-}
   # ----- LLM API Keys -----
   OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
@@ -219,7 +221,7 @@ services:
     volumes: *shared-volumes
 
   # =============================================================================
-  # Frontend - React/Vite application
+  # Frontend - React/Vite application (main dashboard)
   # =============================================================================
   frontend:
     build: ./frontend
@@ -231,6 +233,24 @@ services:
       - "3000:3000"
     volumes:
       - ./frontend/src:/app/src:ro  # Hot reload for development
+    stdin_open: true  # Required for Vite HMR
+
+  # =============================================================================
+  # Capture PWA - Mobile capture Progressive Web App
+  # =============================================================================
+  capture-pwa:
+    build: ./frontend
+    command: npm run dev:capture
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_CAPTURE_API_KEY=${CAPTURE_API_KEY:-}
+    depends_on:
+      - backend
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./frontend/capture:/app/capture:ro  # Hot reload for capture app
+      - ./frontend/src:/app/src:ro  # Shared components
     stdin_open: true  # Required for Vite HMR
 
 # =============================================================================
