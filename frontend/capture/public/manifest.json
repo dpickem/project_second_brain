@@ -1,0 +1,49 @@
+{
+  "name": "Second Brain Capture",
+  "short_name": "Capture",
+  "description": "Quick knowledge capture for your Second Brain",
+  "start_url": "/capture/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0f1a",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/capture/icons/capture-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/capture/icons/capture-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "share_target": {
+    "action": "/capture/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "media",
+          "accept": ["image/*", "audio/*", "application/pdf", ".pdf"]
+        }
+      ]
+    }
+  },
+  "categories": ["productivity", "utilities"],
+  "screenshots": [
+    {
+      "src": "/capture/screenshots/capture-main.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "label": "Capture screen showing photo, voice, note, and URL options"
+    }
+  ]
+}

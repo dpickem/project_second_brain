@@ -19,7 +19,10 @@
     "test:e2e:report": "playwright show-report",
     "generate:enums": "cd .. && python scripts/generate_enums.py",
     "generate:api-types": "node scripts/generate-api-types.js",
-    "api:check": "node scripts/generate-api-types.js && git diff --exit-code src/api/openapi.json || (echo '❌ OpenAPI schema changed! Commit the new schema or update backend.' && exit 1)"
+    "api:check": "node scripts/generate-api-types.js && git diff --exit-code src/api/openapi.json || (echo '❌ OpenAPI schema changed! Commit the new schema or update backend.' && exit 1)",
+    "dev:capture": "vite --config capture/vite.config.js --host 0.0.0.0",
+    "build:capture": "vite build --config capture/vite.config.js",
+    "preview:capture": "vite preview --config capture/vite.config.js --host 0.0.0.0"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.18",
