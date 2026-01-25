@@ -22,7 +22,7 @@ This document provides the high-level implementation roadmap for the Second Brai
 | — | Backend API Completion | — | `06_backend_api_implementation.md` | ✅ ~98% Complete |
 | 9 | **Frontend Application** | 30-38 | `07_frontend_application_implementation.md` | ⬜ Not Started |
 | 10 | **Mobile Capture (PWA)** | 39-42 | `08_mobile_capture_implementation.md` | ⬜ Not Started |
-| 11 | Learning Assistant | 43-46 | `11_learning_assistant_implementation.md` (planned) | ⬜ Not Started |
+| 11 | Assistant Tool Calling | 43-46 | `09_assistant_tool_calling_implementation.md` | ⬜ Not Started |
 | 12 | Polish & Production | Ongoing | `12_production_readiness.md` (planned) | 🟡 Ongoing |
 
 ---
@@ -263,13 +263,30 @@ Progressive Web App for low-friction knowledge capture on mobile devices.
 
 ---
 
-## Phase 11: Learning Assistant Backend (Weeks 43-46) ⬜ NOT STARTED
+## Phase 11: Assistant Tool Calling (Weeks 43-46) ⬜ NOT STARTED
 
-### Backend API & Services
-- [ ] `/api/assistant/chat` — Conversational interface with RAG
-- [ ] `/api/assistant/suggest-connections` — Graph-based suggestions
-- [ ] `/api/assistant/study-plan` — Generate personalized plans
-- [ ] RAG pipeline over knowledge graph
+> 📋 **Detailed Plan**: See [`09_assistant_tool_calling_implementation.md`](./09_assistant_tool_calling_implementation.md)  
+> 📋 **Design Spec**: See [`../design_docs/09_assistant_tool_calling.md`](../design_docs/09_assistant_tool_calling.md)
+
+Tool calling enables the assistant to take actions through natural language:
+
+### Backend Infrastructure
+- [ ] Tool Registry and Tool Executor classes
+- [ ] LLM Client extension for tool calling (`complete_with_tools`)
+- [ ] 5 initial tool handlers (exercise, flashcard, search, mastery, weak spots)
+
+### Service Integration  
+- [ ] Update AssistantService with tool calling loop
+- [ ] Response models with `tool_calls` field
+- [ ] System prompt for tool usage guidance
+
+### Frontend Components
+- [ ] `<ToolCallResult />` — Tool result dispatcher
+- [ ] `<ExerciseCard />` — Display generated exercises
+- [ ] `<FlashcardCreated />` — Flashcard confirmation
+- [ ] `<SearchResults />`, `<MasteryDisplay />`, `<WeakSpotsPanel />`
+
+**Estimated Effort**: 8-12 days
 
 ---
 
@@ -354,10 +371,14 @@ The comprehensive frontend plan covers:
 - Share Target integration for seamless capture from other apps
 - **Estimated**: 56 hours across 14 days
 
-### 3. Learning Assistant Backend (Phase 11)
-- Chat endpoint with RAG over knowledge graph
-- Connection suggestions
-- Study plan generation
+### 3. Assistant Tool Calling (Phase 11)
+
+> 📋 **Detailed Plan**: See [`09_assistant_tool_calling_implementation.md`](./09_assistant_tool_calling_implementation.md)
+
+- Tool registry and executor infrastructure
+- 5 initial tools: generate_exercise, create_flashcard, search_knowledge, get_mastery, get_weak_spots
+- Frontend components for displaying tool results
+- **Estimated**: 8-12 days
 
 ### 4. Production Readiness (Ongoing)
 - Error monitoring (Sentry)
@@ -373,5 +394,6 @@ The comprehensive frontend plan covers:
 - `../design_docs/08_mobile_capture.md` — Mobile capture PWA design specification
 - `07_frontend_application_implementation.md` — Comprehensive frontend implementation plan
 - `08_mobile_capture_implementation.md` — Mobile capture PWA implementation plan
+- `09_assistant_tool_calling_implementation.md` — Assistant tool calling implementation plan
 - `../README.md` — Project overview and vision
 - `../LEARNING_THEORY.md` — Research foundations for learning system
