@@ -57,6 +57,13 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # =========================================================================
+    # API AUTHENTICATION
+    # =========================================================================
+    # API key for authenticating the capture API (mobile PWA, external clients).
+    # If empty, authentication is disabled (development mode).
+    CAPTURE_API_KEY: str = ""
+
+    # =========================================================================
     # DATA DIRECTORY
     # =========================================================================
     # Root directory for all persistent data (postgres, redis, neo4j, obsidian)

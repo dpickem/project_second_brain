@@ -4,6 +4,10 @@ Quick Capture API Router
 Low-friction capture endpoints for ideas, URLs, photos, voice memos, PDFs, and books.
 All endpoints return immediately after queueing for background processing.
 
+Authentication:
+    All endpoints require API key authentication via the X-API-Key header.
+    If API_KEY is not set in .env, authentication is disabled (development mode).
+
 Endpoints:
 - POST /api/capture/text - Quick text/idea capture
 - POST /api/capture/url - URL/article capture
@@ -13,17 +17,25 @@ Endpoints:
 - POST /api/capture/book - Batch book page capture (multiple images)
 
 Usage:
-    # Text capture
-    curl -X POST /api/capture/text -F "content=My idea" -F "title=Optional title"
+    # Text capture (with API key)
+    curl -X POST /api/capture/text \\
+        -H "X-API-Key: your_api_key" \\
+        -F "content=My idea" -F "title=Optional title"
 
     # URL capture
-    curl -X POST /api/capture/url -F "url=https://example.com" -F "notes=Why I saved this"
+    curl -X POST /api/capture/url \\
+        -H "X-API-Key: your_api_key" \\
+        -F "url=https://example.com" -F "notes=Why I saved this"
 
     # Photo capture (single)
-    curl -X POST /api/capture/photo -F "file=@page.jpg" -F "capture_type=book_page"
+    curl -X POST /api/capture/photo \\
+        -H "X-API-Key: your_api_key" \\
+        -F "file=@page.jpg" -F "capture_type=book_page"
 
     # Book capture (batch)
-    curl -X POST /api/capture/book -F "files=@p1.jpg" -F "files=@p2.jpg" -F "title=Deep Work"
+    curl -X POST /api/capture/book \\
+        -H "X-API-Key: your_api_key" \\
+        -F "files=@p1.jpg" -F "files=@p2.jpg" -F "title=Deep Work"
 """
 
 from datetime import datetime
@@ -31,9 +43,10 @@ from typing import Optional
 import re
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 import httpx
 
+from app.dependencies import verify_capture_api_key
 from app.models.content import (
     Annotation,
     AnnotationType,
@@ -53,7 +66,12 @@ from app.services.tasks import (
     process_content,
 )
 
-router = APIRouter(prefix="/api/capture", tags=["capture"])
+# Router with API key authentication for all endpoints
+router = APIRouter(
+    prefix="/api/capture",
+    tags=["capture"],
+    dependencies=[Depends(verify_capture_api_key)],
+)
 
 
 @router.post("/text")
