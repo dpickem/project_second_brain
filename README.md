@@ -581,9 +581,8 @@ Detailed technical specifications for each system component:
 | [06_backend_api.md](docs/design_docs/06_backend_api.md) | FastAPI endpoints and data models |
 | [07_frontend_application.md](docs/design_docs/07_frontend_application.md) | React components and state management |
 | [08_mobile_capture.md](docs/design_docs/08_mobile_capture.md) | PWA mobile capture workflow |
-| [09_data_models.md](docs/design_docs/09_data_models.md) | Database schemas and relationships |
-| [10_assistant_tool_calling.md](docs/design_docs/10_assistant_tool_calling.md) | LLM agent with tool calling |
-| [11_observability.md](docs/design_docs/11_observability.md) | Logging, metrics, and monitoring |
+| [09_assistant_tool_calling.md](docs/design_docs/09_assistant_tool_calling.md) | LLM agent with tool calling |
+| [10_observability.md](docs/design_docs/10_observability.md) | Logging, metrics, and monitoring |
 
 ### Implementation Plans
 
@@ -643,7 +642,7 @@ User: "Generate an exercise about attention mechanisms"
 | `get_mastery` | Get mastery state for a topic |
 | `get_weak_spots` | Get topics needing review |
 
-See [10_assistant_tool_calling.md](docs/design_docs/10_assistant_tool_calling.md) for full design.
+See [09_assistant_tool_calling.md](docs/design_docs/09_assistant_tool_calling.md) for full design.
 
 ### MCP Integration (Model Context Protocol)
 

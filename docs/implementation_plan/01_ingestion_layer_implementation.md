@@ -182,7 +182,7 @@ backend/
 - **Annotation preservation**: Highlights, handwritten notes, and comments travel with content
 - **Validation**: Pydantic ensures data integrity before storage
 
-Implement the core Pydantic models from `09_data_models.md`:
+Implement the core Pydantic models:
 
 ```python
 # backend/app/models/content.py
@@ -2830,5 +2830,4 @@ class PipelineSettings(BaseSettings):
 
 - `design_docs/01_ingestion_layer.md` — Original design specification
 - `design_docs/02_llm_processing_layer.md` — Downstream processing
-- `design_docs/09_data_models.md` — Data model definitions
 - `implementation_plan/02_llm_processing_implementation.md` — Next phase plan (to be created)

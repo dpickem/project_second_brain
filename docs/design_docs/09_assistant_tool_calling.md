@@ -1089,4 +1089,3 @@ async def test_chat_with_exercise_generation(
 - `05_learning_system.md` — Exercise generation and mastery tracking
 - `06_backend_api.md` — API structure and patterns
 - `07_frontend_application.md` — Frontend components
-- `09_data_models.md` — Data models and schemas

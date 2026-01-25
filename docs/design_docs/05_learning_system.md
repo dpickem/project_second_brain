@@ -1502,5 +1502,4 @@ learning:
 
 - `02_llm_processing_layer.md` — Question and card generation
 - `07_frontend_application.md` — Practice session UI
-- `09_data_models.md` — Full database schemas
 

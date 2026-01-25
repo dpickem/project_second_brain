@@ -689,7 +689,6 @@ curl http://localhost:8000/openapi.json > tests/snapshots/openapi.json
 ## 7. Related Documents
 
 - `design_docs/06_backend_api.md` — API design specification
-- `design_docs/09_data_models.md` — Data model reference
 - `implementation_plan/05_learning_system_implementation.md` — Learning system details
 - `tech_debt.md` — Technical debt tracking
 

@@ -105,7 +105,6 @@ The Second Brain system transforms passive information consumption into active k
 | **Backend API** | FastAPI | REST API for all system operations | `06_backend_api.md` |
 | **Frontend App** | React + Vite | User interface for learning and exploration | `07_frontend_application.md` |
 | **Mobile Capture** | PWA | Low-friction mobile knowledge capture | `08_mobile_capture.md` |
-| **Data Models** | Pydantic + SQLAlchemy | Schemas for all system data | `09_data_models.md` |
 ---
 
 > **Note**: FSRS stands for **Free Spaced Repetition Scheduler**, an open-source algorithm that outperforms the traditional SM-2 algorithm used by Anki. FSRS uses a more sophisticated model of memory to optimally schedule review intervals based on desired retention rates.
@@ -347,5 +346,4 @@ See `README.md` Implementation Roadmap for detailed phased plan.
 - `06_backend_api.md` — FastAPI backend design
 - `07_frontend_application.md` — React frontend design
 - `08_mobile_capture.md` — Mobile PWA design
-- `09_data_models.md` — Database schemas and models
 

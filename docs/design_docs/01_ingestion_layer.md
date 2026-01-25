@@ -2,7 +2,7 @@
 
 > **Document Status**: Design Specification  
 > **Last Updated**: December 2025  
-> **Related Docs**: `02_llm_processing_layer.md`, `09_data_models.md`
+> **Related Docs**: `02_llm_processing_layer.md`
 
 ---
 
@@ -1187,6 +1187,5 @@ ingestion:
 ## 8. Related Documents
 
 - `02_llm_processing_layer.md` — How content is processed after ingestion
-- `09_data_models.md` — Database schemas for storing ingested content
 - `08_mobile_capture.md` — Mobile-specific capture workflows
 

@@ -3,7 +3,7 @@
 > **Document Status**: Design Specification (Largely Implemented)  
 > **Last Updated**: January 2026  
 > **Implementation Status**: ~90% Complete  
-> **Related Docs**: `07_frontend_application.md`, `09_data_models.md`
+> **Related Docs**: `07_frontend_application.md`
 
 ---
 
@@ -433,6 +433,5 @@ scheduler = BackgroundScheduler()
 ## 10. Related Documents
 
 - `07_frontend_application.md` — Frontend consuming these APIs
-- `09_data_models.md` — Full Pydantic and database models
 - `05_learning_system.md` — Practice and review logic
 - `implementation_plan/OVERVIEW.md` — Implementation roadmap

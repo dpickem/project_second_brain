@@ -4652,7 +4652,6 @@ A: Absolutely. Tags are not hardcoded. Add new domains to `config/tag-taxonomy.y
 |----------|---------|--------------|
 | `design_docs/00_system_overview.md` | High-level architecture | Understanding the big picture |
 | `design_docs/03_knowledge_hub_obsidian.md` | Detailed Obsidian design | Deep dive on vault structure, templates |
-| `design_docs/09_data_models.md` | Complete data model reference | Understanding all entity relationships |
 | `implementation_plan/OVERVIEW.md` | Master roadmap | Seeing how this phase fits |
 | `implementation_plan/01_ingestion_layer_implementation.md` | Next phase plan | Planning ahead |
 
