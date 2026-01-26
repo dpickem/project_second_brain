@@ -132,17 +132,34 @@ class TestKnowledgeAPIContract:
 class TestCaptureAPIContract:
     """Test capture API endpoint contract."""
 
-    def test_text_capture_requires_content(self, client):
+    @pytest.fixture
+    def capture_client(self):
+        """
+        Test client with capture API authentication bypassed.
+        
+        The capture endpoints require API key auth, but these contract tests
+        focus on request/response validation, not authentication.
+        """
+        from app.dependencies import verify_capture_api_key
+        
+        # Override the auth dependency to always return a valid key
+        app.dependency_overrides[verify_capture_api_key] = lambda: "test-key"
+        client = TestClient(app)
+        yield client
+        # Clean up the override after the test
+        app.dependency_overrides.pop(verify_capture_api_key, None)
+
+    def test_text_capture_requires_content(self, capture_client):
         """POST /api/capture/text requires content field."""
-        response = client.post(
+        response = capture_client.post(
             "/api/capture/text",
             data={},  # Missing 'content'
         )
         assert response.status_code == 422
 
-    def test_text_capture_accepts_valid_form(self, client):
+    def test_text_capture_accepts_valid_form(self, capture_client):
         """POST /api/capture/text should accept valid form data."""
-        response = client.post(
+        response = capture_client.post(
             "/api/capture/text",
             data={
                 "content": "Test idea content",
@@ -153,17 +170,17 @@ class TestCaptureAPIContract:
         # Should not fail validation
         assert response.status_code != 422
 
-    def test_url_capture_validates_url_format(self, client):
+    def test_url_capture_validates_url_format(self, capture_client):
         """POST /api/capture/url should validate URL format."""
-        response = client.post(
+        response = capture_client.post(
             "/api/capture/url",
             data={"url": "not_a_valid_url"},  # Missing http://
         )
         assert response.status_code == 400
 
-    def test_url_capture_accepts_valid_url(self, client):
+    def test_url_capture_accepts_valid_url(self, capture_client):
         """POST /api/capture/url should accept valid URLs."""
-        response = client.post(
+        response = capture_client.post(
             "/api/capture/url",
             data={
                 "url": "https://example.com/article",
@@ -174,9 +191,9 @@ class TestCaptureAPIContract:
         # Should not fail validation
         assert response.status_code != 422
 
-    def test_photo_endpoint_is_post(self, client):
+    def test_photo_endpoint_is_post(self, capture_client):
         """Photo capture must be POST, not GET."""
-        response = client.get("/api/capture/photo")
+        response = capture_client.get("/api/capture/photo")
         assert response.status_code == 405  # Method Not Allowed
 
 
