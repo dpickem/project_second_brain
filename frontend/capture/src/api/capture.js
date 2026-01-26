@@ -206,11 +206,13 @@ export const captureApi = {
   /**
    * Capture text content
    */
-  captureText: async ({ text, title, tags }) => {
+  captureText: async ({ text, title, tags, createCards = true, createExercises = true }) => {
     const formData = new FormData();
     formData.append('content', text);
     if (title) formData.append('title', title);
     if (tags && tags.length > 0) formData.append('tags', tags.join(','));
+    formData.append('create_cards', createCards.toString());
+    formData.append('create_exercises', createExercises.toString());
     
     return captureRequest('/api/capture/text', formData, 'text');
   },
@@ -218,11 +220,13 @@ export const captureApi = {
   /**
    * Capture a URL
    */
-  captureUrl: async ({ url, notes, tags }) => {
+  captureUrl: async ({ url, notes, tags, createCards = true, createExercises = true }) => {
     const formData = new FormData();
     formData.append('url', url);
     if (notes) formData.append('notes', notes);
     if (tags && tags.length > 0) formData.append('tags', tags.join(','));
+    formData.append('create_cards', createCards.toString());
+    formData.append('create_exercises', createExercises.toString());
     
     return captureRequest('/api/capture/url', formData, 'url');
   },
@@ -230,12 +234,14 @@ export const captureApi = {
   /**
    * Capture a photo
    */
-  capturePhoto: async ({ file, captureType, notes, bookTitle }) => {
+  capturePhoto: async ({ file, captureType, notes, bookTitle, createCards = true, createExercises = true }) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('capture_type', captureType || 'general');
     if (notes) formData.append('notes', notes);
     if (bookTitle) formData.append('book_title', bookTitle);
+    formData.append('create_cards', createCards.toString());
+    formData.append('create_exercises', createExercises.toString());
     
     return captureRequest('/api/capture/photo', formData, 'photo');
   },
@@ -243,10 +249,12 @@ export const captureApi = {
   /**
    * Capture a voice memo
    */
-  captureVoice: async ({ file, expand = true }) => {
+  captureVoice: async ({ file, expand = true, createCards = true, createExercises = true }) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('expand', expand.toString());
+    formData.append('create_cards', createCards.toString());
+    formData.append('create_exercises', createExercises.toString());
     
     return captureRequest('/api/capture/voice', formData, 'voice');
   },
@@ -254,13 +262,34 @@ export const captureApi = {
 /**
  * Capture a PDF
  */
-capturePdf: async ({ file, contentTypeHint, detectHandwriting = true }) => {
+capturePdf: async ({ file, contentTypeHint, detectHandwriting = true, createCards = true, createExercises = true }) => {
   const formData = new FormData();
   formData.append('file', file);
   if (contentTypeHint) formData.append('content_type_hint', contentTypeHint);
   formData.append('detect_handwriting', detectHandwriting.toString());
+  formData.append('create_cards', createCards.toString());
+  formData.append('create_exercises', createExercises.toString());
   
   return captureRequest('/api/capture/pdf', formData, 'pdf');
+},
+
+/**
+ * Capture multiple book pages as a single book
+ */
+captureBook: async ({ files, title, authors, isbn, notes, createCards = true, createExercises = true }) => {
+  const formData = new FormData();
+  // Append each file with the same field name (FastAPI expects list)
+  files.forEach(file => {
+    formData.append('files', file);
+  });
+  if (title) formData.append('title', title);
+  if (authors) formData.append('authors', authors);
+  if (isbn) formData.append('isbn', isbn);
+  if (notes) formData.append('notes', notes);
+  formData.append('create_cards', createCards.toString());
+  formData.append('create_exercises', createExercises.toString());
+  
+  return captureRequest('/api/capture/book', formData, 'book');
 },
 };
 

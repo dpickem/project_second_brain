@@ -1,112 +1,93 @@
 import { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { captureApi } from '../api/capture';
+import { CaptureOptions } from './CaptureOptions';
 
 const CAPTURE_TYPES = [
-  { value: 'book_page', label: '📖 Book Page' },
-  { value: 'whiteboard', label: '📋 Whiteboard' },
-  { value: 'document', label: '📄 Document' },
-  { value: 'general', label: '📷 General' },
+  { value: 'book_page', label: '📖 Book Page', multi: true },
+  { value: 'whiteboard', label: '📋 Whiteboard', multi: false },
+  { value: 'document', label: '📄 Document', multi: false },
+  { value: 'general', label: '📷 General', multi: false },
 ];
 
 /**
  * Photo capture component using device camera or file picker.
- * Supports book pages, whiteboards, documents, and general photos.
+ * Supports book pages (multiple photos), whiteboards, documents, and general photos.
+ * 
+ * Uses native file inputs with capture attribute for reliable camera access
+ * on mobile devices (especially iOS) instead of getUserMedia API.
  */
 export function PhotoCapture({ onComplete, isOnline }) {
-  const [photo, setPhoto] = useState(null);
-  const [preview, setPreview] = useState(null);
+  // Store array of {file, preview} objects
+  const [photos, setPhotos] = useState([]);
   const [captureType, setCaptureType] = useState('book_page');
   const [notes, setNotes] = useState('');
   const [bookTitle, setBookTitle] = useState('');
+  const [createCards, setCreateCards] = useState(false);
+  const [createExercises, setCreateExercises] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [useCamera, setUseCamera] = useState(false);
-  const [cameraError, setCameraError] = useState(null);
   
-  const fileInputRef = useRef(null);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const streamRef = useRef(null);
+  // Two separate file inputs: one for camera, one for photo library
+  const cameraInputRef = useRef(null);
+  const libraryInputRef = useRef(null);
 
-  // Start camera when useCamera is true
+  // Check if current capture type supports multiple photos
+  const supportsMultiple = CAPTURE_TYPES.find(t => t.value === captureType)?.multi ?? false;
+
+  // Cleanup preview URLs on unmount
   useEffect(() => {
-    if (useCamera) {
-      startCamera();
-    }
-    return () => stopCamera();
-  }, [useCamera]);
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment', // Use back camera
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-      });
-      
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setCameraError(null);
-    } catch (err) {
-      console.error('Camera access failed:', err);
-      setCameraError('Camera access denied. Please allow camera permissions.');
-      setUseCamera(false);
-    }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-  };
-
-  const captureFromCamera = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0);
-    
-    canvas.toBlob((blob) => {
-      const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      setPhoto(file);
-      setPreview(URL.createObjectURL(blob));
-      stopCamera();
-      setUseCamera(false);
-    }, 'image/jpeg', 0.9);
-  };
+    return () => {
+      photos.forEach(p => URL.revokeObjectURL(p.preview));
+    };
+  }, []);
 
   const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPhoto(file);
-      setPreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    
+    if (supportsMultiple) {
+      // Add to existing photos
+      const newPhotos = files.map(file => ({
+        file,
+        preview: URL.createObjectURL(file),
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      }));
+      setPhotos(prev => [...prev, ...newPhotos]);
+    } else {
+      // Replace existing photo (single mode)
+      photos.forEach(p => URL.revokeObjectURL(p.preview));
+      const file = files[0];
+      setPhotos([{
+        file,
+        preview: URL.createObjectURL(file),
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      }]);
     }
+    
+    // Reset input so the same file can be selected again if needed
+    e.target.value = '';
   };
 
-  const clearPhoto = () => {
-    setPhoto(null);
-    if (preview) {
-      URL.revokeObjectURL(preview);
-      setPreview(null);
-    }
+  const removePhoto = (id) => {
+    setPhotos(prev => {
+      const photo = prev.find(p => p.id === id);
+      if (photo) {
+        URL.revokeObjectURL(photo.preview);
+      }
+      return prev.filter(p => p.id !== id);
+    });
+  };
+
+  const clearAllPhotos = () => {
+    photos.forEach(p => URL.revokeObjectURL(p.preview));
+    setPhotos([]);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!photo) {
+    if (photos.length === 0) {
       toast.error('Please take or select a photo');
       return;
     }
@@ -114,14 +95,29 @@ export function PhotoCapture({ onComplete, isOnline }) {
     setIsSubmitting(true);
 
     try {
-      await captureApi.capturePhoto({
-        file: photo,
-        captureType,
-        notes: notes.trim() || undefined,
-        bookTitle: captureType === 'book_page' ? bookTitle.trim() || undefined : undefined,
-      });
+      // Use book endpoint for multiple book pages, photo endpoint otherwise
+      if (captureType === 'book_page' && photos.length > 1) {
+        await captureApi.captureBook({
+          files: photos.map(p => p.file),
+          title: bookTitle.trim() || undefined,
+          notes: notes.trim() || undefined,
+          createCards,
+          createExercises,
+        });
+        toast.success(isOnline ? `${photos.length} pages captured!` : 'Saved offline');
+      } else {
+        // Single photo - use photo endpoint
+        await captureApi.capturePhoto({
+          file: photos[0].file,
+          captureType,
+          notes: notes.trim() || undefined,
+          bookTitle: captureType === 'book_page' ? bookTitle.trim() || undefined : undefined,
+          createCards,
+          createExercises,
+        });
+        toast.success(isOnline ? 'Photo captured!' : 'Saved offline');
+      }
 
-      toast.success(isOnline ? 'Photo captured!' : 'Saved offline');
       onComplete();
     } catch (err) {
       console.error('Photo capture failed:', err);
@@ -159,72 +155,113 @@ export function PhotoCapture({ onComplete, isOnline }) {
 
       {/* Camera/Photo area */}
       <div className="photo-capture-area">
-        {useCamera ? (
-          <div className="camera-view">
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
-              muted
-              className="camera-preview"
-            />
-            <canvas ref={canvasRef} className="hidden" />
-            <div className="camera-controls">
+        {photos.length > 0 ? (
+          <div className="photos-preview-container">
+            <div className="photos-grid">
+              <AnimatePresence>
+                {photos.map((photo, index) => (
+                  <motion.div
+                    key={photo.id}
+                    className="photo-preview-item"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                  >
+                    <img src={photo.preview} alt={`Photo ${index + 1}`} />
+                    <span className="photo-number">{index + 1}</span>
+                    <button
+                      type="button"
+                      className="remove-photo"
+                      onClick={() => removePhoto(photo.id)}
+                    >
+                      ✕
+                    </button>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+            <div className="photos-actions">
+              {supportsMultiple && (
+                <>
+                  <button
+                    type="button"
+                    className="photo-action-button small"
+                    onClick={() => cameraInputRef.current?.click()}
+                  >
+                    📷 Add More
+                  </button>
+                  <button
+                    type="button"
+                    className="photo-action-button small"
+                    onClick={() => libraryInputRef.current?.click()}
+                  >
+                    🖼️ Add from Library
+                  </button>
+                </>
+              )}
               <button
                 type="button"
-                className="camera-button cancel"
-                onClick={() => {
-                  stopCamera();
-                  setUseCamera(false);
-                }}
+                className="photo-action-button small danger"
+                onClick={clearAllPhotos}
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="camera-button capture"
-                onClick={captureFromCamera}
-              >
-                📸 Take Photo
+                🗑️ Clear All
               </button>
             </div>
-          </div>
-        ) : preview ? (
-          <div className="photo-preview">
-            <img src={preview} alt="Captured" />
-            <button
-              type="button"
-              className="clear-photo"
-              onClick={clearPhoto}
-            >
-              ✕
-            </button>
+            {/* Hidden inputs for adding more */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <input
+              ref={libraryInputRef}
+              type="file"
+              accept="image/*"
+              multiple={supportsMultiple}
+              onChange={handleFileSelect}
+              className="hidden"
+            />
           </div>
         ) : (
           <div className="photo-input-area">
-            {cameraError && (
-              <p className="camera-error">{cameraError}</p>
-            )}
             <button
               type="button"
               className="photo-action-button"
-              onClick={() => setUseCamera(true)}
+              onClick={() => cameraInputRef.current?.click()}
             >
-              📷 Use Camera
+              📷 Take Photo
             </button>
             <span className="or-divider">or</span>
             <button
               type="button"
               className="photo-action-button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => libraryInputRef.current?.click()}
             >
-              🖼️ Choose Photo
+              🖼️ Choose from Library
             </button>
+            {supportsMultiple && (
+              <p className="hint-text" style={{ marginTop: 'var(--space-sm)', textAlign: 'center' }}>
+                You can select multiple photos for book pages
+              </p>
+            )}
+            {/* Camera input - opens native camera app on mobile */}
             <input
-              ref={fileInputRef}
+              ref={cameraInputRef}
               type="file"
               accept="image/*"
               capture="environment"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            {/* Library input - opens photo picker without camera */}
+            <input
+              ref={libraryInputRef}
+              type="file"
+              accept="image/*"
+              multiple={supportsMultiple}
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -232,32 +269,28 @@ export function PhotoCapture({ onComplete, isOnline }) {
         )}
       </div>
 
-      {/* Book title field (only for book_page) */}
-      {captureType === 'book_page' && (
-        <input
-          type="text"
-          className="capture-input"
-          placeholder="Book title (optional)"
-          value={bookTitle}
-          onChange={(e) => setBookTitle(e.target.value)}
-        />
-      )}
-
-      {/* Notes field */}
-      <textarea
-        className="capture-textarea capture-textarea-small"
-        placeholder="Notes (optional)"
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        rows={2}
+      <CaptureOptions
+        bookTitle={captureType === 'book_page' ? bookTitle : undefined}
+        setBookTitle={captureType === 'book_page' ? setBookTitle : undefined}
+        notes={notes}
+        setNotes={setNotes}
+        notesPlaceholder="Notes (optional)"
+        createCards={createCards}
+        setCreateCards={setCreateCards}
+        createExercises={createExercises}
+        setCreateExercises={setCreateExercises}
       />
 
       <button 
         type="submit" 
         className="submit-button"
-        disabled={isSubmitting || !photo}
+        disabled={isSubmitting || photos.length === 0}
       >
-        {isSubmitting ? 'Uploading...' : 'Capture'}
+        {isSubmitting 
+          ? 'Uploading...' 
+          : photos.length > 1 
+            ? `Capture ${photos.length} Photos` 
+            : 'Capture'}
       </button>
     </motion.form>
   );
