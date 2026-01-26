@@ -51,6 +51,7 @@ from app.models.assistant import (
     SuggestionsResponse,
 )
 from app.models.learning import ExerciseGenerateRequest
+from app.services.cost_tracking import CostTracker
 from app.services.knowledge_graph import KnowledgeSearchService, Neo4jClient
 from app.services.learning.exercise_generator import ExerciseGenerator
 from app.services.learning.mastery_service import MasteryService
@@ -301,13 +302,18 @@ class AssistantService:
         messages.append({"role": "user", "content": user_content})
 
         try:
-            response, _ = await self.llm.complete(
+            response, usage = await self.llm.complete(
                 operation=PipelineOperation.CONTENT_ANALYSIS,
                 messages=messages,
                 model=get_default_text_model(),
                 temperature=settings.ASSISTANT_LLM_TEMPERATURE,
                 max_tokens=settings.ASSISTANT_LLM_MAX_TOKENS,
             )
+            # Track LLM usage for cost monitoring
+            if usage:
+                usage.pipeline = "assistant"
+                usage.operation = "chat_response"
+                await CostTracker.log_usage(usage)
             return str(response) if not isinstance(response, str) else response
         except Exception as e:
             logger.error(f"LLM completion failed: {e}")
@@ -975,7 +981,7 @@ Return as JSON with format:
 {{"explanation": "...", "examples": ["example 1", "example 2"]}}"""
 
         try:
-            response, _ = await self.llm.complete(
+            response, usage = await self.llm.complete(
                 operation=PipelineOperation.CONTENT_ANALYSIS,
                 messages=[{"role": "user", "content": prompt}],
                 model=get_default_text_model(),
@@ -983,6 +989,11 @@ Return as JSON with format:
                 max_tokens=settings.ASSISTANT_LLM_MAX_TOKENS,
                 json_mode=True,
             )
+            # Track LLM usage for cost monitoring
+            if usage:
+                usage.pipeline = "assistant"
+                usage.operation = "concept_explanation"
+                await CostTracker.log_usage(usage)
 
             # Handle response (could be dict or str if json_mode failed)
             explanation = ""

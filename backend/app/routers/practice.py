@@ -30,6 +30,7 @@ from app.models.learning import (
     SessionResponse,
     SessionSummary,
 )
+from app.services.cost_tracking import CostTracker
 from app.services.learning import (
     ExerciseGenerator,
     MasteryService,
@@ -153,10 +154,13 @@ async def generate_exercise(
     - > 0.7: Applications, teach-back
     """
     try:
-        exercise, _usages = await generator.generate_exercise(
+        exercise, usages = await generator.generate_exercise(
             request=request,
             mastery_level=mastery_level,
         )
+        # Track LLM usage for cost monitoring
+        if usages:
+            await CostTracker.log_usages_batch(usages)
         return exercise
     except Exception as e:
         logger.error(f"Failed to generate exercise: {e}")

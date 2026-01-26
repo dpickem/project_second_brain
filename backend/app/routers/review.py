@@ -32,6 +32,7 @@ from app.models.learning import (
     CardEvaluateRequest,
     CardEvaluateResponse,
 )
+from app.services.cost_tracking import CostTracker
 from app.services.learning import SpacedRepService
 from app.services.learning.card_generator import CardGeneratorService
 from app.services.learning.card_evaluator import CardAnswerEvaluator
@@ -266,14 +267,19 @@ async def generate_cards(
     Useful when starting a review session for a topic with few or no cards.
     """
     try:
-        cards, _usages = await generator.generate_for_topic(
+        cards, usages = await generator.generate_for_topic(
             topic=request.topic,
             count=request.count,
             difficulty=request.difficulty,
         )
+        # Track LLM usage for cost monitoring
+        if usages:
+            await CostTracker.log_usages_batch(usages)
 
         # Get total card count for topic
-        total, _ = await generator.ensure_minimum_cards(request.topic, minimum=0)
+        total, more_usages = await generator.ensure_minimum_cards(request.topic, minimum=0)
+        if more_usages:
+            await CostTracker.log_usages_batch(more_usages)
 
         return CardGenerationResponse(
             generated_count=len(cards),
@@ -298,10 +304,13 @@ async def ensure_cards_for_topic(
     Returns immediately if enough cards already exist.
     """
     try:
-        total, _usages = await generator.ensure_minimum_cards(
+        total, usages = await generator.ensure_minimum_cards(
             topic=topic,
             minimum=minimum,
         )
+        # Track LLM usage for cost monitoring
+        if usages:
+            await CostTracker.log_usages_batch(usages)
 
         return CardGenerationResponse(
             generated_count=max(0, total - minimum) if total >= minimum else total,

@@ -56,14 +56,15 @@ from sqlalchemy import update
 
 from app.db.models_learning import Exercise, ExerciseAttempt
 from app.enums.learning import ExerciseType, ExerciseDifficulty
+from app.enums.pipeline import PipelineOperation
 from app.models.learning import (
     AttemptSubmitRequest,
     AttemptEvaluationResponse,
     ExerciseWithSolution,
     CodeExecutionResult,
 )
+from app.services.cost_tracking import CostTracker
 from app.services.llm.client import LLMClient, build_messages, get_default_text_model
-from app.enums.pipeline import PipelineOperation
 
 logger = logging.getLogger(__name__)
 
@@ -565,13 +566,18 @@ class ResponseEvaluator:
                 system_prompt="You are an expert educational evaluator. Provide constructive feedback in JSON format.",
             )
 
-            response, _usage = await self.llm.complete(
+            response, usage = await self.llm.complete(
                 operation=PipelineOperation.CONCEPT_EXTRACTION,  # Use concept extraction operation
                 messages=messages,
                 model=self.model,
                 temperature=0.3,  # More deterministic for evaluation
                 json_mode=True,
             )
+            # Track LLM usage for cost monitoring
+            if usage:
+                usage.pipeline = "learning"
+                usage.operation = "text_evaluation"
+                await CostTracker.log_usage(usage)
 
             data = response if isinstance(response, dict) else json.loads(response)
 
@@ -696,13 +702,18 @@ class ResponseEvaluator:
                 system_prompt="You are an expert code reviewer. Provide constructive feedback in JSON format.",
             )
 
-            response, _usage = await self.llm.complete(
+            response, usage = await self.llm.complete(
                 operation=PipelineOperation.CONCEPT_EXTRACTION,
                 messages=messages,
                 model=self.model,
                 temperature=0.3,
                 json_mode=True,
             )
+            # Track LLM usage for cost monitoring
+            if usage:
+                usage.pipeline = "learning"
+                usage.operation = "code_evaluation"
+                await CostTracker.log_usage(usage)
 
             data = response if isinstance(response, dict) else json.loads(response)
 

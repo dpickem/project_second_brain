@@ -15,7 +15,7 @@ This document tracks known technical debt items and improvements for open-source
   - [TD-007: Add CHANGELOG.md and SECURITY.md](#td-007-add-changelogmd-and-securitymd)
 - [Backend Tech Debt](#backend-tech-debt)
   - ~~[TD-008: Use TYPE_CHECKING for type annotation imports](#td-008-use-type_checking-for-type-annotation-imports)~~
-  - [TD-009: Complete LLM/OCR/VLM usage tracking](#td-009-complete-llmocrvlm-usage-tracking)
+  - ~~[TD-009: Complete LLM/OCR/VLM usage tracking](#td-009-complete-llmocrvlm-usage-tracking)~~
   - [TD-010: Model factory methods for cross-layer conversions](#td-010-model-factory-methods-for-cross-layer-conversions)
   - ~~[TD-011: Clean up imports and move to top of files](#td-011-clean-up-imports-and-move-to-top-of-files)~~
   - [TD-012: Robust deduplication and cleanup on reprocessing](#td-012-robust-deduplication-and-cleanup-on-reprocessing)
@@ -195,7 +195,7 @@ class MyClass:
 
 ### TD-009: Complete LLM/OCR/VLM usage tracking
 **Priority**: P1  
-**Status**: Open  
+**Status**: Completed  
 **Area**: LLM integration
 
 **Description**: Ensure ALL external model calls are tracked via `LLMUsage` and persisted.
@@ -693,7 +693,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 ### P1 - High (Should address for clean release)
 - [ ] TD-006: README updates for open-source
 - [ ] TD-007: Add CHANGELOG.md and SECURITY.md
-- [ ] TD-009: Complete LLM/OCR/VLM usage tracking
+- [x] TD-009: Complete LLM/OCR/VLM usage tracking
 - [ ] TD-012: Robust deduplication and cleanup on reprocessing
 - [ ] TD-014: N+1 query in mastery_service.py
 - [ ] TD-015: Inconsistent datetime usage
@@ -752,9 +752,22 @@ Same changes as TD-008 (combined effort). Also added documentation comments to `
 
 ---
 
+### TD-009: Complete LLM/OCR/VLM usage tracking
+**Completed**: 2026-01-26
+
+Added CostTracker.log_usage() calls to all LLM call sites that were missing usage tracking:
+- `backend/app/services/assistant/service.py` - Chat responses and concept explanations now tracked
+- `backend/app/routers/review.py` - Card generation usages now persisted
+- `backend/app/routers/practice.py` - Exercise generation usages now persisted
+- `backend/app/services/learning/evaluator.py` - Text and code evaluation usages now tracked
+
+All LLM calls now log to `llm_usage_log` table with pipeline and operation metadata for cost attribution.
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 2 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 3 completed
