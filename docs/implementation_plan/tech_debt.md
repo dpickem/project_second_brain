@@ -25,7 +25,7 @@ This document tracks known technical debt items and improvements for open-source
   - [TD-016: Incomplete TODO implementations](#td-016-incomplete-todo-implementations)
   - [TD-017: Large service files need splitting](#td-017-large-service-files-need-splitting)
   - [TD-018: Inconsistent error handling patterns](#td-018-inconsistent-error-handling-patterns)
-  - [TD-019: Missing type hints](#td-019-missing-type-hints)
+  - ~~[TD-019: Missing type hints](#td-019-missing-type-hints)~~
   - [TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)
   - [TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)
 - [Frontend Tech Debt](#frontend-tech-debt)
@@ -396,7 +396,7 @@ for topic_path in topic_paths:
 
 ### TD-019: Missing type hints
 **Priority**: P2  
-**Status**: Open  
+**Status**: Completed  
 **Area**: Type safety
 
 **Files with Generic Types**:
@@ -713,7 +713,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - [ ] TD-016: Incomplete TODO implementations
 - [ ] TD-017: Large service files need splitting
 - [ ] TD-018: Inconsistent error handling patterns
-- [ ] TD-019: Missing type hints
+- [x] TD-019: Missing type hints
 - [ ] TD-020: Hardcoded upload directory
 - [ ] TD-021: Review and clean up dependencies
 - [ ] TD-024: Missing prop validation
@@ -765,9 +765,24 @@ All LLM calls now log to `llm_usage_log` table with pipeline and operation metad
 
 ---
 
+### TD-019: Missing type hints
+**Completed**: 2026-01-26
+
+Added TypedDict definitions and type annotations for functions that previously returned untyped `dict`:
+
+- `backend/app/services/obsidian/vault.py`:
+  - Added `VaultStructureResult` TypedDict for `ensure_structure()` return type
+- `backend/app/services/processing/output/obsidian_generator.py`:
+  - Added `TemplateData` TypedDict for `_prepare_template_data()` return type
+- `backend/app/services/tasks.py`:
+  - Added `TaskResultBase`, `IngestionResult`, `BookIngestionResult`, `ProcessingResult`, `SyncResult`, `VaultSyncResult` TypedDicts
+  - Updated all Celery task functions to use typed returns instead of `dict[str, Any]`
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 3 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 4 completed

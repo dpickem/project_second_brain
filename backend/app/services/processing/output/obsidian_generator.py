@@ -30,7 +30,7 @@ Usage:
 import logging
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional, TypedDict
 
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
@@ -42,6 +42,58 @@ from app.models.processing import Concept, ProcessingResult
 from app.services.obsidian.vault import get_vault_manager
 
 logger = logging.getLogger(__name__)
+
+
+class TemplateData(TypedDict, total=False):
+    """
+    Data structure passed to Jinja2 templates for note generation.
+
+    Different templates may use different subsets of these variables.
+    All fields are optional (total=False) since templates vary by content type.
+    """
+
+    # Basic metadata
+    content_type: str
+    title: str
+    content_id: str
+    authors: list[str]
+    author: str
+    tags: list[str]
+    domain: str
+    complexity: str
+    status: str
+    # Dates
+    created_date: str
+    processed_date: str
+    # Source info
+    source_url: str
+    source_path: str
+    # Summaries
+    summary: str
+    summary_brief: str
+    overview: str
+    detailed_notes: str
+    # Key findings/takeaways
+    key_findings: list[str]
+    takeaways: list[str]
+    # Concepts (list of dicts with name, definition, importance)
+    concepts: list[dict[str, Any]]
+    # Annotations
+    highlights: list[dict[str, Any]]
+    handwritten_notes: list[dict[str, Any]]
+    has_handwritten_notes: bool
+    # Interactive elements
+    mastery_questions: list[dict[str, Any]]
+    tasks: list[dict[str, Any]]
+    action_items: list[str]
+    # Connections
+    connections: list[dict[str, Any]]
+    related: list[str]
+    # Idea-specific variables
+    idea: str
+    context: str
+    importance: str
+    next_steps: list[str]
 
 # UUID pattern to detect UUID-like titles
 UUID_PATTERN = re.compile(
@@ -145,7 +197,7 @@ def _get_template_name(content_type: str) -> str:
     return f"{content_type}.md.j2"
 
 
-def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) -> dict:
+def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) -> TemplateData:
     """
     Prepare data dict for template rendering.
 

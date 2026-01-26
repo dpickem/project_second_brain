@@ -74,7 +74,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 # =============================================================================
 # Third-party imports
@@ -123,6 +123,90 @@ from app.services.processing.pipeline import (
 
 logger = logging.getLogger(__name__)
 
+
+# =============================================================================
+# Type definitions for task return values
+# =============================================================================
+
+
+class TaskResultBase(TypedDict, total=False):
+    """Base type for all task results."""
+
+    status: str
+    """Task status from ProcessingRunStatus enum."""
+    error: str
+    """Error message if task failed."""
+    reason: str
+    """Skip reason if task was skipped."""
+
+
+class IngestionResult(TaskResultBase):
+    """Return type for content ingestion tasks."""
+
+    content_id: str
+    """UUID of the ingested content."""
+    content_type: str
+    """Type of content (article, pdf, book, etc.)."""
+    title: str
+    """Title of the ingested content."""
+    ingested_at: str
+    """ISO timestamp of ingestion."""
+    processing_queued: bool
+    """Whether LLM processing was queued."""
+
+
+class BookIngestionResult(TaskResultBase):
+    """Return type for book ingestion task."""
+
+    content_id: str
+    """UUID of the ingested book."""
+    title: str
+    """Title of the book."""
+    pages_processed: int
+    """Number of pages OCR'd."""
+    llm_cost_usd: float
+    """Cost of LLM calls for OCR."""
+    ingested_at: str
+    """ISO timestamp of ingestion."""
+    processing_queued: bool
+    """Whether LLM processing was queued."""
+
+
+class ProcessingResult(TaskResultBase):
+    """Return type for LLM processing task."""
+
+    content_id: str
+    """UUID of the processed content."""
+    processing_time_seconds: float
+    """Time spent processing."""
+    estimated_cost_usd: float
+    """Estimated LLM cost."""
+    concepts_extracted: int
+    """Number of concepts extracted."""
+    cards_generated: int
+    """Number of flashcards generated."""
+    exercises_generated: int
+    """Number of exercises generated."""
+
+
+class SyncResult(TaskResultBase):
+    """Return type for sync tasks (Raindrop, GitHub)."""
+
+    items_synced: int
+    """Number of items synced (for Raindrop)."""
+    repos_synced: int
+    """Number of repos synced (for GitHub)."""
+    synced_at: str
+    """ISO timestamp of sync."""
+
+
+class VaultSyncResult(TaskResultBase):
+    """Return type for vault sync task."""
+
+    path: str
+    """Path to the synced note."""
+
+
 # =============================================================================
 # Retry configurations using tenacity
 # =============================================================================
@@ -163,7 +247,7 @@ llm_processing_retry = retry(
 async def _run_llm_processing_impl(
     content_id: str,
     config: PipelineConfig,
-) -> dict[str, Any]:
+) -> ProcessingResult:
     """
     Internal async implementation of LLM processing.
 
@@ -282,7 +366,7 @@ async def _run_llm_processing_impl(
 def _process_content_with_retry(
     content_id: str,
     config: PipelineConfig,
-) -> dict[str, Any]:
+) -> ProcessingResult:
     """Run LLM processing (pipeline) with tenacity retry logic."""
     return asyncio.run(_run_llm_processing_impl(content_id, config))
 
@@ -291,7 +375,7 @@ def _process_content_with_retry(
 def process_content(
     content_id: str,
     config_dict: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
+) -> ProcessingResult:
     """
     Celery task to run the LLM processing pipeline on already-ingested content.
 
@@ -343,7 +427,7 @@ def _ingest_content_impl(
     source_text: Optional[str] = None,
     auto_process: bool = True,
     config_dict: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
+) -> IngestionResult:
     """
     Internal implementation of content ingestion with tenacity retry.
 
@@ -457,7 +541,7 @@ def ingest_content(
     source_text: Optional[str] = None,
     auto_process: bool = True,
     config_dict: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
+) -> IngestionResult:
     """
     Ingest content through the appropriate ingestion pipeline (raw extraction).
 
@@ -522,7 +606,7 @@ def ingest_content_high(
     source_text: Optional[str] = None,
     auto_process: bool = True,
     config_dict: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
+) -> IngestionResult:
     """
     High-priority content processing (e.g., voice memos).
 
@@ -546,7 +630,7 @@ def ingest_content_low(
     source_text: Optional[str] = None,
     auto_process: bool = True,
     config_dict: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
+) -> IngestionResult:
     """
     Low-priority content processing (e.g., batch imports).
 
@@ -569,7 +653,7 @@ def _process_book_impl(
     max_concurrency: int = 5,
     auto_process: bool = True,
     config_dict: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
+) -> BookIngestionResult:
     """
     Internal implementation of book OCR processing with tenacity retry.
 
@@ -662,7 +746,7 @@ def ingest_book(
     max_concurrency: int = 5,
     auto_process: bool = True,
     config_dict: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
+) -> BookIngestionResult:
     """
     Process batch of book page images through BookOCRPipeline.
 
@@ -748,7 +832,7 @@ def _sync_raindrop_impl(since_dt: datetime, limit: Optional[int] = None) -> list
 @celery_app.task(name="app.services.tasks.sync_raindrop")
 def sync_raindrop(
     since: Optional[str] = None, limit: Optional[int] = None
-) -> dict[str, Any]:
+) -> SyncResult:
     """
     Sync bookmarks from Raindrop.io.
 
@@ -835,7 +919,7 @@ def _sync_github_impl(limit: int) -> list[Any]:
 
 
 @celery_app.task(name="app.services.tasks.sync_github")
-def sync_github(limit: int = 50) -> dict[str, Any]:
+def sync_github(limit: int = 50) -> SyncResult:
     """
     Sync starred repositories from GitHub.
 
@@ -894,7 +978,7 @@ def sync_github(limit: int = 50) -> dict[str, Any]:
 
 
 @celery_app.task(name="app.services.tasks.sync_vault_note")
-def sync_vault_note(note_path: str) -> dict[str, Any]:
+def sync_vault_note(note_path: str) -> VaultSyncResult:
     """
     Sync a single vault note to Neo4j knowledge graph.
 
@@ -940,7 +1024,7 @@ def sync_vault_note(note_path: str) -> dict[str, Any]:
 
 
 @celery_app.task(name="app.services.tasks.cleanup_old_tasks")
-def cleanup_old_tasks() -> dict[str, str]:
+def cleanup_old_tasks() -> TaskResultBase:
     """
     Periodic task to clean up old task results and failed items.
 

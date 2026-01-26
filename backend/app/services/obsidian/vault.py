@@ -58,7 +58,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TypedDict
 
 import aiofiles
 import aiofiles.os
@@ -67,6 +67,17 @@ from app.config.settings import settings, yaml_config
 from app.content_types import content_registry
 
 logger = logging.getLogger(__name__)
+
+
+class VaultStructureResult(TypedDict):
+    """Return type for ensure_structure() method."""
+
+    created: list[str]
+    """Folder paths that were created."""
+    existed: list[str]
+    """Folder paths that already existed."""
+    total: int
+    """Total folder count (created + existed)."""
 
 
 class VaultManager:
@@ -124,7 +135,7 @@ class VaultManager:
         if not self.vault_path.is_dir():
             raise ValueError(f"Vault path is not a directory: {self.vault_path}")
 
-    async def ensure_structure(self) -> dict:
+    async def ensure_structure(self) -> VaultStructureResult:
         """
         Ensure the vault folder structure exists (idempotent).
 
