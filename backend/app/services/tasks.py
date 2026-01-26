@@ -343,6 +343,7 @@ def _ingest_content_impl(
     source_url: Optional[str] = None,
     source_text: Optional[str] = None,
     auto_process: bool = True,
+    config_dict: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """
     Internal implementation of content ingestion with tenacity retry.
@@ -359,6 +360,8 @@ def _ingest_content_impl(
         source_text: Text for direct text input
         auto_process: If True, automatically run LLM processing after ingestion
                      to generate cards, exercises, summaries, etc. (default: True)
+        config_dict: Optional configuration for LLM processing (generate_cards,
+                    generate_exercises). If None, defaults to generating both.
 
     Raises:
         Exception: Re-raised after retry attempts exhausted.
@@ -420,11 +423,12 @@ def _ingest_content_impl(
     # Auto-queue LLM processing if enabled
     if auto_process:
         logger.info(f"Queuing {content_id} for LLM processing...")
-        # Ingested content (PDFs, articles, etc.) should generate cards and exercises by default
-        process_content.delay(
-            content_id,
-            config_dict={"generate_cards": True, "generate_exercises": True},
-        )
+        # Use provided config or default to generating cards and exercises
+        processing_config = config_dict if config_dict is not None else {
+            "generate_cards": True,
+            "generate_exercises": True,
+        }
+        process_content.delay(content_id, config_dict=processing_config)
 
         return {
             "status": ProcessingRunStatus.INGESTED.value,
@@ -453,6 +457,7 @@ def ingest_content(
     source_url: Optional[str] = None,
     source_text: Optional[str] = None,
     auto_process: bool = True,
+    config_dict: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """
     Ingest content through the appropriate ingestion pipeline (raw extraction).
@@ -472,8 +477,8 @@ def ingest_content(
     After ingestion, if auto_process=True (default), the content is automatically
     processed through the LLM pipeline to generate:
     - Summaries, concepts, and tags
-    - Spaced repetition cards for review
-    - Practice exercises
+    - Spaced repetition cards for review (if config_dict.generate_cards=True)
+    - Practice exercises (if config_dict.generate_exercises=True)
     - Obsidian notes and Neo4j nodes
 
     Retry behavior is handled by tenacity (3 attempts, exponential backoff 1-4 min).
@@ -486,13 +491,18 @@ def ingest_content(
         source_text: Text for direct text input
         auto_process: If True, automatically run LLM processing after ingestion
                      to generate cards, exercises, summaries, etc. (default: True)
+        config_dict: Optional configuration for LLM processing. Keys:
+                    - generate_cards: Whether to create spaced repetition cards
+                    - generate_exercises: Whether to create practice exercises
+                    If None, defaults to generating both.
 
     Returns:
         Dictionary with processing results
     """
     try:
         return _ingest_content_impl(
-            content_id, content_type, source_path, source_url, source_text, auto_process
+            content_id, content_type, source_path, source_url, source_text,
+            auto_process, config_dict
         )
     except RetryError as e:
         logger.error(f"Processing failed for {content_id} after all retries: {e}")
@@ -512,6 +522,7 @@ def ingest_content_high(
     source_url: Optional[str] = None,
     source_text: Optional[str] = None,
     auto_process: bool = True,
+    config_dict: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """
     High-priority content processing (e.g., voice memos).
@@ -522,7 +533,8 @@ def ingest_content_high(
     Note: Content must already exist in DB before calling. See ingest_content docstring.
     """
     return ingest_content(
-        content_id, content_type, source_path, source_url, source_text, auto_process
+        content_id, content_type, source_path, source_url, source_text,
+        auto_process, config_dict
     )
 
 
@@ -534,6 +546,7 @@ def ingest_content_low(
     source_url: Optional[str] = None,
     source_text: Optional[str] = None,
     auto_process: bool = True,
+    config_dict: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """
     Low-priority content processing (e.g., batch imports).
@@ -544,7 +557,8 @@ def ingest_content_low(
     Note: Content must already exist in DB before calling. See ingest_content docstring.
     """
     return ingest_content(
-        content_id, content_type, source_path, source_url, source_text, auto_process
+        content_id, content_type, source_path, source_url, source_text,
+        auto_process, config_dict
     )
 
 
@@ -555,6 +569,7 @@ def _process_book_impl(
     book_metadata: dict[str, Any],
     max_concurrency: int = 5,
     auto_process: bool = True,
+    config_dict: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """
     Internal implementation of book OCR processing with tenacity retry.
@@ -612,11 +627,12 @@ def _process_book_impl(
     # Auto-queue LLM processing if enabled
     if auto_process:
         logger.info(f"Queuing book {content_id} for LLM processing...")
-        # Book content should generate cards and exercises by default
-        process_content.delay(
-            content_id,
-            config_dict={"generate_cards": True, "generate_exercises": True},
-        )
+        # Use provided config or default to generating cards and exercises
+        processing_config = config_dict if config_dict is not None else {
+            "generate_cards": True,
+            "generate_exercises": True,
+        }
+        process_content.delay(content_id, config_dict=processing_config)
 
         return {
             "status": ProcessingRunStatus.INGESTED.value,
@@ -646,6 +662,7 @@ def ingest_book(
     book_metadata: Optional[dict[str, Any]] = None,
     max_concurrency: int = 5,
     auto_process: bool = True,
+    config_dict: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """
     Process batch of book page images through BookOCRPipeline.
@@ -672,6 +689,10 @@ def ingest_book(
         max_concurrency: Max parallel OCR calls (default 5, increase for faster processing)
         auto_process: If True, automatically run LLM processing after ingestion
                      to generate cards, exercises, summaries, etc. (default: True)
+        config_dict: Optional configuration for LLM processing. Keys:
+                    - generate_cards: Whether to create spaced repetition cards
+                    - generate_exercises: Whether to create practice exercises
+                    If None, defaults to generating both.
 
     Returns:
         Dictionary with processing results
@@ -680,7 +701,8 @@ def ingest_book(
 
     try:
         return _process_book_impl(
-            content_id, image_paths, book_metadata, max_concurrency, auto_process
+            content_id, image_paths, book_metadata, max_concurrency,
+            auto_process, config_dict
         )
     except RetryError as e:
         logger.error(f"Book processing failed for {content_id} after all retries: {e}")

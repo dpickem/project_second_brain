@@ -146,6 +146,8 @@ async def capture_url(
     url: str = Form(..., description="URL to capture"),
     notes: Optional[str] = Form(None, description="Optional notes about this URL"),
     tags: Optional[str] = Form(None, description="Comma-separated tags"),
+    create_cards: bool = Form(True, description="Generate spaced repetition cards"),
+    create_exercises: bool = Form(True, description="Generate practice exercises"),
 ):
     """
     Capture a URL for later processing.
@@ -158,6 +160,8 @@ async def capture_url(
         url: The URL to capture (must start with http:// or https://).
         notes: Optional notes about why this URL was saved or key takeaways.
         tags: Optional comma-separated list of tags (e.g., "article,ai,research").
+        create_cards: Whether to generate spaced repetition cards (default: True).
+        create_exercises: Whether to generate practice exercises (default: True).
 
     Returns:
         dict: Response containing status, content ID, title, URL, and processing message.
@@ -222,6 +226,9 @@ async def capture_url(
         PipelineContentType.ARTICLE.value,
         None,  # source_path
         normalized_url,  # source_url
+        None,  # source_text
+        True,  # auto_process
+        {"generate_cards": create_cards, "generate_exercises": create_exercises},
     )
 
     return {
@@ -242,6 +249,8 @@ async def capture_photo(
     ),
     notes: Optional[str] = Form(None, description="Optional notes"),
     book_title: Optional[str] = Form(None, description="Book title if known"),
+    create_cards: bool = Form(True, description="Generate spaced repetition cards"),
+    create_exercises: bool = Form(True, description="Generate practice exercises"),
 ):
     """
     Capture a photo for OCR processing.
@@ -259,6 +268,8 @@ async def capture_photo(
             - "general": General photo with text (default).
         notes: Optional notes or context about the photo.
         book_title: Book title if capture_type is "book_page".
+        create_cards: Whether to generate spaced repetition cards (default: True).
+        create_exercises: Whether to generate practice exercises (default: True).
 
     Returns:
         dict: Response containing status, content ID, file path, capture type,
@@ -331,6 +342,10 @@ async def capture_photo(
         ucf.id,
         pipeline_type.value,
         str(file_path),  # source_path
+        None,  # source_url
+        None,  # source_text
+        True,  # auto_process
+        {"generate_cards": create_cards, "generate_exercises": create_exercises},
     )
 
     return {
@@ -347,6 +362,8 @@ async def capture_voice(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="Audio file"),
     expand: bool = Form(True, description="Expand transcript into structured note"),
+    create_cards: bool = Form(True, description="Generate spaced repetition cards"),
+    create_exercises: bool = Form(True, description="Generate practice exercises"),
 ):
     """
     Capture a voice memo for transcription.
@@ -362,6 +379,8 @@ async def capture_voice(
               M4A, OGG, FLAC.
         expand: If True (default), uses LLM to expand raw transcript into a
                 structured, well-formatted note. If False, keeps raw transcript.
+        create_cards: Whether to generate spaced repetition cards (default: True).
+        create_exercises: Whether to generate practice exercises (default: True).
 
     Returns:
         dict: Response containing status, content ID, file path, and processing
@@ -421,6 +440,10 @@ async def capture_voice(
         ucf.id,
         PipelineContentType.VOICE_MEMO.value,
         str(file_path),  # source_path
+        None,  # source_url
+        None,  # source_text
+        True,  # auto_process
+        {"generate_cards": create_cards, "generate_exercises": create_exercises},
     )
 
     return {
@@ -439,6 +462,8 @@ async def capture_pdf(
         None, description="Hint: paper, article, book, or general"
     ),
     detect_handwriting: bool = Form(True, description="Detect handwritten annotations"),
+    create_cards: bool = Form(True, description="Generate spaced repetition cards"),
+    create_exercises: bool = Form(True, description="Generate practice exercises"),
 ):
     """
     Upload a PDF for processing.
@@ -457,6 +482,8 @@ async def capture_pdf(
             - "general": General document (default).
         detect_handwriting: If True (default), uses Vision LLM to detect and
                            extract handwritten annotations in margins.
+        create_cards: Whether to generate spaced repetition cards (default: True).
+        create_exercises: Whether to generate practice exercises (default: True).
 
     Returns:
         dict: Response containing status, content ID, file path, filename,
@@ -518,6 +545,10 @@ async def capture_pdf(
         ucf.id,
         PipelineContentType.PDF.value,
         str(file_path),  # source_path
+        None,  # source_url
+        None,  # source_text
+        True,  # auto_process
+        {"generate_cards": create_cards, "generate_exercises": create_exercises},
     )
 
     return {
@@ -540,6 +571,8 @@ async def capture_book(
     max_concurrency: int = Form(
         5, description="Max parallel OCR calls (5-20 recommended)"
     ),
+    create_cards: bool = Form(True, description="Generate spaced repetition cards"),
+    create_exercises: bool = Form(True, description="Generate practice exercises"),
 ):
     """
     Capture multiple book page photos as a single book.
@@ -678,6 +711,8 @@ async def capture_book(
         saved_paths,
         book_metadata,
         max_concurrency,
+        True,  # auto_process
+        {"generate_cards": create_cards, "generate_exercises": create_exercises},
     )
 
     return {
