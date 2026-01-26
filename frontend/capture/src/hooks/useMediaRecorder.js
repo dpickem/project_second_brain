@@ -60,8 +60,28 @@ export function useMediaRecorder({
   const streamRef = useRef(null);
   const timerRef = useRef(null);
 
-  // Check MediaRecorder support on mount
+  // Check MediaRecorder and mediaDevices support on mount
   useEffect(() => {
+    // Check if we're in a secure context (HTTPS or localhost)
+    const isSecureContext = window.isSecureContext || 
+      window.location.protocol === 'https:' || 
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
+    
+    if (!isSecureContext) {
+      setIsSupported(false);
+      setError('Voice recording requires HTTPS. Please access via https:// or localhost.');
+      return;
+    }
+    
+    // Check for mediaDevices API
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setIsSupported(false);
+      setError('Voice recording is not supported in this browser. Please use Safari or Chrome.');
+      return;
+    }
+    
+    // Check for MediaRecorder API
     if (typeof MediaRecorder === 'undefined') {
       setIsSupported(false);
       setError('Voice recording is not supported in this browser.');
@@ -81,6 +101,12 @@ export function useMediaRecorder({
   }, []);
 
   const startRecording = useCallback(async () => {
+    // Check if mediaDevices is available (requires HTTPS)
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError('Voice recording requires HTTPS. Please access via https:// or localhost.');
+      return;
+    }
+    
     // Check if MediaRecorder is available
     if (typeof MediaRecorder === 'undefined') {
       setError('Voice recording is not supported in this browser. Try using Safari or Chrome.');
