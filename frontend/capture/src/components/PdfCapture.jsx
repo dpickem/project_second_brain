@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { captureApi } from '../api/capture';
+import { CaptureOptions } from './CaptureOptions';
 
 const CONTENT_TYPES = [
   { value: 'paper', label: '📄 Paper' },
@@ -18,6 +19,8 @@ export function PdfCapture({ onComplete, isOnline, initialFile = null }) {
   const [file, setFile] = useState(initialFile);
   const [contentType, setContentType] = useState('general');
   const [detectHandwriting, setDetectHandwriting] = useState(true);
+  const [createCards, setCreateCards] = useState(false);
+  const [createExercises, setCreateExercises] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const fileInputRef = useRef(null);
@@ -61,6 +64,8 @@ export function PdfCapture({ onComplete, isOnline, initialFile = null }) {
         file,
         contentTypeHint: contentType,
         detectHandwriting,
+        createCards,
+        createExercises,
       });
 
       toast.success(isOnline ? 'PDF captured!' : 'Saved offline');
@@ -138,21 +143,14 @@ export function PdfCapture({ onComplete, isOnline, initialFile = null }) {
         )}
       </div>
 
-      {/* Handwriting detection option */}
-      <label className="checkbox-label">
-        <input
-          type="checkbox"
-          checked={detectHandwriting}
-          onChange={(e) => setDetectHandwriting(e.target.checked)}
-        />
-        <span>Detect handwritten annotations</span>
-      </label>
-
-      <p className="hint-text">
-        {detectHandwriting 
-          ? 'Will use Vision AI to extract handwritten margin notes and highlights.'
-          : 'Only digital text and highlights will be extracted.'}
-      </p>
+      <CaptureOptions
+        createCards={createCards}
+        setCreateCards={setCreateCards}
+        createExercises={createExercises}
+        setCreateExercises={setCreateExercises}
+        detectHandwriting={detectHandwriting}
+        setDetectHandwriting={setDetectHandwriting}
+      />
 
       <button 
         type="submit" 

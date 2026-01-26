@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { captureApi } from '../api/capture';
+import { CaptureOptions } from './CaptureOptions';
 
 /**
  * Quick text capture component.
@@ -11,8 +12,9 @@ export function TextCapture({ onComplete, isOnline }) {
   const [text, setText] = useState('');
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
+  const [createCards, setCreateCards] = useState(false);
+  const [createExercises, setCreateExercises] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const textareaRef = useRef(null);
 
   // Auto-focus textarea on mount
@@ -40,6 +42,8 @@ export function TextCapture({ onComplete, isOnline }) {
         text: text.trim(),
         title: title.trim() || undefined,
         tags: tagList.length > 0 ? tagList : undefined,
+        createCards,
+        createExercises,
       });
 
       toast.success(isOnline ? 'Captured!' : 'Saved offline');
@@ -76,37 +80,16 @@ export function TextCapture({ onComplete, isOnline }) {
         spellCheck="true"
       />
 
-      {/* Advanced options toggle */}
-      <button
-        type="button"
-        className="advanced-toggle"
-        onClick={() => setShowAdvanced(!showAdvanced)}
-      >
-        {showAdvanced ? '− Less options' : '+ More options'}
-      </button>
-
-      {showAdvanced && (
-        <motion.div 
-          className="advanced-options"
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-        >
-          <input
-            type="text"
-            className="capture-input"
-            placeholder="Title (optional)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <input
-            type="text"
-            className="capture-input"
-            placeholder="Tags (comma-separated)"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-          />
-        </motion.div>
-      )}
+      <CaptureOptions
+        title={title}
+        setTitle={setTitle}
+        tags={tags}
+        setTags={setTags}
+        createCards={createCards}
+        setCreateCards={setCreateCards}
+        createExercises={createExercises}
+        setCreateExercises={setCreateExercises}
+      />
 
       <button 
         type="submit" 

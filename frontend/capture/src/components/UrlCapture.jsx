@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { captureApi } from '../api/capture';
+import { CaptureOptions } from './CaptureOptions';
 
 /**
  * URL capture component.
@@ -11,8 +12,9 @@ export function UrlCapture({ onComplete, isOnline }) {
   const [url, setUrl] = useState('');
   const [notes, setNotes] = useState('');
   const [tags, setTags] = useState('');
+  const [createCards, setCreateCards] = useState(false);
+  const [createExercises, setCreateExercises] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const inputRef = useRef(null);
 
   // Auto-focus and check clipboard for URL on mount
@@ -62,6 +64,8 @@ export function UrlCapture({ onComplete, isOnline }) {
         url: trimmedUrl,
         notes: notes.trim() || undefined,
         tags: tagList.length > 0 ? tagList : undefined,
+        createCards,
+        createExercises,
       });
 
       toast.success(isOnline ? 'URL captured!' : 'Saved offline');
@@ -97,37 +101,16 @@ export function UrlCapture({ onComplete, isOnline }) {
         inputMode="url"
       />
 
-      {/* Advanced options toggle */}
-      <button
-        type="button"
-        className="advanced-toggle"
-        onClick={() => setShowAdvanced(!showAdvanced)}
-      >
-        {showAdvanced ? '− Less options' : '+ More options'}
-      </button>
-
-      {showAdvanced && (
-        <motion.div 
-          className="advanced-options"
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-        >
-          <textarea
-            className="capture-textarea capture-textarea-small"
-            placeholder="Why is this interesting? (optional)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-          />
-          <input
-            type="text"
-            className="capture-input"
-            placeholder="Tags (comma-separated)"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-          />
-        </motion.div>
-      )}
+      <CaptureOptions
+        notes={notes}
+        setNotes={setNotes}
+        tags={tags}
+        setTags={setTags}
+        createCards={createCards}
+        setCreateCards={setCreateCards}
+        createExercises={createExercises}
+        setCreateExercises={setCreateExercises}
+      />
 
       <button 
         type="submit" 
