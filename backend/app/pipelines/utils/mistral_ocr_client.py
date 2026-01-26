@@ -41,6 +41,7 @@ import asyncio
 import base64
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -311,8 +312,6 @@ class MistralOCRResult:
             output_path: Path to save the markdown file.
             include_images: If True, embed base64 images in markdown.
         """
-        import re
-
         content = self.full_markdown
 
         # Add document annotation header if available

@@ -9,18 +9,20 @@ Endpoints:
 - GET /api/health/ready - Readiness probe for orchestration systems
 """
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends
 from neo4j import GraphDatabase
-from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.base import get_db
 from app.db.redis import get_redis
-from app.services.queue import celery_app
-from app.services.obsidian.lifecycle import get_watcher_status
 from app.services.knowledge_graph.queries import VERIFY_CONNECTIVITY
+from app.services.obsidian.lifecycle import get_watcher_status
+from app.services.obsidian.vault import get_vault_manager
+from app.services.queue import celery_app
 
 router = APIRouter(prefix="/api/health", tags=["health"])
 
@@ -89,8 +91,6 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
         if vault_path.exists() and vault_path.is_dir():
             # Get vault stats if available
             try:
-                from app.services.obsidian.vault import get_vault_manager
-
                 vault = get_vault_manager()
                 stats = await vault.get_vault_stats()
                 health["dependencies"]["obsidian_vault"] = {

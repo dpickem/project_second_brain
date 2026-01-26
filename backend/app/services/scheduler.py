@@ -54,6 +54,8 @@ scheduler = AsyncIOScheduler()
 
 async def trigger_raindrop_sync():
     """Trigger Raindrop sync for last 24 hours."""
+    # Deferred import: Celery tasks are heavy and may have circular dependencies.
+    # Importing here avoids loading the full task module at scheduler initialization.
     from app.services.tasks import sync_raindrop
 
     since = datetime.utcnow() - timedelta(hours=24)
@@ -63,6 +65,7 @@ async def trigger_raindrop_sync():
 
 async def trigger_github_sync():
     """Trigger GitHub starred repos sync."""
+    # Deferred import: Celery tasks are heavy and may have circular dependencies.
     from app.services.tasks import sync_github
 
     sync_github.delay(limit=100)
@@ -71,6 +74,7 @@ async def trigger_github_sync():
 
 async def trigger_cleanup():
     """Trigger periodic cleanup task."""
+    # Deferred import: Celery tasks are heavy and may have circular dependencies.
     from app.services.tasks import cleanup_old_tasks
 
     cleanup_old_tasks.delay()
@@ -79,6 +83,7 @@ async def trigger_cleanup():
 
 async def trigger_taxonomy_sync():
     """Sync tag taxonomy from YAML to database."""
+    # Deferred imports: Avoid loading DB and service modules until job execution.
     from app.db.base import async_session_maker
     from app.services.tag_service import TagService
 

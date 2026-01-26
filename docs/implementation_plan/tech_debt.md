@@ -1,18 +1,53 @@
 # Technical Debt Tracker
 
-This document tracks known technical debt items and refactoring tasks across the codebase.
+This document tracks known technical debt items and improvements for open-source release readiness.
 
 ## Table of Contents
 
 - [Priority Levels](#priority-levels)
-- [Open Items](#open-items)
-  - [Code Quality & Patterns](#code-quality--patterns)
-    - [TD-001: Use TYPE_CHECKING for type annotation imports](#td-001-use-type_checking-for-type-annotation-imports)
-    - [TD-002: Complete LLM/OCR/VLM usage tracking and persistence](#td-002-complete-llmocrvlm-usage-tracking-and-persistence)
-    - [TD-003: Move cross-layer model construction logic into model factory methods](#td-003-move-cross-layer-model-construction-logic-into-model-factory-methods)
-    - [TD-004: Clean up imports and move to top of files](#td-004-clean-up-imports-and-move-to-top-of-files)
-    - [TD-005: Robust deduplication and cleanup on reprocessing](#td-005-robust-deduplication-and-cleanup-on-reprocessing)
-    - [TD-006: Eliminate magic numbers from codebase](#td-006-eliminate-magic-numbers-from-codebase)
+- [Open-Source Release Blockers](#open-source-release-blockers)
+  - [TD-001: Missing LICENSE file](#td-001-missing-license-file)
+  - [TD-002: Missing CONTRIBUTING.md](#td-002-missing-contributingmd)
+  - [TD-003: Missing CODE_OF_CONDUCT.md](#td-003-missing-code_of_conductmd)
+  - [TD-004: CORS wildcard allows all origins](#td-004-cors-wildcard-allows-all-origins)
+  - [TD-005: Missing production deployment documentation](#td-005-missing-production-deployment-documentation)
+  - [TD-006: README updates for open-source](#td-006-readme-updates-for-open-source)
+  - [TD-007: Add CHANGELOG.md and SECURITY.md](#td-007-add-changelogmd-and-securitymd)
+- [Backend Tech Debt](#backend-tech-debt)
+  - ~~[TD-008: Use TYPE_CHECKING for type annotation imports](#td-008-use-type_checking-for-type-annotation-imports)~~
+  - [TD-009: Complete LLM/OCR/VLM usage tracking](#td-009-complete-llmocrvlm-usage-tracking)
+  - [TD-010: Model factory methods for cross-layer conversions](#td-010-model-factory-methods-for-cross-layer-conversions)
+  - ~~[TD-011: Clean up imports and move to top of files](#td-011-clean-up-imports-and-move-to-top-of-files)~~
+  - [TD-012: Robust deduplication and cleanup on reprocessing](#td-012-robust-deduplication-and-cleanup-on-reprocessing)
+  - [TD-013: Eliminate magic numbers](#td-013-eliminate-magic-numbers)
+  - [TD-014: N+1 query in mastery_service.py](#td-014-n1-query-in-mastery_servicepy)
+  - [TD-015: Inconsistent datetime usage](#td-015-inconsistent-datetime-usage)
+  - [TD-016: Incomplete TODO implementations](#td-016-incomplete-todo-implementations)
+  - [TD-017: Large service files need splitting](#td-017-large-service-files-need-splitting)
+  - [TD-018: Inconsistent error handling patterns](#td-018-inconsistent-error-handling-patterns)
+  - [TD-019: Missing type hints](#td-019-missing-type-hints)
+  - [TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)
+  - [TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)
+- [Frontend Tech Debt](#frontend-tech-debt)
+  - [TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)
+  - [TD-023: Hardcoded URLs throughout frontend](#td-023-hardcoded-urls-throughout-frontend)
+  - [TD-024: Missing prop validation](#td-024-missing-prop-validation)
+  - [TD-025: Missing error boundaries](#td-025-missing-error-boundaries)
+  - [TD-026: Accessibility issues](#td-026-accessibility-issues)
+  - [TD-027: Performance - missing memoization](#td-027-performance---missing-memoization)
+  - [TD-028: Magic numbers in frontend](#td-028-magic-numbers-in-frontend)
+  - [TD-029: Inconsistent state management patterns](#td-029-inconsistent-state-management-patterns)
+- [Tests & Scripts](#tests--scripts)
+  - [TD-030: Skipped tests due to missing dependencies](#td-030-skipped-tests-due-to-missing-dependencies)
+  - [TD-031: Hardcoded path in run_processing.py](#td-031-hardcoded-path-in-run_processingpy)
+  - [TD-032: Prototype code should be moved or removed](#td-032-prototype-code-should-be-moved-or-removed)
+  - [TD-033: Incomplete test implementation](#td-033-incomplete-test-implementation)
+- [Documentation & Config](#documentation--config)
+  - [TD-034: Docker compose production configuration](#td-034-docker-compose-production-configuration)
+  - [TD-035: Environment variable validation](#td-035-environment-variable-validation)
+  - [TD-036: Missing platform-specific setup instructions](#td-036-missing-platform-specific-setup-instructions)
+  - [TD-037: Data directory uses tilde expansion](#td-037-data-directory-uses-tilde-expansion)
+- [Summary by Priority](#summary-by-priority)
 - [Completed Items](#completed-items)
 - [Notes](#notes)
 
@@ -20,29 +55,121 @@ This document tracks known technical debt items and refactoring tasks across the
 
 ## Priority Levels
 
-- **P0**: Critical - Blocking or causing issues
-- **P1**: High - Should address soon
+- **P0**: Critical - Must fix before open-source release
+- **P1**: High - Should address for clean release
 - **P2**: Medium - Address when touching related code
-- **P3**: Low - Nice to have
+- **P3**: Low - Nice to have / future improvement
 
 ---
 
-## Open Items
+## Open-Source Release Blockers
 
-### Code Quality & Patterns
-
-#### TD-001: Use `TYPE_CHECKING` for type annotation imports
-**Priority**: P2  
+### TD-001: Missing LICENSE file
+**Priority**: P0  
 **Status**: Open  
+**Area**: Repository root
+
+**Description**: No LICENSE file exists. Required for open-source release.
+
+**Action**: Add a LICENSE file (MIT, Apache 2.0, etc.) to the repository root.
+
+---
+
+### TD-002: Missing CONTRIBUTING.md
+**Priority**: P0  
+**Status**: Open  
+**Area**: Repository root
+
+**Description**: No contribution guidelines exist. Essential for community contributions.
+
+**Required Content**:
+- Development setup instructions
+- Code style guidelines
+- PR process and requirements
+- Testing requirements
+- Commit message conventions
+
+---
+
+### TD-003: Missing CODE_OF_CONDUCT.md
+**Priority**: P0  
+**Status**: Open  
+**Area**: Repository root
+
+**Description**: No code of conduct exists. Standard for open-source projects.
+
+**Action**: Add Contributor Covenant or similar code of conduct.
+
+---
+
+### TD-004: CORS wildcard allows all origins
+**Priority**: P0  
+**Status**: Open  
+**Area**: Security
+
+**Description**: `backend/app/main.py:117` uses `allow_origins=["*"]` with only a comment about configuring for production.
+
+**Current Code**:
+```python
+allow_origins=["*"]  # Configure appropriately for production
+```
+
+**Fix**: 
+- Use environment variable for CORS origins
+- Default to restrictive setting in production
+- Document CORS configuration in deployment guide
+
+---
+
+### TD-005: Missing production deployment documentation
+**Priority**: P0  
+**Status**: Open  
+**Area**: Documentation
+
+**Required Documentation**:
+- [ ] `docs/deployment/production.md` - Production deployment guide
+- [ ] `docs/deployment/security.md` - Security hardening guide
+- [ ] SSL/TLS setup instructions
+- [ ] Reverse proxy (Nginx) configuration examples
+- [ ] Database backup/restore procedures
+
+---
+
+### TD-006: README updates for open-source
+**Priority**: P1  
+**Status**: Open  
+**Area**: Documentation
+
+**Missing Sections**:
+- Security policy
+- Contributing section (reference to CONTRIBUTING.md)
+- License section
+- Production deployment overview
+- Clone URL should be generic (not user-specific GitHub path)
+
+---
+
+### TD-007: Add CHANGELOG.md and SECURITY.md
+**Priority**: P1  
+**Status**: Open  
+**Area**: Repository root
+
+**Files to Create**:
+- `CHANGELOG.md` - Version history and changes
+- `SECURITY.md` - Security policy and vulnerability reporting process
+- `.github/ISSUE_TEMPLATE.md` - Bug report/feature request template
+- `.github/PULL_REQUEST_TEMPLATE.md` - PR description template
+
+---
+
+## Backend Tech Debt
+
+### TD-008: Use `TYPE_CHECKING` for type annotation imports
+**Priority**: P2  
+**Status**: Completed  
 **Area**: Backend services
 
-**Description**:  
-Standardize the use of `typing.TYPE_CHECKING` for imports that are only needed for type hints. This pattern avoids circular imports at runtime while maintaining full type safety for static analysis.
-
-**Current State**:  
-- Some files use string forward references (`Optional["ClassName"]`)
-- Some files have potential circular import issues
-- Inconsistent patterns across the codebase
+**Description**: Standardize `typing.TYPE_CHECKING` for imports only needed for type hints.
 
 **Target Pattern**:
 ```python
@@ -64,23 +191,37 @@ class MyClass:
 - [ ] `backend/app/routers/*.py`
 - [ ] `backend/app/pipelines/*.py`
 
-**Related**:  
-- Example implementation: `backend/app/services/learning/session_service.py`
+---
+
+### TD-009: Complete LLM/OCR/VLM usage tracking
+**Priority**: P1  
+**Status**: Open  
+**Area**: LLM integration
+
+**Description**: Ensure ALL external model calls are tracked via `LLMUsage` and persisted.
+
+**Audit Required**:
+- [ ] `backend/app/services/llm/client.py` - Core LLM client
+- [ ] `backend/app/services/assistant/service.py` - Chat/RAG calls
+- [ ] `backend/app/services/processing/stages/*.py` - Pipeline stages
+- [ ] `backend/app/services/learning/card_generator.py` - Card generation
+- [ ] `backend/app/services/learning/exercise_generator.py` - Exercise generation
+- [ ] `backend/app/pipelines/*.py` - OCR, transcription
+- [ ] `backend/app/services/learning/evaluator.py` - Answer evaluation
+
+**Acceptance Criteria**:
+- Every external model API call creates an `LLMUsage` record
+- Usage records include: model, tokens, purpose, timestamp, content_id (if applicable)
+- Analytics API exposes aggregated usage data
 
 ---
 
-#### TD-003: Move cross-layer model construction logic into model factory methods
+### TD-010: Model factory methods for cross-layer conversions
 **Priority**: P2  
 **Status**: Open  
-**Area**: Backend models (Pydantic + SQLAlchemy)
+**Area**: Backend models
 
-**Description**:  
-Standardize the pattern of defining **factory constructors** on the model classes (both Pydantic models and SQLAlchemy ORM models) for converting from common upstream sources (DB records, pipeline outputs, API payloads). This avoids duplicated “mapping glue” across routers/services/tasks and makes conversions testable, discoverable, and consistent.
-
-**Motivation / Current Pain**:  
-- Conversion logic is frequently repeated inline (e.g., mapping DB `Content` → Pydantic `UnifiedContent`, or Pydantic `ProcessingResult` → DB `ProcessingRun`)
-- Inline mappings drift over time (fields added/renamed in one path but not others)
-- Harder to ensure consistent defaults, timestamps, and optional field handling
+**Description**: Standardize factory constructors for converting between DB/Pydantic models.
 
 **Target Pattern**:
 ```python
@@ -90,35 +231,21 @@ class SomeModel:
         ...
 ```
 
-**Examples / Candidates**:
-- [ ] `UnifiedContent.from_db_content(db_content)` (DB → Pydantic)
-- [ ] `ProcessingRun.from_processing_result(...)` (Pydantic → DB)
-- [ ] Consider similar factories for: `TagAssignment`, `ExtractionResult`, `Connection`, etc. where conversions happen repeatedly across layers.
-
-**Acceptance Criteria**:
-- Conversion/mapping logic lives primarily on the model class (or a dedicated `model_factories.py` module if a model can’t depend on a source type without circular imports)
-- Call sites use the factory method instead of hand-rolling mappings
-- Add focused unit tests for each factory method (one per conversion direction/source)
+**Candidates**:
+- [ ] `UnifiedContent.from_db_content(db_content)`
+- [ ] `ProcessingRun.from_processing_result(...)`
+- [ ] Similar factories for `TagAssignment`, `ExtractionResult`, `Connection`
 
 ---
 
-#### TD-004: Clean up imports and move to top of files
+### TD-011: Clean up imports and move to top of files
 **Priority**: P2  
-**Status**: Open  
-**Area**: Backend & Frontend codebase
-
-**Description**:  
-Standardize import organization across the codebase. All imports should be moved to the top of files where possible, following Python/JavaScript conventions and improving code readability.
-
-**Current State**:  
-- Some files have inline imports scattered throughout the code
-- Inconsistent import ordering and grouping
-- Some local imports used to avoid circular dependencies (should use `TYPE_CHECKING` instead per TD-001)
+**Status**: Completed  
+**Area**: Code organization
 
 **Target Pattern**:
 ```python
-# Python files
-from __future__ import annotations  # If using PEP 563
+from __future__ import annotations
 
 # Standard library imports
 import os
@@ -138,179 +265,51 @@ if TYPE_CHECKING:
     from app.services.other import OtherService
 ```
 
-```javascript
-// JavaScript/React files
-// Third-party imports first
-import React from 'react';
-import { useState } from 'react';
-
-// Local imports
-import { MyComponent } from './components';
-import { useMyHook } from '../hooks';
-```
-
 **Files to Review**:
 - [ ] `backend/app/services/**/*.py`
 - [ ] `backend/app/routers/*.py`
 - [ ] `frontend/src/**/*.jsx`
 - [ ] `frontend/src/**/*.js`
 
-**Acceptance Criteria**:
-- All imports at the top of files (except justified `TYPE_CHECKING` blocks)
-- Consistent grouping: stdlib → third-party → local
-- No inline imports unless absolutely necessary (with comment explaining why)
-- Linter/formatter rules enforced (isort for Python, ESLint for JS)
-
 ---
 
-#### TD-002: Complete LLM/OCR/VLM usage tracking and persistence
+### TD-012: Robust deduplication and cleanup on reprocessing
 **Priority**: P1  
 **Status**: Open  
-**Area**: Backend services, LLM integration
+**Area**: Data integrity
 
-**Description**:  
-Ensure ALL external model calls (LLM, OCR, VLM) are consistently tracked via `LLMUsage` and persisted to the database. This enables cost monitoring, usage analytics, and debugging of model interactions.
-
-**Current State**:  
-- `LLMUsage` model exists in `app/models/llm.py`
-- Some pipeline stages return usage data but persistence is inconsistent
-- OCR calls (Mistral) may not be fully tracked
-- VLM (vision-language model) calls need audit
-- Assistant service tracks usage but may not persist all calls
-- No centralized dashboard or API for usage analytics
-
-**Required Work**:
-1. **Audit all model call sites**:
-   - [ ] `backend/app/services/llm/client.py` - Core LLM client
-   - [ ] `backend/app/services/assistant/service.py` - Chat/RAG calls
-   - [ ] `backend/app/services/processing/stages/*.py` - Pipeline stages
-   - [ ] `backend/app/services/learning/card_generator.py` - Card generation
-   - [ ] `backend/app/services/learning/exercise_generator.py` - Exercise generation
-   - [ ] `backend/app/pipelines/*.py` - Ingestion pipelines (OCR, transcription)
-   - [ ] `backend/app/services/learning/evaluator.py` - Answer evaluation
-
-2. **Ensure consistent tracking pattern**:
-   ```python
-   usage = LLMUsage(
-       model=response.model,
-       prompt_tokens=response.usage.prompt_tokens,
-       completion_tokens=response.usage.completion_tokens,
-       total_tokens=response.usage.total_tokens,
-       purpose="card_generation",  # Consistent purpose tags
-       content_id=content.id,      # Link to content when applicable
-   )
-   db.add(usage)
-   await db.commit()
-   ```
-
-3. **Add usage analytics API**:
-   - [ ] `GET /api/analytics/llm-usage` - Usage by model, purpose, time period
-   - [ ] `GET /api/analytics/llm-costs` - Estimated costs based on token counts
-
-4. **Distinguish model types**:
-   - `llm` - Text generation (GPT-4, Claude, etc.)
-   - `ocr` - Document OCR (Mistral pixtral, etc.)
-   - `vlm` - Vision-language (image understanding)
-   - `embedding` - Text embeddings
-   - `transcription` - Audio transcription (Whisper)
-
-**Acceptance Criteria**:
-- Every external model API call creates an `LLMUsage` record
-- Usage records include: model, tokens, purpose, timestamp, content_id (if applicable)
-- Analytics API exposes aggregated usage data
-- Dashboard displays usage trends and estimated costs
-
-**Related**:  
-- `backend/app/models/llm.py` - LLMUsage model
-- `backend/app/db/models_processing.py` - May need schema updates
-- `backend/app/services/llm/client.py` - Primary LLM interface
-
----
-
-#### TD-005: Robust deduplication and cleanup on reprocessing
-**Priority**: P1  
-**Status**: Open  
-**Area**: Backend services, Data integrity
-
-**Description**:  
-Ensure deduplication works robustly throughout the system. When content is reprocessed, the system must properly clean up all old entries across all data stores to prevent orphaned or duplicate data.
-
-**Current State**:  
-- Reprocessing may leave stale data in various stores
-- Old database entries may not be properly cleaned up
-- Neo4j nodes and relationships may become orphaned
-- Obsidian notes may accumulate duplicates or stale versions
+**Description**: Ensure deduplication works robustly throughout the system. When content is reprocessed, properly clean up all old entries.
 
 **Required Cleanup on Reprocessing**:
-1. **PostgreSQL (SQL database)**:
-   - [ ] Delete old `ProcessingRun` records for the content
-   - [ ] Delete old `TagAssignment` records
-   - [ ] Delete old `Connection` records
-   - [ ] Delete old `Card` records (flashcards, exercises)
-   - [ ] Delete old `ExtractionResult` records
-   - [ ] Update or replace `Content` record (not duplicate)
-
-2. **Neo4j (Knowledge Graph)**:
-   - [ ] Delete old node for the content
-   - [ ] Delete all relationships connected to the old node
-   - [ ] Ensure new node creation doesn't create duplicates
-   - [ ] Handle cascading relationship cleanup
-
-3. **Obsidian (Markdown notes)**:
-   - [ ] Delete or overwrite the old note file
-   - [ ] Update/remove old wikilinks in other notes pointing to old content
-   - [ ] Handle renamed content (old filename → new filename)
-   - [ ] Clean up any orphaned attachments
-
-4. **Deduplication Strategy**:
-   - [ ] Use `content_id` (UUID) as the canonical identifier across all stores
-   - [ ] Implement idempotent processing (same input → same output)
-   - [ ] Add "upsert" semantics where appropriate (insert or update)
-   - [ ] Consider soft-delete vs hard-delete tradeoffs
+1. **PostgreSQL**: Old `ProcessingRun`, `TagAssignment`, `Connection`, `Card`, `ExtractionResult` records
+2. **Neo4j**: Old nodes and relationships
+3. **Obsidian**: Old note files and stale wikilinks
 
 **Acceptance Criteria**:
 - Reprocessing the same content results in exactly one entry per store
 - No orphaned records in SQL, Neo4j, or Obsidian after reprocessing
 - All relationships/connections are properly updated or removed
-- Audit log tracks what was cleaned up during reprocessing
-- Integration tests verify cleanup across all data stores
-
-**Related**:  
-- `backend/app/services/processing/pipeline.py` - Main processing pipeline
-- `backend/app/services/obsidian/vault.py` - Obsidian note management
-- `backend/app/services/obsidian/sync.py` - Obsidian sync service
-- `backend/app/services/neo4j/` - Neo4j graph operations
-- `backend/app/models/content.py` - Content model with `content_id`
 
 ---
 
-#### TD-006: Eliminate magic numbers from codebase
+### TD-013: Eliminate magic numbers
 **Priority**: P2  
 **Status**: Open  
-**Area**: Backend & Frontend codebase
+**Area**: Code quality
 
-**Description**:  
-Remove all magic numbers (hard-coded numeric literals with unclear meaning) from the codebase. These should be replaced with named constants at the file/module level or moved to user-configurable settings where appropriate.
-
-**Why This Matters**:  
-- Magic numbers obscure intent and make code harder to understand
-- Hard-coded values scattered across files are difficult to maintain consistently
-- Users cannot easily customize behavior without editing source code
-- Changes to thresholds/limits require hunting through multiple files
-
-**Current State**:  
-- Various numeric literals embedded directly in code (timeouts, thresholds, limits, weights, etc.)
-- No centralized configuration for tunable parameters
-- Inconsistent patterns: some values are constants, others inline
+**Files with Magic Numbers**:
+- [ ] `backend/app/services/learning/*.py` - Learning algorithm parameters
+- [ ] `backend/app/services/processing/stages/*.py` - Processing thresholds
+- [ ] `backend/app/services/llm/*.py` - Token limits, timeouts
+- [ ] `backend/app/routers/*.py` - Pagination limits, defaults
+- [ ] `backend/app/pipelines/*.py` - Batch sizes, retry counts
+- [ ] `backend/app/pipelines/book_ocr.py:82-100` - `DEFAULT_OCR_MAX_TOKENS = 8000`, etc.
 
 **Target Pattern**:
-
-For implementation constants (not user-configurable):
 ```python
 # At top of file, after imports
 DEFAULT_BATCH_SIZE = 100
 MAX_RETRY_ATTEMPTS = 3
-CACHE_TTL_SECONDS = 3600
 MASTERY_THRESHOLD = 0.8
 
 def process_items(items):
@@ -318,45 +317,438 @@ def process_items(items):
         ...
 ```
 
-For user-configurable settings:
-```python
-# In config/settings.py or similar
-class LearningSettings(BaseSettings):
-    mastery_threshold: float = 0.8
-    review_interval_days: int = 7
-    max_cards_per_session: int = 20
+---
 
-# Usage
-settings = get_settings()
-if score >= settings.mastery_threshold:
-    ...
+### TD-014: N+1 query in mastery_service.py
+**Priority**: P1  
+**Status**: Open  
+**Area**: Performance
+
+**Location**: `backend/app/services/learning/mastery_service.py:412-420`
+
+**Issue**: Loop executes a separate query per topic:
+```python
+for topic_path in topic_paths:
+    card_count_query = select(func.count(SpacedRepCard.id)).where(...)
+    result = await self.db.execute(card_count_query)
 ```
 
-**Files to Review**:
-- [ ] `backend/app/services/learning/*.py` - Learning algorithm parameters
-- [ ] `backend/app/services/processing/stages/*.py` - Processing thresholds
-- [ ] `backend/app/services/llm/*.py` - Token limits, timeouts
-- [ ] `backend/app/routers/*.py` - Pagination limits, defaults
-- [ ] `backend/app/pipelines/*.py` - Batch sizes, retry counts
-- [ ] `frontend/src/**/*.jsx` - UI constants, animation durations
+**Fix**: Batch queries or use a single query with GROUP BY.
 
-**Acceptance Criteria**:
-- No numeric literals with unclear meaning remain in business logic
-- Constants are named descriptively (e.g., `MAX_TOKENS_PER_REQUEST`, not `MAX`)
-- User-tunable parameters are exposed via configuration (YAML/env vars)
-- Constants are defined at module level or in dedicated constants files
-- Comments explain non-obvious values where needed
-- Configuration changes don't require code modifications
+---
 
-**Related**:  
-- `backend/app/config/` - Existing configuration modules
-- `config/default.yaml` - User-facing configuration file
+### TD-015: Inconsistent datetime usage
+**Priority**: P1  
+**Status**: Open  
+**Area**: Code consistency
+
+**Issue**: Mix of `datetime.utcnow()` and `datetime.now()` across codebase.
+
+**Affected Files**:
+- `backend/app/routers/capture.py` - uses `datetime.now()` (naive)
+- `backend/app/services/tasks.py` - uses `datetime.utcnow()` (UTC)
+- `backend/app/services/obsidian/frontmatter.py` - uses `datetime.now()`
+
+**Fix**: Standardize on `datetime.now(timezone.utc)` for timezone-aware timestamps.
+
+---
+
+### TD-016: Incomplete TODO implementations
+**Priority**: P2  
+**Status**: Open  
+**Area**: Implementation gaps
+
+**TODOs Found**:
+1. `backend/app/services/tasks.py:957` - `cleanup_old_tasks()` needs implementation
+2. `backend/app/pipelines/base.py:190` - `check_duplicate()` returns None, needs DB query
+3. `backend/app/pipelines/utils/vlm_client.py:78` - Remove backwards compatibility alias
+
+---
+
+### TD-017: Large service files need splitting
+**Priority**: P2  
+**Status**: Open  
+**Area**: Code organization
+
+**Large Files**:
+- `backend/app/services/learning/mastery_service.py` - 1894+ lines
+- `backend/app/services/assistant/service.py` - 1007+ lines
+- `backend/app/services/learning/evaluator.py` - 828+ lines
+
+**Action**: Split into smaller, focused modules.
+
+---
+
+### TD-018: Inconsistent error handling patterns
+**Priority**: P2  
+**Status**: Open  
+**Area**: Code consistency
+
+**Issues**:
+- Most endpoints use `HTTPException` from FastAPI
+- Some use custom `ServiceError` exceptions
+- `backend/app/routers/assistant.py` uses `@handle_endpoint_errors` decorator
+- Other routers don't use this pattern consistently
+
+**Fix**: Standardize on consistent error handling pattern across all routers.
+
+---
+
+### TD-019: Missing type hints
+**Priority**: P2  
+**Status**: Open  
+**Area**: Type safety
+
+**Files with Generic Types**:
+- `backend/app/services/tasks.py` - returns `dict[str, Any]` instead of typed models
+- `backend/app/services/obsidian/vault.py:127` - returns untyped `dict`
+- `backend/app/services/processing/output/obsidian_generator.py:148` - returns untyped `dict`
+
+---
+
+### TD-020: Hardcoded upload directory
+**Priority**: P2  
+**Status**: Open  
+**Area**: Configuration
+
+**Location**: `backend/app/config/pipelines.py:102`
+```python
+UPLOAD_DIR: str = "/tmp/second_brain_uploads"
+```
+
+**Fix**: Make configurable via environment variable.
+
+---
+
+### TD-021: Review and clean up dependencies
+**Priority**: P2  
+**Status**: Open  
+**Area**: Dependencies
+
+**Issues**:
+- `backend/requirements.txt` uses `>=` constraints - consider pinning for production
+- `aisuite` (line 47) - unclear if actively used
+- Both `pdfplumber` and `pymupdf` included - code primarily uses `pymupdf`
+
+---
+
+## Frontend Tech Debt
+
+### TD-022: Remove console.log statements
+**Priority**: P1  
+**Status**: Open  
+**Area**: Production code quality
+
+**Issue**: 76+ console.log/console.warn statements in production code.
+
+**Key Locations**:
+- `frontend/src/pages/PracticeSession.jsx:215, 219`
+- `frontend/src/components/dashboard/StreakCalendar.jsx:77, 134`
+- `frontend/src/api/client.js:159`
+- `frontend/capture/src/` - Multiple files with extensive logging
+- `frontend/capture/public/sw.js` - Service worker logging
+
+**Fix**: Remove or gate behind `import.meta.env.DEV` checks.
+
+---
+
+### TD-023: Hardcoded URLs throughout frontend
+**Priority**: P1  
+**Status**: Open  
+**Area**: Configuration
+
+**Locations**:
+- `frontend/src/api/client.js:60` - `'http://localhost:8000'`
+- `frontend/src/api/capture.js:58, 85, 113` - Multiple localhost instances
+- `frontend/src/api/typed-client.js:63` - localhost
+- `frontend/capture/src/api/capture.js:23, 28` - localhost
+- `frontend/capture/index.html:25` - Hardcoded preconnect
+- `frontend/capture/vite.config.js:28` - Hardcoded proxy target
+- `frontend/scripts/generate-api-types.js:29` - Hardcoded backend URL
+
+**Fix**: Use environment variables consistently.
+
+---
+
+### TD-024: Missing prop validation
+**Priority**: P2  
+**Status**: Open  
+**Area**: Type safety
+
+**Issue**: No PropTypes or TypeScript. `eslint.config.js:37` has `'react/prop-types': 'off'`.
+
+**Affected Components**:
+- `frontend/src/App.jsx:92` - `NavItem` component
+- `frontend/src/pages/Dashboard.jsx:172` - `QuickLink` component
+- `frontend/src/components/dashboard/QuickCapture.jsx:16`
+- `frontend/src/components/common/Input.jsx` - All components
+
+**Fix**: Add PropTypes or consider TypeScript migration.
+
+---
+
+### TD-025: Missing error boundaries
+**Priority**: P1  
+**Status**: Open  
+**Area**: Error handling
+
+**Issue**: No `ErrorBoundary` component exists. React errors will crash the entire app.
+
+**Fix**: Implement error boundaries at route/page level.
+
+---
+
+### TD-026: Accessibility issues
+**Priority**: P2  
+**Status**: Open  
+**Area**: Accessibility
+
+**Missing aria labels**:
+- `frontend/src/components/common/Input.jsx:74-84` - Password toggle button
+- `frontend/src/components/common/Input.jsx:185-193` - SearchInput clear button
+- `frontend/src/pages/Assistant.jsx:144-150` - Quick prompt buttons
+- `frontend/src/pages/Knowledge.jsx` - Many interactive elements
+
+**Other issues**:
+- Missing visible focus indicators
+- No focus trap in modals/dialogs
+- Keyboard navigation gaps
+
+---
+
+### TD-027: Performance - missing memoization
+**Priority**: P2  
+**Status**: Open  
+**Area**: Performance
+
+**Issues**:
+- `frontend/src/pages/Dashboard.jsx` - `QuickLink` not memoized
+- `frontend/src/pages/Assistant.jsx:79-84` - `quickPrompts` recreated every render
+- `frontend/src/components/dashboard/QuickCapture.jsx` - callbacks not memoized
+
+**Fix**: Add `React.memo`, `useMemo`, and `useCallback` where appropriate.
+
+---
+
+### TD-028: Magic numbers in frontend
+**Priority**: P2  
+**Status**: Open  
+**Area**: Code quality
+
+**Locations**:
+- `frontend/src/pages/Dashboard.jsx:57` - `dailyGoal = 20`
+- `frontend/src/pages/Knowledge.jsx:730` - `pageSize = 200`
+- `frontend/src/components/GraphViewer/GraphViewer.jsx:69-70` - `width: 800, height: 600`
+- `frontend/src/components/GraphViewer/GraphViewer.jsx:165-166` - `-300`, `400`, `100`
+- `frontend/src/pages/KnowledgeGraph.jsx:238` - `limit: 200`
+- `frontend/src/components/common/Tooltip.jsx:147` - `z-[9999]`
+
+**Fix**: Extract to constants or config.
+
+---
+
+### TD-029: Inconsistent state management patterns
+**Priority**: P3  
+**Status**: Open  
+**Area**: Architecture
+
+**Current State**:
+- Zustand stores in `frontend/src/stores/`
+- React Query for server state
+- Local `useState` throughout
+- No clear pattern documentation
+
+**Fix**: Document state management guidelines.
+
+---
+
+## Tests & Scripts
+
+### TD-030: Skipped tests due to missing dependencies
+**Priority**: P1  
+**Status**: Open  
+**Area**: Test coverage
+
+**Skipped Tests**:
+- `backend/tests/integration/test_vault_sync.py:24-31` - All tests skipped if `NEO4J_URI` not set
+- `backend/tests/integration/test_pipelines.py` - Multiple tests skipped if `SAMPLE_PDF` not found
+- `backend/tests/unit/test_code_sandbox.py:260-275` - Skipped if Docker unavailable
+- `backend/tests/unit/test_openapi_contract.py:290, 306` - Skipped if snapshot missing
+
+**Fix**: 
+- Document test dependencies clearly
+- Generate sample files in CI setup
+- Add subset of tests that run without optional dependencies
+
+---
+
+### TD-031: Hardcoded path in run_processing.py
+**Priority**: P1  
+**Status**: Open  
+**Area**: Scripts
+
+**Location**: `scripts/run_processing.py:87-89`
+```python
+os.environ["OBSIDIAN_VAULT_PATH"] = os.path.expanduser(
+    "~/workspace/obsidian/second_brain/obsidian"
+)
+```
+
+**Fix**: Use environment variable with sensible default, or read from `.env`.
+
+---
+
+### TD-032: Prototype code should be moved or removed
+**Priority**: P1  
+**Status**: Open  
+**Area**: Code cleanup
+
+**Files in `prototypes/`**:
+- `test_mistral_ocr.py` (554 lines) - Move to `scripts/examples/` or remove
+- `test_pdfplumber_annotations.py` (582 lines) - Move or integrate into tests
+- `test_pymupdf_annotations.py` (199 lines) - Move or integrate into tests
+- `sample_mistral7b.pdf` - Move to `test_data/` or remove
+
+---
+
+### TD-033: Incomplete test implementation
+**Priority**: P2  
+**Status**: Open  
+**Area**: Tests
+
+**Location**: `backend/tests/integration/test_pipelines.py:1001-1010`
+
+**Issue**: Test expects `NotImplementedError` - indicates incomplete implementation.
+
+---
+
+## Documentation & Config
+
+### TD-034: Docker compose production configuration
+**Priority**: P1  
+**Status**: Open  
+**Area**: Deployment
+
+**Issues**:
+- Ports exposed to host (5432, 6379, 7474, 7687) - security risk
+- No production docker-compose override file
+- Missing resource limits (CPU, memory)
+
+**Fix**:
+- Create `docker-compose.prod.yml` with resource limits
+- Document port security implications
+- Add network isolation recommendations
+
+---
+
+### TD-035: Environment variable validation
+**Priority**: P2  
+**Status**: Open  
+**Area**: Configuration
+
+**Issue**: No startup validation for required environment variables.
+
+**Fix**: Add validation at application startup with clear error messages.
+
+---
+
+### TD-036: Missing platform-specific setup instructions
+**Priority**: P3  
+**Status**: Open  
+**Area**: Documentation
+
+**Missing**:
+- Platform-specific instructions (Windows, Linux, macOS differences)
+- Docker installation verification steps
+- Troubleshooting guide for common setup issues
+- Post-setup verification checklist
+
+---
+
+### TD-037: Data directory uses tilde expansion
+**Priority**: P2  
+**Status**: Open  
+**Area**: Configuration
+
+**Location**: `.env.example`
+```
+DATA_DIR=~/workspace/obsidian/second_brain
+```
+
+**Issue**: `~` may not expand correctly in all environments (Docker, systemd, etc.).
+
+**Fix**: Use absolute paths or document the limitation.
+
+---
+
+## Summary by Priority
+
+### P0 - Critical (Must fix before release)
+- [ ] TD-001: Missing LICENSE file
+- [ ] TD-002: Missing CONTRIBUTING.md
+- [ ] TD-003: Missing CODE_OF_CONDUCT.md
+- [ ] TD-004: CORS wildcard allows all origins
+- [ ] TD-005: Missing production deployment documentation
+
+### P1 - High (Should address for clean release)
+- [ ] TD-006: README updates for open-source
+- [ ] TD-007: Add CHANGELOG.md and SECURITY.md
+- [ ] TD-009: Complete LLM/OCR/VLM usage tracking
+- [ ] TD-012: Robust deduplication and cleanup on reprocessing
+- [ ] TD-014: N+1 query in mastery_service.py
+- [ ] TD-015: Inconsistent datetime usage
+- [ ] TD-022: Remove console.log statements
+- [ ] TD-023: Hardcoded URLs throughout frontend
+- [ ] TD-025: Missing error boundaries
+- [ ] TD-030: Skipped tests due to missing dependencies
+- [ ] TD-031: Hardcoded path in run_processing.py
+- [ ] TD-032: Prototype code should be moved or removed
+- [ ] TD-034: Docker compose production configuration
+
+### P2 - Medium (Address when touching related code)
+- [x] TD-008: Use TYPE_CHECKING for type annotation imports
+- [ ] TD-010: Model factory methods for cross-layer conversions
+- [x] TD-011: Clean up imports and move to top of files
+- [ ] TD-013: Eliminate magic numbers
+- [ ] TD-016: Incomplete TODO implementations
+- [ ] TD-017: Large service files need splitting
+- [ ] TD-018: Inconsistent error handling patterns
+- [ ] TD-019: Missing type hints
+- [ ] TD-020: Hardcoded upload directory
+- [ ] TD-021: Review and clean up dependencies
+- [ ] TD-024: Missing prop validation
+- [ ] TD-026: Accessibility issues
+- [ ] TD-027: Performance - missing memoization
+- [ ] TD-028: Magic numbers in frontend
+- [ ] TD-033: Incomplete test implementation
+- [ ] TD-035: Environment variable validation
+- [ ] TD-037: Data directory uses tilde expansion
+
+### P3 - Low (Nice to have)
+- [ ] TD-029: Inconsistent state management patterns
+- [ ] TD-036: Missing platform-specific setup instructions
 
 ---
 
 ## Completed Items
 
-_None yet._
+### TD-008: Use `TYPE_CHECKING` for type annotation imports
+**Completed**: 2026-01-26
+
+Standardized import organization across backend files. Moved inline imports to top of files following stdlib → third-party → local pattern. Files updated:
+- `backend/app/services/tasks.py` - Moved `sqlalchemy.select`, `ProcessingRun`, `ProcessingRunStatus` to top
+- `backend/app/routers/vault.py` - Moved `content_registry` to top, organized imports
+- `backend/app/routers/health.py` - Moved `get_vault_manager` to top, organized imports
+- `backend/app/pipelines/utils/hash_utils.py` - Moved `urllib.parse` imports to top
+- `backend/app/pipelines/utils/image_utils.py` - Moved `PIL.ExifTags` to top
+- `backend/app/pipelines/utils/mistral_ocr_client.py` - Moved `re` to top
+
+---
+
+### TD-011: Clean up imports and move to top of files
+**Completed**: 2026-01-26
+
+Same changes as TD-008 (combined effort). Also added documentation comments to `backend/app/services/scheduler.py` explaining intentional deferred imports for Celery tasks (to avoid circular dependencies and heavy module loading at scheduler init).
 
 ---
 
@@ -364,5 +756,5 @@ _None yet._
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
-- Consider adding new items discovered during development
-
+- P0 items must be resolved before open-source announcement
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 2 completed

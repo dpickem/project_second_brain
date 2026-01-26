@@ -79,6 +79,7 @@ from typing import Any, Optional
 # =============================================================================
 # Third-party imports
 # =============================================================================
+from sqlalchemy import select
 from tenacity import (
     RetryError,
     before_sleep_log,
@@ -102,7 +103,9 @@ from app.pipelines import (
 )
 from app.db.base import task_session_maker
 from app.db.models import Content, ContentStatus
+from app.db.models_processing import ProcessingRun
 from app.enums import ProcessingRunStatus
+from app.enums.processing import ProcessingRunStatus as PRunStatus
 from app.enums.content import ProcessingStatus
 from app.models.content import UnifiedContent
 from app.services.obsidian.sync import VaultSyncService
@@ -179,10 +182,6 @@ async def _run_llm_processing_impl(
     Returns:
         Dictionary with processing results including card/exercise counts
     """
-    from sqlalchemy import select
-    from app.db.models_processing import ProcessingRun
-    from app.enums.processing import ProcessingRunStatus as PRunStatus
-
     logger.info(f"Starting LLM processing for content {content_id}")
 
     async with task_session_maker() as session:

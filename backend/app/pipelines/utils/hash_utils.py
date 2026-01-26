@@ -10,8 +10,9 @@ Usage:
     hash_value = calculate_file_hash(Path("document.pdf"))
 """
 
-from pathlib import Path
 import hashlib
+from pathlib import Path
+from urllib.parse import parse_qs, urlencode, urlparse
 
 
 def calculate_file_hash(file_path: Path, algorithm: str = "sha256") -> str:
@@ -87,8 +88,6 @@ def calculate_url_hash(url: str) -> str:
     Returns:
         Hex string of the hash
     """
-    from urllib.parse import urlparse, urlencode, parse_qs
-
     # Parse and normalize URL
     parsed = urlparse(url.lower().strip())
 

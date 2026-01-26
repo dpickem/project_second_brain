@@ -12,20 +12,22 @@ Provides endpoints for:
 - Note browsing and content retrieval
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
-from pydantic import BaseModel
-from typing import Optional, List
-from datetime import date, datetime
-from pathlib import Path
 import logging
 import os
+from datetime import date, datetime
+from pathlib import Path
+from typing import List, Optional
 
-from app.services.obsidian.vault import get_vault_manager, VaultManager
-from app.services.obsidian.indexer import FolderIndexer
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from pydantic import BaseModel
+
+from app.content_types import content_registry
 from app.services.obsidian.daily import DailyNoteGenerator
-from app.services.obsidian.sync import VaultSyncService, get_sync_status
-from app.services.obsidian.lifecycle import get_watcher_status
 from app.services.obsidian.frontmatter import parse_frontmatter
+from app.services.obsidian.indexer import FolderIndexer
+from app.services.obsidian.lifecycle import get_watcher_status
+from app.services.obsidian.sync import VaultSyncService, get_sync_status
+from app.services.obsidian.vault import VaultManager, get_vault_manager
 
 logger = logging.getLogger(__name__)
 
@@ -204,8 +206,6 @@ async def sync_vault_to_neo4j(background_tasks: BackgroundTasks):
 @router.get("/folders")
 async def list_folders():
     """List all content type folders in the vault."""
-    from app.content_types import content_registry
-
     try:
         vault = get_vault_manager()
         folders = []

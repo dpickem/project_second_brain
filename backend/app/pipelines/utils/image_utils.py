@@ -14,13 +14,13 @@ Usage:
     base64_data = image_to_base64(processed)
 """
 
-from pathlib import Path
-from typing import Union
 import base64
 import io
+from pathlib import Path
+from typing import Union
 
 import pillow_heif
-from PIL import Image, ImageEnhance, ImageFilter
+from PIL import ExifTags, Image, ImageEnhance, ImageFilter
 
 # Register HEIC/HEIF support (iOS photos)
 pillow_heif.register_heif_opener()
@@ -154,8 +154,6 @@ def auto_rotate(image: Union[Image.Image, str, Path]) -> Image.Image:
         image = Image.open(image)
 
     try:
-        from PIL import ExifTags
-
         # Get EXIF data
         exif = image._getexif()
         if exif is None:
