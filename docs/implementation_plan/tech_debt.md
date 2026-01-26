@@ -396,13 +396,28 @@ for topic_path in topic_paths:
 
 ### TD-019: Missing type hints
 **Priority**: P2  
-**Status**: Completed  
+**Status**: Completed (critical files)  
 **Area**: Type safety
 
-**Files with Generic Types**:
-- `backend/app/services/tasks.py` - returns `dict[str, Any]` instead of typed models
-- `backend/app/services/obsidian/vault.py:127` - returns untyped `dict`
-- `backend/app/services/processing/output/obsidian_generator.py:148` - returns untyped `dict`
+**Original scope** (completed):
+- `backend/app/services/tasks.py` - Added TypedDict return types
+- `backend/app/services/obsidian/vault.py` - Added VaultStructureResult
+- `backend/app/services/processing/output/obsidian_generator.py` - Added TemplateData
+
+**Extended scope** (completed):
+- `backend/app/routers/vault.py` - 10 endpoints
+- `backend/app/routers/health.py` - 3 endpoints
+- `backend/app/routers/processing.py` - 4 endpoints
+- `backend/app/services/scheduler.py` - 7 functions
+- `backend/app/main.py` - 3 functions
+
+**Remaining** (lower priority, ~47 functions):
+- `services/obsidian/watcher.py` - 9 functions
+- `services/knowledge_graph/client.py` - 5 methods
+- `middleware/rate_limit.py` - 4 decorators
+- Other internal helpers and inner functions
+
+Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
@@ -768,15 +783,22 @@ All LLM calls now log to `llm_usage_log` table with pipeline and operation metad
 ### TD-019: Missing type hints
 **Completed**: 2026-01-26
 
-Added TypedDict definitions and type annotations for functions that previously returned untyped `dict`:
+Added TypedDict definitions and return type annotations across critical backend files.
 
-- `backend/app/services/obsidian/vault.py`:
-  - Added `VaultStructureResult` TypedDict for `ensure_structure()` return type
-- `backend/app/services/processing/output/obsidian_generator.py`:
-  - Added `TemplateData` TypedDict for `_prepare_template_data()` return type
-- `backend/app/services/tasks.py`:
-  - Added `TaskResultBase`, `IngestionResult`, `BookIngestionResult`, `ProcessingResult`, `SyncResult`, `VaultSyncResult` TypedDicts
-  - Updated all Celery task functions to use typed returns instead of `dict[str, Any]`
+**Phase 1 - TypedDict definitions:**
+- `services/obsidian/vault.py` - Added `VaultStructureResult`
+- `services/processing/output/obsidian_generator.py` - Added `TemplateData`
+- `services/tasks.py` - Added 6 TypedDicts for Celery task returns
+
+**Phase 2 - Router and service return types:**
+- `routers/vault.py` - 10 endpoints now have explicit return types
+- `routers/health.py` - 3 endpoints
+- `routers/processing.py` - 4 endpoints
+- `services/scheduler.py` - 7 functions with `-> None`
+- `main.py` - 3 functions (lifespan, root, graph)
+
+Coverage improved from ~84% to ~90%. Remaining ~47 functions are internal helpers
+and middleware that can be addressed when touching those files.
 
 ---
 

@@ -16,7 +16,7 @@ import logging
 import os
 from datetime import date, datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
@@ -79,7 +79,7 @@ class NotesListResponse(BaseModel):
 
 
 @router.get("/status")
-async def get_vault_status():
+async def get_vault_status() -> dict[str, Any]:
     """Get vault status and statistics."""
     try:
         vault = get_vault_manager()
@@ -104,7 +104,7 @@ async def get_vault_status():
 
 
 @router.post("/ensure-structure")
-async def ensure_vault_structure():
+async def ensure_vault_structure() -> dict[str, Any]:
     """Ensure vault folder structure exists (idempotent).
 
     Creates any missing folders. Safe to call multiple times.
@@ -120,7 +120,7 @@ async def ensure_vault_structure():
 
 
 @router.post("/indices/regenerate")
-async def regenerate_indices(background_tasks: BackgroundTasks):
+async def regenerate_indices(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Regenerate all folder indices."""
     try:
         vault = get_vault_manager()
@@ -137,7 +137,7 @@ async def regenerate_indices(background_tasks: BackgroundTasks):
 
 
 @router.post("/daily")
-async def create_daily_note(request: DailyNoteRequest = None):
+async def create_daily_note(request: DailyNoteRequest = None) -> dict[str, str]:
     """Create a daily note."""
     try:
         vault = get_vault_manager()
@@ -161,7 +161,7 @@ async def create_daily_note(request: DailyNoteRequest = None):
 
 
 @router.post("/daily/inbox")
-async def add_inbox_item(request: InboxItemRequest):
+async def add_inbox_item(request: InboxItemRequest) -> dict[str, str]:
     """Add an item to today's daily note inbox."""
     if not request.item:
         raise HTTPException(status_code=400, detail="Item cannot be empty")
@@ -188,7 +188,7 @@ async def add_inbox_item(request: InboxItemRequest):
 
 
 @router.post("/sync")
-async def sync_vault_to_neo4j(background_tasks: BackgroundTasks):
+async def sync_vault_to_neo4j(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Sync entire vault to Neo4j (runs in background)."""
     try:
         vault = get_vault_manager()
@@ -204,7 +204,7 @@ async def sync_vault_to_neo4j(background_tasks: BackgroundTasks):
 
 
 @router.get("/folders")
-async def list_folders():
+async def list_folders() -> dict[str, Any]:
     """List all content type folders in the vault."""
     try:
         vault = get_vault_manager()
@@ -243,13 +243,13 @@ async def list_folders():
 
 
 @router.get("/watcher/status")
-async def get_vault_watcher_status():
+async def get_vault_watcher_status() -> dict[str, Any]:
     """Get the current status of the vault file watcher."""
     return get_watcher_status()
 
 
 @router.get("/sync/status")
-async def get_vault_sync_status():
+async def get_vault_sync_status() -> dict[str, Any]:
     """Get the current status of vault-to-Neo4j sync.
 
     Returns:
@@ -411,7 +411,7 @@ async def list_notes(
 
 
 @router.get("/notes/{note_path:path}", response_model=NoteContent)
-async def get_note(note_path: str):
+async def get_note(note_path: str) -> NoteContent:
     """Get the full content of a specific note.
 
     Args:

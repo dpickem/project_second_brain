@@ -14,7 +14,9 @@ Run with: uvicorn app.main:app --reload
 """
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan handler for startup/shutdown."""
     # Startup
     logger.info("Starting Second Brain API...")
@@ -142,7 +144,7 @@ app.include_router(llm_usage_router.router)
 
 
 @app.get("/graph")
-async def graph():
+async def graph() -> dict[str, Any]:
     """
     Get all nodes and relationships from Neo4j.
 
@@ -160,7 +162,7 @@ async def graph():
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, Any]:
     """Root endpoint with API information."""
     return {
         "name": "Second Brain API",

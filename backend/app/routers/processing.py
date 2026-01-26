@@ -27,7 +27,7 @@ Usage:
 
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
@@ -153,7 +153,7 @@ class PendingContentResponse(BaseModel):
 # =============================================================================
 
 
-async def _run_processing(content_id: str, config_dict: Optional[dict] = None):
+async def _run_processing(content_id: str, config_dict: Optional[dict] = None) -> dict[str, Any]:
     """
     Background task to run the LLM processing pipeline on content.
 
@@ -357,7 +357,7 @@ async def trigger_processing(
 
 
 @router.get("/status/{content_id}", response_model=ProcessingStatusResponse)
-async def get_processing_status(content_id: str):
+async def get_processing_status(content_id: str) -> ProcessingStatusResponse:
     """
     Get processing status for a content item.
 
@@ -406,7 +406,7 @@ async def get_processing_status(content_id: str):
 
 
 @router.get("/result/{content_id}", response_model=ProcessingResultResponse)
-async def get_processing_result(content_id: str):
+async def get_processing_result(content_id: str) -> ProcessingResultResponse:
     """
     Get full processing result for a content item.
 
@@ -514,7 +514,7 @@ async def get_processing_result(content_id: str):
 
 
 @router.get("/pending", response_model=PendingContentResponse)
-async def get_pending_content(limit: int = 100, include_failed: bool = False):
+async def get_pending_content(limit: int = 100, include_failed: bool = False) -> PendingContentResponse:
     """
     Get all content items pending processing.
 

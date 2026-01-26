@@ -10,6 +10,7 @@ Endpoints:
 """
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from neo4j import GraphDatabase
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/api/health", tags=["health"])
 
 
 @router.get("")
-async def health_check():
+async def health_check() -> dict[str, str]:
     """
     Basic health check.
 
@@ -41,7 +42,7 @@ async def health_check():
 
 
 @router.get("/detailed")
-async def detailed_health_check(db: AsyncSession = Depends(get_db)):
+async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """
     Detailed health check with dependency status.
 
@@ -168,7 +169,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/ready")
-async def readiness_check(db: AsyncSession = Depends(get_db)):
+async def readiness_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """
     Readiness probe for orchestration systems.
 

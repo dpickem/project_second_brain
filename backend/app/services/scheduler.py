@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
 
-async def trigger_raindrop_sync():
+async def trigger_raindrop_sync() -> None:
     """Trigger Raindrop sync for last 24 hours."""
     # Deferred import: Celery tasks are heavy and may have circular dependencies.
     # Importing here avoids loading the full task module at scheduler initialization.
@@ -63,7 +63,7 @@ async def trigger_raindrop_sync():
     logger.info(f"Triggered Raindrop sync since {since}")
 
 
-async def trigger_github_sync():
+async def trigger_github_sync() -> None:
     """Trigger GitHub starred repos sync."""
     # Deferred import: Celery tasks are heavy and may have circular dependencies.
     from app.services.tasks import sync_github
@@ -72,7 +72,7 @@ async def trigger_github_sync():
     logger.info("Triggered GitHub sync")
 
 
-async def trigger_cleanup():
+async def trigger_cleanup() -> None:
     """Trigger periodic cleanup task."""
     # Deferred import: Celery tasks are heavy and may have circular dependencies.
     from app.services.tasks import cleanup_old_tasks
@@ -81,7 +81,7 @@ async def trigger_cleanup():
     logger.info("Triggered cleanup task")
 
 
-async def trigger_taxonomy_sync():
+async def trigger_taxonomy_sync() -> None:
     """Sync tag taxonomy from YAML to database."""
     # Deferred imports: Avoid loading DB and service modules until job execution.
     from app.db.base import async_session_maker
@@ -93,7 +93,7 @@ async def trigger_taxonomy_sync():
         logger.info(f"Taxonomy sync complete: {count} tags created")
 
 
-def setup_scheduled_jobs():
+def setup_scheduled_jobs() -> None:
     """Configure all scheduled sync jobs."""
 
     # Raindrop sync - every 6 hours
@@ -143,7 +143,7 @@ def setup_scheduled_jobs():
     logger.info("  - Taxonomy sync: daily at 04:00 UTC")
 
 
-def start_scheduler():
+def start_scheduler() -> None:
     """Start the scheduler and configure jobs."""
     if scheduler.running:
         logger.warning("Scheduler already running")
@@ -154,7 +154,7 @@ def start_scheduler():
     logger.info("Scheduler started")
 
 
-def stop_scheduler():
+def stop_scheduler() -> None:
     """Stop the scheduler gracefully."""
     if not scheduler.running:
         logger.warning("Scheduler not running")
