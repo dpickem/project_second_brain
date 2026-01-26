@@ -6,3 +6,4 @@ export { VoiceCapture } from './VoiceCapture';
 export { PdfCapture } from './PdfCapture';
 export { OfflineBanner } from './OfflineBanner';
 export { RecentCaptures } from './RecentCaptures';
+export { CaptureOptions } from './CaptureOptions';
