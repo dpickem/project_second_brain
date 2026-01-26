@@ -1,40 +1,41 @@
 {
+  "id": "/capture/",
   "name": "Second Brain Capture",
   "short_name": "Capture",
   "description": "Quick knowledge capture for your Second Brain",
   "start_url": "/capture/",
+  "scope": "/capture/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0f1a",
   "theme_color": "#6366f1",
   "icons": [
     {
-      "src": "/capture/icons/capture-192.svg",
+      "src": "/capture/icons/capture-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/capture/icons/capture-512.svg",
+      "src": "/capture/icons/capture-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/capture/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
       "purpose": "any"
     }
   ],
   "share_target": {
     "action": "/capture/share",
-    "method": "POST",
-    "enctype": "multipart/form-data",
+    "method": "GET",
     "params": {
       "title": "title",
       "text": "text",
-      "url": "url",
-      "files": [
-        {
-          "name": "media",
-          "accept": ["image/*", "audio/*", "application/pdf", ".pdf"]
-        }
-      ]
+      "url": "url"
     }
   },
   "categories": ["productivity", "utilities"],

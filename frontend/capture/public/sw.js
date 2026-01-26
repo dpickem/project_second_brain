@@ -7,7 +7,7 @@
  * - Background sync for queued captures
  */
 
-const CACHE_NAME = 'capture-v1';
+const CACHE_NAME = 'capture-v2';
 const OFFLINE_QUEUE_NAME = 'capture-queue';
 const DB_NAME = 'capture-offline-db';
 const DB_VERSION = 1;
@@ -73,10 +73,20 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Handle share target POST requests (file shares from iOS/Android)
-  if (url.pathname === '/capture/share' && event.request.method === 'POST') {
-    event.respondWith(handleShareTarget(event.request));
-    return;
+  // Handle share target requests (GET for URLs from iOS/Android share sheet)
+  // Note: We use GET for better iOS Safari compatibility with Web Share Target API
+  if (url.pathname === '/capture/share') {
+    // For GET requests, just let it pass through to the app router
+    // The ShareTarget component will parse the query params
+    if (event.request.method === 'GET') {
+      // Fall through to normal fetch handling for navigation
+      return;
+    }
+    // For POST requests (legacy/file shares), use special handler
+    if (event.request.method === 'POST') {
+      event.respondWith(handleShareTarget(event.request));
+      return;
+    }
   }
   
   // Capture API calls - queue if offline
