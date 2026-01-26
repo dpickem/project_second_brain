@@ -292,12 +292,14 @@ clsx            # ^2.1.0
 | Background Sync | ✅ Full | ✅ Full (iOS 16+) | ✅ Full (iOS 16+) | Reliable on iOS 16+ with Push Notifications |
 | IndexedDB | ✅ Full | ✅ Full | ✅ Full | |
 | MediaRecorder | ✅ WebM | ✅ WebM (iOS 16+) | ✅ WebM (iOS 16+) | iOS 16+ added WebM support |
-| Share Target | ✅ Full | ✅ Full (iOS 16.4+) | ❌ Not supported | Only Safari can register as share target on iOS |
+| Share Target | ✅ Full | ❌ Not supported | ❌ Not supported | **iOS Safari does not support Web Share Target API** ([WebKit Bug 194593](https://bugs.webkit.org/show_bug.cgi?id=194593)) |
 | getUserMedia | ✅ Full | ✅ Full | ✅ Full | Requires HTTPS |
 | Push Notifications | ✅ Full | ✅ Full (iOS 16.4+) | ✅ Full (iOS 16.4+) | Web Push added in iOS 16.4 |
 | Badging API | ✅ Full | ✅ Full (iOS 16.4+) | ❌ Not supported | App icon badge updates |
 
 > **Note**: All browsers on iOS (Chrome, Firefox, Edge, etc.) use Apple's WebKit engine due to App Store requirements. This means they inherit Safari's PWA limitations. Users must use Safari to install PWAs on iOS. With iOS 16+, most PWA features work reliably.
+>
+> **iOS Share Target Limitation**: The Web Share Target API is not supported on iOS Safari. This means the Capture PWA will **not** appear in the iOS share sheet when users try to share content from Safari or other apps. Workarounds include: (1) using the PWA directly with copy/paste, or (2) wrapping the PWA in a native iOS app shell using [PWABuilder](https://www.pwabuilder.com/) with a Share Extension.
 
 ---
 

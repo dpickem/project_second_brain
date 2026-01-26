@@ -72,7 +72,7 @@ Key properties in this manifest:
 - **`start_url`**: The page that opens when the user taps the app icon.
 - **`theme_color` / `background_color`**: Control the status bar color and splash screen background on mobile devices.
 - **`icons`**: Different sizes for various contexts (home screen, app switcher, splash screen). 192px and 512px are the minimum required sizes.
-- **`share_target`**: This is a powerful PWA feature that registers your app as a "share destination" in the operating system. When a user is in another app (like Chrome or Twitter) and taps "Share," your PWA will appear as an option. The `params` define what data your app can receive (title, text, URL, or files like images/audio).
+- **`share_target`**: This PWA feature registers your app as a "share destination" in the operating system. When a user is in another app (like Chrome or Twitter) and taps "Share," your PWA will appear as an option. The `params` define what data your app can receive (title, text, URL, or files like images/audio). **Important**: This feature only works on Android (Chrome). iOS Safari does not support the Web Share Target API ([WebKit Bug 194593](https://bugs.webkit.org/show_bug.cgi?id=194593)).
 
 ```json
 // public/manifest.json
@@ -661,11 +661,19 @@ export function VoiceCapture({ onClose }) {
 
 ## 5. Share Target Integration
 
-### 5.1 Handle Shared Content
+> ⚠️ **iOS Limitation**: The Web Share Target API is **not supported on iOS Safari**. This means the Capture PWA will not appear in the iOS share sheet. This is a [known WebKit limitation](https://bugs.webkit.org/show_bug.cgi?id=194593) that has been open since 2019 with no implementation timeline.
+>
+> **Workarounds for iOS users:**
+> 1. Open the PWA directly and manually copy/paste URLs or use the file picker
+> 2. Create a native iOS app wrapper using [PWABuilder](https://www.pwabuilder.com/) with a Share Extension
+>
+> The Share Target functionality described below **works fully on Android** with Chrome.
 
-This page handles content shared *into* the app from other applications. For example, if a user is reading an article in Chrome and taps Share → "Second Brain Capture," this component receives that URL.
+### 5.1 Handle Shared Content (Android)
 
-**How the Share Target API works:**
+This page handles content shared *into* the app from other applications. For example, if a user is reading an article in Chrome on Android and taps Share → "Second Brain Capture," this component receives that URL.
+
+**How the Share Target API works (Android only):**
 
 1. The PWA manifest (Section 3.1) declares the app as a share target with `share_target` configuration.
 2. When the user shares something, the OS launches the PWA at the specified `action` URL (`/capture/share`).
