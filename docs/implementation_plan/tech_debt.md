@@ -36,7 +36,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-024: Missing prop validation](#td-024-missing-prop-validation)~~
   - ✅ ~~[TD-025: Missing error boundaries](#td-025-missing-error-boundaries)~~
   - ✅ ~~[TD-026: Accessibility issues](#td-026-accessibility-issues)~~
-  - [TD-027: Performance - missing memoization](#td-027-performance---missing-memoization)
+  - ✅ ~~[TD-027: Performance - missing memoization](#td-027-performance---missing-memoization)~~
   - [TD-028: Magic numbers in frontend](#td-028-magic-numbers-in-frontend)
   - [TD-029: Inconsistent state management patterns](#td-029-inconsistent-state-management-patterns)
 - [Tests & Scripts](#tests--scripts)
@@ -665,17 +665,17 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
-### TD-027: Performance - missing memoization
+### ✅ TD-027: Performance - missing memoization
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Performance
 
-**Issues**:
-- `frontend/src/pages/Dashboard.jsx` - `QuickLink` not memoized
-- `frontend/src/pages/Assistant.jsx:79-84` - `quickPrompts` recreated every render
-- `frontend/src/components/dashboard/QuickCapture.jsx` - callbacks not memoized
+**Issues** (all resolved):
+- `frontend/src/pages/Dashboard.jsx` - `QuickLink` wrapped with `React.memo`
+- `frontend/src/pages/Assistant.jsx` - `quickPrompts` moved to module-level constant, handlers memoized with `useCallback`
+- `frontend/src/components/dashboard/QuickCapture.jsx` - All callbacks memoized with `useCallback`
 
-**Fix**: Add `React.memo`, `useMemo`, and `useCallback` where appropriate.
+**Fix Applied**: Added `React.memo`, and `useCallback` where appropriate to prevent unnecessary re-renders.
 
 ---
 
@@ -868,7 +868,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-021: Review and clean up dependencies~~
 - ✅ ~~TD-024: Missing prop validation~~
 - ✅ ~~TD-026: Accessibility issues~~
-- [ ] TD-027: Performance - missing memoization
+- ✅ ~~TD-027: Performance - missing memoization~~
 - [ ] TD-028: Magic numbers in frontend
 - [ ] TD-033: Incomplete test implementation
 - [ ] TD-035: Environment variable validation
@@ -1541,6 +1541,41 @@ Added ARIA attributes and focus indicators to improve screen reader support and 
 - Modal dialogs use Headless UI's built-in focus trap
 - Proper ARIA roles communicate UI semantics to assistive technology
 
+### ✅ TD-027: Performance - missing memoization
+**Completed**: 2026-01-27
+
+Added React memoization patterns to prevent unnecessary re-renders in frontend components.
+
+**Files updated**:
+
+**`frontend/src/pages/Dashboard.jsx`**:
+- Imported `memo` from React
+- Wrapped `QuickLink` component with `React.memo` to prevent re-renders when parent state changes
+
+**`frontend/src/pages/Assistant.jsx`**:
+- Imported `useCallback` from React
+- Moved `quickPrompts` array to module-level constant `QUICK_PROMPTS` (was recreated every render)
+- Memoized `handleSend` with `useCallback` (dependencies: `input`, `chatMutation`)
+- Memoized `handleKeyDown` with `useCallback` (dependency: `handleSend`)
+- Memoized `handleQuickPrompt` with `useCallback` (no dependencies)
+
+**`frontend/src/components/dashboard/QuickCapture.jsx`**:
+- Imported `useCallback` from React
+- `QuickCapture` component:
+  - Memoized `handleSubmit` with `useCallback` (dependencies: `text`, `createCards`, `createExercises`, `captureMutation`)
+  - Memoized `handleKeyDown` with `useCallback` (dependency: `handleSubmit`)
+- `InlineCapture` component:
+  - Memoized `handleChange` with `useCallback` (no dependencies)
+  - Memoized `handleFocus` with `useCallback` (no dependencies)
+  - Memoized `handleBlur` with `useCallback` (dependency: `text`)
+  - Memoized `handleKeyDown` with `useCallback` (dependencies: `text`, `captureMutation`)
+  - Memoized `handleCaptureClick` with `useCallback` (dependencies: `text`, `captureMutation`)
+
+**Performance benefits**:
+- Reduced unnecessary re-renders of child components
+- Stable callback references prevent child component re-renders
+- Static data moved outside component lifecycle
+
 ---
 
 ## Notes
@@ -1548,4 +1583,4 @@ Added ARIA attributes and focus indicators to improve screen reader support and 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 39 (5 P0, 14 P1, 18 P2, 2 P3) — 25 completed
+- Total items: 39 (5 P0, 14 P1, 18 P2, 2 P3) — 26 completed

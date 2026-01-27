@@ -4,7 +4,7 @@
  * AI chat interface for knowledge questions.
  */
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation } from '@tanstack/react-query'
 import { clsx } from 'clsx'
@@ -14,6 +14,14 @@ import { Button, Badge } from '../components/common'
 import { assistantApi } from '../api/assistant'
 import { useSettingsStore } from '../stores'
 import { fadeInUp, staggerContainer } from '../utils/animations'
+
+// Quick prompts - static array moved outside component to prevent recreation on each render
+const QUICK_PROMPTS = [
+  'What did I learn about React hooks?',
+  'Summarize my notes on system design',
+  'Quiz me on Python concepts',
+  'What topics should I review today?',
+]
 
 export function Assistant() {
   const [messages, setMessages] = useState([])
@@ -51,8 +59,8 @@ export function Assistant() {
     inputRef.current?.focus()
   }, [])
 
-  // Handle send
-  const handleSend = () => {
+  // Handle send - memoized to prevent recreation on each render
+  const handleSend = useCallback(() => {
     if (!input.trim() || chatMutation.isPending) return
     
     const userMessage = {
@@ -65,28 +73,21 @@ export function Assistant() {
     setInput('')
     
     chatMutation.mutate(input.trim())
-  }
+  }, [input, chatMutation])
 
-  // Handle key press
-  const handleKeyDown = (e) => {
+  // Handle key press - memoized to prevent recreation on each render
+  const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
-  }
+  }, [handleSend])
 
-  // Quick prompts
-  const quickPrompts = [
-    'What did I learn about React hooks?',
-    'Summarize my notes on system design',
-    'Quiz me on Python concepts',
-    'What topics should I review today?',
-  ]
-
-  const handleQuickPrompt = (prompt) => {
+  // Handle quick prompt selection - memoized callback
+  const handleQuickPrompt = useCallback((prompt) => {
     setInput(prompt)
     inputRef.current?.focus()
-  }
+  }, [])
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
@@ -140,7 +141,7 @@ export function Assistant() {
                   Try asking:
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="group" aria-label="Suggested prompts">
-                  {quickPrompts.map((prompt, index) => (
+                  {QUICK_PROMPTS.map((prompt, index) => (
                     <button
                       key={index}
                       onClick={() => handleQuickPrompt(prompt)}

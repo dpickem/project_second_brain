@@ -4,7 +4,7 @@
  * Inline text capture with success feedback and optional learning material generation.
  */
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { clsx } from 'clsx'
 import { useMutation } from '@tanstack/react-query'
@@ -41,7 +41,8 @@ export function QuickCapture({
     },
   })
 
-  const handleSubmit = (e) => {
+  // Memoized submit handler
+  const handleSubmit = useCallback((e) => {
     e?.preventDefault()
     if (!text.trim()) return
     captureMutation.mutate({ 
@@ -49,13 +50,14 @@ export function QuickCapture({
       createCards,
       createExercises,
     })
-  }
+  }, [text, createCards, createExercises, captureMutation])
 
-  const handleKeyDown = (e) => {
+  // Memoized keydown handler for Cmd/Ctrl+Enter shortcut
+  const handleKeyDown = useCallback((e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       handleSubmit()
     }
-  }
+  }, [handleSubmit])
 
   return (
     <Card className={clsx('relative overflow-hidden', className)}>
@@ -172,6 +174,23 @@ export function InlineCapture({ onSuccess, className }) {
     },
   })
 
+  // Memoized handlers
+  const handleChange = useCallback((e) => setText(e.target.value), [])
+  const handleFocus = useCallback(() => setIsFocused(true), [])
+  const handleBlur = useCallback(() => {
+    if (!text) setIsFocused(false)
+  }, [text])
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter' && text.trim()) {
+      captureMutation.mutate({ text: text.trim() })
+    }
+  }, [text, captureMutation])
+
+  const handleCaptureClick = useCallback(() => {
+    captureMutation.mutate({ text: text.trim() })
+  }, [text, captureMutation])
+
   return (
     <motion.div
       className={clsx('relative', className)}
@@ -186,14 +205,10 @@ export function InlineCapture({ onSuccess, className }) {
         <input
           type="text"
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => !text && setIsFocused(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && text.trim()) {
-              captureMutation.mutate({ text: text.trim() })
-            }
-          }}
+          onChange={handleChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
           placeholder="Quick capture..."
           className="flex-1 bg-transparent px-4 py-3 text-text-primary placeholder-text-muted focus:outline-none"
         />
@@ -209,7 +224,7 @@ export function InlineCapture({ onSuccess, className }) {
               <Button
                 size="sm"
                 loading={captureMutation.isPending}
-                onClick={() => captureMutation.mutate({ text: text.trim() })}
+                onClick={handleCaptureClick}
               >
                 Capture
               </Button>

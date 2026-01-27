@@ -4,6 +4,7 @@
  * The user's home screen - answering "What should I do today?" at a glance.
  */
 
+import { memo } from 'react'
 import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { clsx } from 'clsx'
@@ -170,7 +171,7 @@ export function Dashboard() {
   )
 }
 
-function QuickLink({ to, icon, title, description }) {
+const QuickLink = memo(function QuickLink({ to, icon, title, description }) {
   return (
     <motion.a
       href={to}
@@ -189,7 +190,7 @@ function QuickLink({ to, icon, title, description }) {
       <p className="text-xs text-text-muted mt-0.5">{description}</p>
     </motion.a>
   )
-}
+})
 
 QuickLink.propTypes = {
   to: PropTypes.string.isRequired,
