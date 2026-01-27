@@ -193,9 +193,11 @@ class TestChat:
         sample_conversation: AssistantConversation,
     ) -> None:
         """chat() uses existing conversation when conversation_id provided."""
-        # Arrange
+        # Arrange - mock the scalars().first() pattern used by ConversationManager
+        mock_scalars = MagicMock()
+        mock_scalars.first.return_value = sample_conversation
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = sample_conversation
+        mock_result.scalars.return_value = mock_scalars
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
         with patch(
@@ -220,9 +222,11 @@ class TestChat:
         mock_db_session: AsyncMock,
     ) -> None:
         """chat() raises ValueError for non-existent conversation_id."""
-        # Arrange
+        # Arrange - mock the scalars().first() pattern used by ConversationManager
+        mock_scalars = MagicMock()
+        mock_scalars.first.return_value = None
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
+        mock_result.scalars.return_value = mock_scalars
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
         # Act & Assert
@@ -346,9 +350,11 @@ class TestConversationManagement:
         sample_conversation_with_messages: AssistantConversation,
     ) -> None:
         """get_conversation() returns conversation with all messages."""
-        # Arrange
+        # Arrange - mock the scalars().first() pattern used by ConversationManager
+        mock_scalars = MagicMock()
+        mock_scalars.first.return_value = sample_conversation_with_messages
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = sample_conversation_with_messages
+        mock_result.scalars.return_value = mock_scalars
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
@@ -368,9 +374,11 @@ class TestConversationManagement:
         mock_db_session: AsyncMock,
     ) -> None:
         """get_conversation() returns None for non-existent conversation."""
-        # Arrange
+        # Arrange - mock the scalars().first() pattern used by ConversationManager
+        mock_scalars = MagicMock()
+        mock_scalars.first.return_value = None
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
+        mock_result.scalars.return_value = mock_scalars
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
@@ -420,9 +428,11 @@ class TestConversationManagement:
         sample_conversation: AssistantConversation,
     ) -> None:
         """rename_conversation() updates the conversation title."""
-        # Arrange
+        # Arrange - mock the scalars().first() pattern used by ConversationManager
+        mock_scalars = MagicMock()
+        mock_scalars.first.return_value = sample_conversation
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = sample_conversation
+        mock_result.scalars.return_value = mock_scalars
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
@@ -443,11 +453,11 @@ class TestConversationManagement:
         sample_conversation_with_messages: AssistantConversation,
     ) -> None:
         """clear_conversation_messages() returns deleted message count."""
-        # Arrange
+        # Arrange - mock the scalars().first() pattern used by ConversationManager
+        mock_scalars = MagicMock()
+        mock_scalars.first.return_value = sample_conversation_with_messages
         mock_get_result = MagicMock()
-        mock_get_result.scalar_one_or_none.return_value = (
-            sample_conversation_with_messages
-        )
+        mock_get_result.scalars.return_value = mock_scalars
 
         mock_delete_result = MagicMock()
         mock_delete_result.rowcount = 2

@@ -20,9 +20,9 @@ from app.enums.learning import MasteryTrend, ExerciseType, CardState
 from app.models.learning import MasteryState, LearningCurveDataPoint
 from app.services.learning.mastery_service import (
     MasteryService,
-    _calculate_activity_level,
     _calculate_trend,
 )
+from app.services.learning.streak_tracking import calculate_activity_level
 
 
 # ============================================================================
@@ -88,7 +88,7 @@ def sample_cards_df():
 
 
 class TestCalculateActivityLevel:
-    """Tests for the _calculate_activity_level helper function."""
+    """Tests for the calculate_activity_level helper function."""
 
     @pytest.mark.parametrize(
         "count,max_count,expected",
@@ -123,7 +123,7 @@ class TestCalculateActivityLevel:
     )
     def test_activity_level_calculation(self, count, max_count, expected):
         """Test activity level is calculated correctly for various ratios."""
-        assert _calculate_activity_level(count, max_count) == expected
+        assert calculate_activity_level(count, max_count) == expected
 
 
 class TestCalculateTrend:

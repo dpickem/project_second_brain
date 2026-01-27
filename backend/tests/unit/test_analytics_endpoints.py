@@ -22,7 +22,8 @@ from app.models.learning import (
     TimeInvestmentPeriod,
     TimeInvestmentResponse,
 )
-from app.services.learning.mastery_service import MasteryService
+from app.services.learning.streak_tracking import StreakTrackingService
+from app.services.learning.time_tracking import TimeTrackingService
 
 
 # =============================================================================
@@ -106,7 +107,7 @@ def make_time_period(
 
 
 class TestCalculateLongestStreak:
-    """Tests for MasteryService._calculate_longest_streak static method."""
+    """Tests for StreakTrackingService._calculate_longest_streak static method."""
 
     @pytest.mark.parametrize(
         "dates,expected",
@@ -117,33 +118,33 @@ class TestCalculateLongestStreak:
     )
     def test_edge_cases(self, dates: list[date], expected: int) -> None:
         """Test edge cases: empty list and single date."""
-        result = MasteryService._calculate_longest_streak(dates)
+        result = StreakTrackingService._calculate_longest_streak(dates)
         assert result == expected
 
     def test_consecutive_days(self, consecutive_dates: list[date]) -> None:
         """Consecutive days returns correct streak length."""
-        result = MasteryService._calculate_longest_streak(consecutive_dates)
+        result = StreakTrackingService._calculate_longest_streak(consecutive_dates)
         assert result == 5
 
     def test_gap_ends_streak(self, dates_with_gap: list[date]) -> None:
         """Gap in dates ends the current streak and starts a new one."""
-        result = MasteryService._calculate_longest_streak(dates_with_gap)
+        result = StreakTrackingService._calculate_longest_streak(dates_with_gap)
         assert result == 3  # First 3 consecutive days
 
     def test_returns_longest_of_multiple_streaks(
         self, dates_with_multiple_streaks: list[date]
     ) -> None:
         """Returns the longest streak when multiple exist."""
-        result = MasteryService._calculate_longest_streak(dates_with_multiple_streaks)
+        result = StreakTrackingService._calculate_longest_streak(dates_with_multiple_streaks)
         assert result == 4  # Second streak is longer
 
 
 class TestCountDaysInPeriod:
-    """Tests for MasteryService._count_days_in_period static method."""
+    """Tests for StreakTrackingService._count_days_in_period static method."""
 
     def test_empty_dates_returns_0(self) -> None:
         """Empty dates list returns 0."""
-        result = MasteryService._count_days_in_period([], 7)
+        result = StreakTrackingService._count_days_in_period([], 7)
         assert result == 0
 
     def test_counts_days_within_window(self, today: date) -> None:
@@ -154,7 +155,7 @@ class TestCountDaysInPeriod:
             today - timedelta(days=3),
             today - timedelta(days=10),  # Outside 7-day window
         ]
-        result = MasteryService._count_days_in_period(dates, 7)
+        result = StreakTrackingService._count_days_in_period(dates, 7)
         assert result == 3  # Only first 3 are within the window
 
 
@@ -164,7 +165,7 @@ class TestCountDaysInPeriod:
 
 
 class TestCalculateTimeTrend:
-    """Tests for MasteryService._calculate_time_trend static method."""
+    """Tests for TimeTrackingService._calculate_time_trend static method."""
 
     @pytest.mark.parametrize(
         "minutes_sequence,expected_trend",
@@ -190,18 +191,18 @@ class TestCalculateTimeTrend:
             )
             for i, m in enumerate(minutes_sequence)
         ]
-        result = MasteryService._calculate_time_trend(periods)
+        result = TimeTrackingService._calculate_time_trend(periods)
         assert result == expected_trend
 
     def test_single_period_returns_stable(self, now_utc: datetime) -> None:
         """Single period always returns 'stable' (not enough data)."""
         periods = [make_time_period(now_utc, days_offset=1, total_minutes=30)]
-        result = MasteryService._calculate_time_trend(periods)
+        result = TimeTrackingService._calculate_time_trend(periods)
         assert result == "stable"
 
     def test_empty_periods_returns_stable(self) -> None:
         """Empty periods list returns 'stable'."""
-        result = MasteryService._calculate_time_trend([])
+        result = TimeTrackingService._calculate_time_trend([])
         assert result == "stable"
 
 
@@ -211,7 +212,7 @@ class TestCalculateTimeTrend:
 
 
 class TestCalculatePeriodStart:
-    """Tests for MasteryService._calculate_period_start static method."""
+    """Tests for TimeTrackingService._calculate_period_start static method."""
 
     @pytest.mark.parametrize(
         "period,expected_days_ago",
@@ -227,7 +228,7 @@ class TestCalculatePeriodStart:
     ) -> None:
         """Each TimePeriod maps to the correct number of days."""
         end_date = datetime(2026, 1, 7, 12, 0, 0, tzinfo=timezone.utc)
-        result = MasteryService._calculate_period_start(period, end_date)
+        result = TimeTrackingService._calculate_period_start(period, end_date)
 
         expected = end_date - timedelta(days=expected_days_ago)
         assert result == expected
@@ -235,7 +236,7 @@ class TestCalculatePeriodStart:
     def test_all_returns_2020(self) -> None:
         """TimePeriod.ALL returns a date in 2020 (effectively 'all time')."""
         end_date = datetime(2026, 1, 7, 0, 0, 0, tzinfo=timezone.utc)
-        result = MasteryService._calculate_period_start(TimePeriod.ALL, end_date)
+        result = TimeTrackingService._calculate_period_start(TimePeriod.ALL, end_date)
 
         assert result.year == 2020
         assert result.tzinfo == timezone.utc
