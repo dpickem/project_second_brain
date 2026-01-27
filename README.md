@@ -44,6 +44,10 @@ A comprehensive system for ingesting, organizing, connecting, and actively learn
   - [Tool Calling for Learning Assistant](#tool-calling-for-learning-assistant)
   - [MCP Integration](#mcp-integration-model-context-protocol)
   - [Mobile Capture (PWA)](#-mobile-capture-pwa)
+- [Production Deployment](#-production-deployment)
+- [Contributing](#-contributing)
+- [Security](#-security)
+- [License](#-license)
 - [References](#-references)
 
 ---
@@ -492,8 +496,8 @@ Customize appearance (compact mode, animations), learning preferences (session l
 
 ```bash
 # Clone the repository
-git clone https://github.com/dpickem/dpickem_project_second_brain.git
-cd dpickem_project_second_brain
+git clone https://github.com/<your-username>/second-brain.git
+cd second-brain
 
 # Run the interactive setup script
 python scripts/setup_project.py
@@ -728,6 +732,98 @@ A critical bottleneck in knowledge management is **capture friction**—the effo
 5. **Inbox review** — All captures go to inbox for daily processing
 
 See [08_mobile_capture.md](docs/design_docs/08_mobile_capture.md) for full design.
+
+---
+
+## 🚢 Production Deployment
+
+For production deployments, see the comprehensive guides in `docs/deployment/`:
+
+| Document | Description |
+|----------|-------------|
+| [production.md](docs/deployment/production.md) | Full production deployment guide |
+| [security.md](docs/deployment/security.md) | Security hardening and best practices |
+
+**Key Production Steps:**
+
+1. **Configure environment** — Set production values in `.env` (disable debug mode, set real secrets)
+2. **SSL/TLS** — Use Let's Encrypt with Certbot for HTTPS certificates
+3. **Reverse proxy** — Configure Nginx for rate limiting, security headers, and proxying
+4. **CORS** — Restrict `CORS_ORIGINS` to your production domains
+5. **Database security** — Strong passwords, network isolation, regular backups
+6. **Container security** — Run as non-root, set resource limits, use read-only filesystems where possible
+
+**Quick Production Checklist:**
+
+```bash
+# Required environment changes for production
+DEBUG=false
+SECRET_KEY=<generate-secure-random-key>
+CORS_ORIGINS=https://yourdomain.com
+POSTGRES_PASSWORD=<strong-password>
+NEO4J_PASSWORD=<strong-password>
+```
+
+See [production.md](docs/deployment/production.md) for complete instructions including Docker configuration, Nginx setup, backup procedures, and monitoring.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+
+- Development environment setup
+- Code style guidelines (Python and JavaScript/React)
+- Commit message conventions
+- Pull request process
+- Testing requirements
+
+**Quick Start for Contributors:**
+
+```bash
+# Fork and clone the repository
+git clone https://github.com/<your-username>/second-brain.git
+cd second-brain
+
+# Run the setup script
+python scripts/setup_project.py
+
+# Create a feature branch
+git checkout -b feature/your-feature-name
+
+# Make changes, then submit a PR
+```
+
+---
+
+## 🔒 Security
+
+For security-related concerns, please review:
+
+- **[Security Hardening Guide](docs/deployment/security.md)** — Production security best practices
+- **Vulnerability Reporting** — If you discover a security vulnerability, please report it responsibly by emailing the maintainers directly rather than opening a public issue
+
+**Security Features:**
+
+- Configurable CORS origins (not wildcard in production)
+- Environment-based secrets management
+- Database credential isolation
+- Rate limiting support
+- Security headers via reverse proxy
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+The MIT License is a permissive license that allows:
+- ✅ Commercial use
+- ✅ Modification
+- ✅ Distribution
+- ✅ Private use
+
+With the only requirement being to include the license and copyright notice in copies.
 
 ---
 

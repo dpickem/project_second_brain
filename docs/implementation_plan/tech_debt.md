@@ -11,7 +11,7 @@ This document tracks known technical debt items and improvements for open-source
   - ⏭️ ~~[TD-003: Missing CODE_OF_CONDUCT.md](#td-003-missing-code_of_conductmd)~~ (won't do)
   - ✅ ~~[TD-004: CORS wildcard allows all origins](#td-004-cors-wildcard-allows-all-origins)~~
   - ✅ ~~[TD-005: Missing production deployment documentation](#td-005-missing-production-deployment-documentation)~~
-  - [TD-006: README updates for open-source](#td-006-readme-updates-for-open-source)
+  - ✅ ~~[TD-006: README updates for open-source](#td-006-readme-updates-for-open-source)~~
   - [TD-007: Add CHANGELOG.md and SECURITY.md](#td-007-add-changelogmd-and-securitymd)
 - [Backend Tech Debt](#backend-tech-debt)
   - ✅ ~~[TD-008: Use TYPE_CHECKING for type annotation imports](#td-008-use-type_checking-for-type-annotation-imports)~~
@@ -137,17 +137,17 @@ allow_origins=["*"]  # Configure appropriately for production
 
 ---
 
-### TD-006: README updates for open-source
+### ✅ TD-006: README updates for open-source
 **Priority**: P1  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Documentation
 
-**Missing Sections**:
-- Security policy
-- Contributing section (reference to CONTRIBUTING.md)
-- License section
-- Production deployment overview
-- Clone URL should be generic (not user-specific GitHub path)
+**Missing Sections** (all addressed):
+- ✅ Security section (links to security.md, vulnerability reporting guidance)
+- ✅ Contributing section (reference to CONTRIBUTING.md with quick start)
+- ✅ License section (MIT license description)
+- ✅ Production deployment overview (links to docs/deployment/)
+- ✅ Clone URL made generic (placeholder for username)
 
 ---
 
@@ -773,7 +773,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-005: Missing production deployment documentation~~
 
 ### P1 - High (Should address for clean release)
-- [ ] TD-006: README updates for open-source
+- ✅ ~~TD-006: README updates for open-source~~
 - [ ] TD-007: Add CHANGELOG.md and SECURITY.md
 - ✅ ~~TD-009: Complete LLM/OCR/VLM usage tracking~~
 - ✅ ~~TD-012: Robust deduplication and cleanup on reprocessing~~
@@ -1195,9 +1195,45 @@ Created comprehensive production deployment documentation.
 
 ---
 
+### ✅ TD-006: README updates for open-source
+**Completed**: 2026-01-27
+
+Updated README.md with all missing sections for open-source release readiness.
+
+**Changes**:
+
+**Table of Contents**:
+- Added links to new sections: Production Deployment, Contributing, Security, License
+
+**Clone URL**:
+- Changed from user-specific `github.com/dpickem/dpickem_project_second_brain` to generic `github.com/<your-username>/second-brain`
+
+**New Sections Added**:
+
+**🚢 Production Deployment**:
+- Links to `docs/deployment/production.md` and `docs/deployment/security.md`
+- Key production steps checklist
+- Quick environment configuration example
+
+**🤝 Contributing**:
+- References `CONTRIBUTING.md` for full details
+- Quick start commands for contributors
+
+**🔒 Security**:
+- Links to security hardening guide
+- Vulnerability reporting guidance
+- Summary of security features
+
+**📄 License**:
+- MIT License description
+- Links to LICENSE file
+- Summary of permissions
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 17 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 18 completed
