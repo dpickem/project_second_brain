@@ -12,7 +12,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-004: CORS wildcard allows all origins](#td-004-cors-wildcard-allows-all-origins)~~
   - ✅ ~~[TD-005: Missing production deployment documentation](#td-005-missing-production-deployment-documentation)~~
   - ✅ ~~[TD-006: README updates for open-source](#td-006-readme-updates-for-open-source)~~
-  - [TD-007: Add CHANGELOG.md and SECURITY.md](#td-007-add-changelogmd-and-securitymd)
+  - ✅ ~~[TD-007: Add CHANGELOG.md and SECURITY.md](#td-007-add-changelogmd-and-securitymd)~~
 - [Backend Tech Debt](#backend-tech-debt)
   - ✅ ~~[TD-008: Use TYPE_CHECKING for type annotation imports](#td-008-use-type_checking-for-type-annotation-imports)~~
   - ✅ ~~[TD-009: Complete LLM/OCR/VLM usage tracking](#td-009-complete-llmocrvlm-usage-tracking)~~
@@ -151,12 +151,12 @@ allow_origins=["*"]  # Configure appropriately for production
 
 ---
 
-### TD-007: Add CHANGELOG.md and SECURITY.md
+### ✅ TD-007: Add CHANGELOG.md and SECURITY.md
 **Priority**: P1  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Repository root
 
-**Files to Create**:
+**Files Created**:
 - `CHANGELOG.md` - Version history and changes
 - `SECURITY.md` - Security policy and vulnerability reporting process
 - `.github/ISSUE_TEMPLATE.md` - Bug report/feature request template
@@ -774,7 +774,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 
 ### P1 - High (Should address for clean release)
 - ✅ ~~TD-006: README updates for open-source~~
-- [ ] TD-007: Add CHANGELOG.md and SECURITY.md
+- ✅ ~~TD-007: Add CHANGELOG.md and SECURITY.md~~
 - ✅ ~~TD-009: Complete LLM/OCR/VLM usage tracking~~
 - ✅ ~~TD-012: Robust deduplication and cleanup on reprocessing~~
 - ✅ ~~TD-014: N+1 query in mastery_service.py~~
@@ -1267,9 +1267,42 @@ Updated README.md with all missing sections for open-source release readiness.
 
 ---
 
+### ✅ TD-007: Add CHANGELOG.md and SECURITY.md
+**Completed**: 2026-01-27
+
+Created all required files for open-source release readiness.
+
+**Files created**:
+
+**`CHANGELOG.md`**:
+- Uses Keep a Changelog format with Semantic Versioning
+- Documents v0.1.0 initial release with all major features
+- Includes [Unreleased] section for ongoing development
+- Categories: Added, Changed, Fixed, Security, Technical
+
+**`SECURITY.md`**:
+- Vulnerability reporting instructions (private disclosure)
+- Response timeline expectations (48h acknowledgment, 7d assessment, 30d resolution)
+- Security best practices for deployment
+- Overview of built-in security features
+- Known security considerations (local-first design, LLM data handling)
+
+**`.github/ISSUE_TEMPLATE.md`**:
+- Supports Bug Reports, Feature Requests, Documentation Issues, Questions
+- Structured sections for reproduction steps, environment details, logs
+- Checklist for completeness
+
+**`.github/PULL_REQUEST_TEMPLATE.md`**:
+- Summary and related issues sections
+- Type of change checkboxes
+- Testing checklist (unit, integration, frontend, E2E, manual)
+- Documentation and code quality checklist
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 19 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 20 completed
