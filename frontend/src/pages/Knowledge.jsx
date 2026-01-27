@@ -404,32 +404,36 @@ function InlineNoteContent({ notePath, onClose }) {
                       <div className="flex gap-1">
                         <button
                           onClick={() => toggleAllSections(true)}
-                          className="text-xs text-indigo-400 hover:text-indigo-300"
+                          aria-label="Show all sections"
+                          className="text-xs text-indigo-400 hover:text-indigo-300 focus:outline-none focus:underline"
                         >
                           All
                         </button>
-                        <span className="text-text-muted">|</span>
+                        <span className="text-text-muted" aria-hidden="true">|</span>
                         <button
                           onClick={() => toggleAllSections(false)}
-                          className="text-xs text-indigo-400 hover:text-indigo-300"
+                          aria-label="Hide all sections"
+                          className="text-xs text-indigo-400 hover:text-indigo-300 focus:outline-none focus:underline"
                         >
                           None
                         </button>
                       </div>
                     </div>
                   </div>
-                  <div className="p-2 max-h-80 overflow-y-auto">
+                  <div className="p-2 max-h-80 overflow-y-auto" role="group" aria-label="Toggle sections visibility">
                     {Object.entries(TOGGLEABLE_SECTIONS).map(([key, config]) => (
                       <button
                         key={key}
                         onClick={() => toggleSection(key)}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-bg-hover transition-colors"
+                        aria-pressed={sectionVisibility[key]}
+                        aria-label={`${sectionVisibility[key] ? 'Hide' : 'Show'} ${config.label} section`}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus:ring-2 focus:ring-accent-primary/50"
                       >
                         <span className="text-sm text-text-secondary">{config.label}</span>
                         {sectionVisibility[key] ? (
-                          <EyeIcon className="w-4 h-4 text-emerald-400" />
+                          <EyeIcon className="w-4 h-4 text-emerald-400" aria-hidden="true" />
                         ) : (
-                          <EyeSlashIcon className="w-4 h-4 text-text-muted" />
+                          <EyeSlashIcon className="w-4 h-4 text-text-muted" aria-hidden="true" />
                         )}
                       </button>
                     ))}
@@ -603,9 +607,13 @@ function FolderTree({ folders, notesByFolder, selectedNote, onNoteSelect }) {
             {/* Folder header */}
             <button
               onClick={() => toggleFolder(folder.folder)}
+              aria-expanded={isExpanded}
+              aria-controls={`folder-notes-${folder.folder.replace(/[^a-zA-Z0-9]/g, '-')}`}
+              aria-label={`${folder.folder} folder, ${folder.note_count} notes, ${isExpanded ? 'collapse' : 'expand'}`}
               className={clsx(
                 'w-full flex items-center gap-2 py-2 px-2 rounded-lg text-left',
                 'hover:bg-bg-hover transition-colors',
+                'focus:outline-none focus:ring-2 focus:ring-accent-primary/50',
                 isExpanded && 'bg-bg-hover/50'
               )}
             >
@@ -632,15 +640,20 @@ function FolderTree({ folders, notesByFolder, selectedNote, onNoteSelect }) {
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   className="overflow-hidden"
+                  id={`folder-notes-${folder.folder.replace(/[^a-zA-Z0-9]/g, '-')}`}
+                  role="group"
+                  aria-label={`Notes in ${folder.folder}`}
                 >
                   <div className="pl-8 space-y-0.5">
                     {folderNotes.map((note) => (
                       <button
                         key={note.path}
                         onClick={() => onNoteSelect(note.path)}
+                        aria-current={selectedNote === note.path ? 'page' : undefined}
                         className={clsx(
                           'w-full text-left py-1.5 px-2 rounded text-sm',
                           'transition-colors truncate',
+                          'focus:outline-none focus:ring-2 focus:ring-accent-primary/50',
                           selectedNote === note.path
                             ? 'bg-indigo-500/20 text-indigo-300'
                             : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover'
@@ -876,7 +889,8 @@ export function Knowledge() {
             {/* Keyboard hint */}
             <button
               onClick={openCommandPalette}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-0.5 text-xs bg-bg-tertiary text-text-muted rounded hover:bg-bg-hover"
+              aria-label="Open command palette (Command K)"
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-0.5 text-xs bg-bg-tertiary text-text-muted rounded hover:bg-bg-hover focus:outline-none focus:ring-2 focus:ring-accent-primary/50"
             >
               ⌘K
             </button>
@@ -885,11 +899,15 @@ export function Knowledge() {
 
         {/* View toggle */}
         <motion.div variants={fadeInUp} className="p-3 border-b border-border-primary">
-          <div className="flex items-center gap-1 bg-bg-tertiary rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-bg-tertiary rounded-lg p-1" role="tablist" aria-label="View mode">
             <button
+              role="tab"
+              aria-selected={viewMode === 'tree'}
+              aria-controls="notes-panel"
               onClick={() => setViewMode('tree')}
               className={clsx(
                 'flex-1 py-1.5 text-sm rounded-md transition-colors',
+                'focus:outline-none focus:ring-2 focus:ring-accent-primary/50',
                 viewMode === 'tree'
                   ? 'bg-bg-elevated text-text-primary'
                   : 'text-text-muted hover:text-text-secondary'
@@ -898,9 +916,13 @@ export function Knowledge() {
               🌲 Tree
             </button>
             <button
+              role="tab"
+              aria-selected={viewMode === 'list'}
+              aria-controls="notes-panel"
               onClick={() => setViewMode('list')}
               className={clsx(
                 'flex-1 py-1.5 text-sm rounded-md transition-colors',
+                'focus:outline-none focus:ring-2 focus:ring-accent-primary/50',
                 viewMode === 'list'
                   ? 'bg-bg-elevated text-text-primary'
                   : 'text-text-muted hover:text-text-secondary'
@@ -912,7 +934,7 @@ export function Knowledge() {
         </motion.div>
 
         {/* Content */}
-        <motion.div variants={fadeInUp} className="flex-1 overflow-y-auto p-3">
+        <motion.div variants={fadeInUp} className="flex-1 overflow-y-auto p-3" id="notes-panel" role="tabpanel" aria-label="Notes list">
           {viewMode === 'tree' ? (
             <FolderTree
               folders={sortedTopics}
@@ -921,14 +943,17 @@ export function Knowledge() {
               onNoteSelect={handleNoteSelect}
             />
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2" role="listbox" aria-label="Notes">
               {sortedNotes.map((note) => (
                 <motion.button
                   key={note.path}
                   whileHover={{ x: 4 }}
                   onClick={() => handleNoteSelect(note.path)}
+                  role="option"
+                  aria-selected={selectedNote === note.path}
                   className={clsx(
                     'w-full text-left p-3 rounded-lg transition-colors',
+                    'focus:outline-none focus:ring-2 focus:ring-accent-primary/50',
                     selectedNote === note.path
                       ? 'bg-indigo-500/20 border border-indigo-500/30'
                       : 'hover:bg-bg-hover'

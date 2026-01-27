@@ -149,7 +149,7 @@ export function ConfirmModal({
         <>
           <button
             type="button"
-            className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+            className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
             onClick={onClose}
             disabled={loading}
           >
@@ -160,9 +160,10 @@ export function ConfirmModal({
             className={clsx(
               'px-4 py-2 text-sm font-medium rounded-lg transition-colors',
               'disabled:opacity-50 disabled:cursor-not-allowed',
-              variant === 'danger' && 'bg-red-600 text-white hover:bg-red-500',
-              variant === 'primary' && 'bg-indigo-600 text-white hover:bg-indigo-500',
-              variant === 'warning' && 'bg-amber-600 text-white hover:bg-amber-500'
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900',
+              variant === 'danger' && 'bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-500',
+              variant === 'primary' && 'bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:ring-indigo-500',
+              variant === 'warning' && 'bg-amber-600 text-white hover:bg-amber-500 focus-visible:ring-amber-500'
             )}
             onClick={onConfirm}
             disabled={loading}

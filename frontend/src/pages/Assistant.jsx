@@ -139,12 +139,13 @@ export function Assistant() {
                 <p className="text-sm text-text-muted text-center mb-4">
                   Try asking:
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="group" aria-label="Suggested prompts">
                   {quickPrompts.map((prompt, index) => (
                     <button
                       key={index}
                       onClick={() => handleQuickPrompt(prompt)}
-                      className="p-4 text-left rounded-xl bg-bg-secondary border border-border-primary hover:border-indigo-500/30 hover:bg-bg-hover transition-all"
+                      aria-label={`Use prompt: ${prompt}`}
+                      className="p-4 text-left rounded-xl bg-bg-secondary border border-border-primary hover:border-indigo-500/30 hover:bg-bg-hover transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50"
                     >
                       <span className="text-sm text-text-primary">{prompt}</span>
                     </button>

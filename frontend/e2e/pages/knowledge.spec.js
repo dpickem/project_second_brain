@@ -237,9 +237,9 @@ test.describe('Knowledge Page', () => {
       await page.goto('/knowledge')
       await page.waitForLoadState('networkidle')
 
-      // View toggles should be visible
-      await expect(page.getByRole('button', { name: /Tree/i })).toBeVisible()
-      await expect(page.getByRole('button', { name: /List/i })).toBeVisible()
+      // View toggles should be visible (role="tab" for accessibility)
+      await expect(page.getByRole('tab', { name: /Tree/i })).toBeVisible()
+      await expect(page.getByRole('tab', { name: /List/i })).toBeVisible()
     })
   })
 
@@ -305,8 +305,8 @@ test.describe('Knowledge Page', () => {
       await page.goto('/knowledge')
       await page.waitForLoadState('networkidle')
 
-      // Switch to list view
-      await page.getByRole('button', { name: /List/i }).click()
+      // Switch to list view (role="tab" for accessibility)
+      await page.getByRole('tab', { name: /List/i }).click()
 
       // All notes should be visible in flat list
       await expect(page.getByText('Understanding React Hooks')).toBeVisible()
@@ -318,8 +318,8 @@ test.describe('Knowledge Page', () => {
       await page.goto('/knowledge')
       await page.waitForLoadState('networkidle')
 
-      // Switch to list view
-      await page.getByRole('button', { name: /List/i }).click()
+      // Switch to list view (role="tab" for accessibility)
+      await page.getByRole('tab', { name: /List/i }).click()
 
       // Folder paths should be visible
       await expect(page.getByText('sources/articles').first()).toBeVisible()
@@ -330,8 +330,8 @@ test.describe('Knowledge Page', () => {
       await page.goto('/knowledge')
       await page.waitForLoadState('networkidle')
 
-      // Switch to list view
-      await page.getByRole('button', { name: /List/i }).click()
+      // Switch to list view (role="tab" for accessibility)
+      await page.getByRole('tab', { name: /List/i }).click()
 
       // Content type badges should be visible
       await expect(page.getByText('article').first()).toBeVisible()
@@ -432,8 +432,8 @@ test.describe('Knowledge Page', () => {
       await page.goto('/knowledge')
       await page.waitForLoadState('networkidle')
 
-      // Switch to list view for easier verification
-      await page.getByRole('button', { name: /List/i }).click()
+      // Switch to list view for easier verification (role="tab" for accessibility)
+      await page.getByRole('tab', { name: /List/i }).click()
 
       // Type in search
       await page.getByPlaceholder('Search notes...').fill('React')
@@ -449,8 +449,8 @@ test.describe('Knowledge Page', () => {
       await page.goto('/knowledge')
       await page.waitForLoadState('networkidle')
 
-      // ⌘K hint button should be visible in search input area
-      await expect(page.getByRole('button', { name: '⌘K', exact: true })).toBeVisible()
+      // ⌘K hint button should be visible in search input area (has aria-label for accessibility)
+      await expect(page.getByRole('button', { name: /command palette/i })).toBeVisible()
     })
   })
 
@@ -483,8 +483,8 @@ test.describe('Knowledge Page', () => {
       await page.goto('/knowledge')
       await page.waitForLoadState('networkidle')
 
-      // Click the ⌘K button in the search input area
-      await page.getByRole('button', { name: '⌘K', exact: true }).click()
+      // Click the ⌘K button in the search input area (has aria-label for accessibility)
+      await page.getByRole('button', { name: /command palette/i }).click()
 
       // Command palette should be visible
       await expect(page.getByPlaceholder(/Search notes, type a command/)).toBeVisible()

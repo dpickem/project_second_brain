@@ -28,12 +28,14 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-019: Missing type hints](#td-019-missing-type-hints)~~
   - ✅ ~~[TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)~~
   - ✅ ~~[TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)~~
+  - [TD-038: Concept deduplication not working](#td-038-concept-deduplication-not-working)
+  - [TD-039: Exercises not synced to Obsidian vault](#td-039-exercises-not-synced-to-obsidian-vault)
 - [Frontend Tech Debt](#frontend-tech-debt)
   - ✅ ~~[TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)~~
   - ✅ ~~[TD-023: Hardcoded URLs throughout frontend](#td-023-hardcoded-urls-throughout-frontend)~~
   - ✅ ~~[TD-024: Missing prop validation](#td-024-missing-prop-validation)~~
   - ✅ ~~[TD-025: Missing error boundaries](#td-025-missing-error-boundaries)~~
-  - [TD-026: Accessibility issues](#td-026-accessibility-issues)
+  - ✅ ~~[TD-026: Accessibility issues](#td-026-accessibility-issues)~~
   - [TD-027: Performance - missing memoization](#td-027-performance---missing-memoization)
   - [TD-028: Magic numbers in frontend](#td-028-magic-numbers-in-frontend)
   - [TD-029: Inconsistent state management patterns](#td-029-inconsistent-state-management-patterns)
@@ -514,6 +516,62 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
+### TD-038: Concept deduplication not working
+**Priority**: P1  
+**Status**: Open  
+**Area**: Data integrity
+
+**Description**: Concepts are being duplicated badly in the database. For example, "Behavior Cloning (BC)" appears 10+ times as separate concept entries instead of being deduplicated.
+
+**Impact**:
+- Cluttered knowledge graph with redundant nodes
+- Misleading analytics (concept counts inflated)
+- User confusion when browsing concepts
+- Wasted storage and processing resources
+
+**Investigation Needed**:
+- [ ] Check concept extraction pipeline for deduplication logic
+- [ ] Verify if normalization (case, punctuation, aliases) is applied
+- [ ] Check if Neo4j MERGE is being used correctly for concept nodes
+- [ ] Review PostgreSQL concept storage for duplicate detection
+
+**Potential Fixes**:
+- Implement fuzzy matching for concept names during extraction
+- Add concept normalization (lowercase, strip parentheticals for matching)
+- Use semantic similarity to detect near-duplicates
+- Add batch deduplication script for existing data
+- Consider concept aliasing (e.g., "BC" → "Behavior Cloning")
+
+---
+
+### TD-039: Exercises not synced to Obsidian vault
+**Priority**: P2  
+**Status**: Open  
+**Area**: Data synchronization
+
+**Description**: Exercises exist only in the PostgreSQL database but are not being written as Obsidian notes. This breaks the "single source of truth" philosophy where all learning content should be accessible in the Obsidian vault.
+
+**Current State**:
+- Cards (spaced repetition) → ❓ (need to verify)
+- Exercises → ❌ Only in SQL, no Obsidian notes
+- Concepts → ✅ Written to Obsidian
+- Main content notes → ✅ Written to Obsidian
+
+**Expected Behavior**:
+- Exercises should have corresponding Obsidian notes
+- Notes should include exercise prompt, type, hints, solution
+- Should link back to source content
+- Should be tagged appropriately for discoverability
+
+**Implementation Tasks**:
+- [ ] Create exercise template (`config/templates/exercise.md.j2`)
+- [ ] Add exercise export to `obsidian_generator.py`
+- [ ] Decide on folder structure (e.g., `exercises/` or alongside source content)
+- [ ] Add exercise sync to processing pipeline
+- [ ] Handle exercise updates/deletions
+
+---
+
 ## Frontend Tech Debt
 
 ### ✅ TD-022: Remove console.log statements
@@ -527,7 +585,7 @@ Coverage improved from ~84% to ~90% for return type hints.
 - `frontend/src/pages/PracticeSession.jsx` - Removed debug logs
 - `frontend/src/components/dashboard/StreakCalendar.jsx` - Removed debug logs
 - `frontend/src/api/client.js` - Already gated behind `import.meta.env.DEV`
-- `frontend/capture/src/` - Removed extensive logging from capture components
+![1769542452093](image/tech_debt/1769542452093.png)- `frontend/capture/src/` - Removed extensive logging from capture components
 - `frontend/capture/public/sw.js` - Removed service worker logging
 
 **Fix Applied**: Removed all console.log/warn/error statements from production code. Remaining statements are in:
@@ -588,21 +646,22 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
-### TD-026: Accessibility issues
+### ✅ TD-026: Accessibility issues
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Accessibility
 
-**Missing aria labels**:
-- `frontend/src/components/common/Input.jsx:74-84` - Password toggle button
-- `frontend/src/components/common/Input.jsx:185-193` - SearchInput clear button
-- `frontend/src/pages/Assistant.jsx:144-150` - Quick prompt buttons
-- `frontend/src/pages/Knowledge.jsx` - Many interactive elements
+**Fixed aria labels**:
+- `frontend/src/components/common/Input.jsx` - Password toggle button now has `aria-label`, `aria-pressed`, and focus ring
+- `frontend/src/components/common/Input.jsx` - SearchInput clear button now has `aria-label` and focus ring
+- `frontend/src/pages/Assistant.jsx` - Quick prompt buttons now have `aria-label` and focus ring, group has `role="group"`
+- `frontend/src/pages/Knowledge.jsx` - Added accessibility to folder tree, note selection, view toggles, section visibility controls
 
-**Other issues**:
-- Missing visible focus indicators
-- No focus trap in modals/dialogs
-- Keyboard navigation gaps
+**Other fixes**:
+- Added visible focus indicators (`focus:ring-2`) to interactive elements
+- Modal uses Headless UI Dialog which provides built-in focus trap
+- Added `aria-expanded`, `aria-controls`, `aria-pressed`, `aria-selected`, `aria-current` attributes where appropriate
+- Added `role="tablist"`, `role="tab"`, `role="tabpanel"`, `role="listbox"`, `role="option"` for proper semantics
 
 ---
 
@@ -794,6 +853,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - [ ] TD-031: Hardcoded path in run_processing.py
 - [ ] TD-032: Prototype code should be moved or removed
 - [ ] TD-034: Docker compose production configuration
+- [ ] TD-038: Concept deduplication not working
 
 ### P2 - Medium (Address when touching related code)
 - ✅ ~~TD-008: Use TYPE_CHECKING for type annotation imports~~
@@ -807,12 +867,13 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-020: Hardcoded upload directory~~
 - ✅ ~~TD-021: Review and clean up dependencies~~
 - ✅ ~~TD-024: Missing prop validation~~
-- [ ] TD-026: Accessibility issues
+- ✅ ~~TD-026: Accessibility issues~~
 - [ ] TD-027: Performance - missing memoization
 - [ ] TD-028: Magic numbers in frontend
 - [ ] TD-033: Incomplete test implementation
 - [ ] TD-035: Environment variable validation
 - [ ] TD-037: Data directory uses tilde expansion
+- [ ] TD-039: Exercises not synced to Obsidian vault
 
 ### P3 - Low (Nice to have)
 - [ ] TD-029: Inconsistent state management patterns
@@ -1447,9 +1508,44 @@ Implemented React error boundaries to catch JavaScript errors and prevent full a
 
 ---
 
+### ✅ TD-026: Accessibility issues
+**Completed**: 2026-01-27
+
+Added ARIA attributes and focus indicators to improve screen reader support and keyboard navigation.
+
+**Files updated**:
+
+**`frontend/src/components/common/Input.jsx`**:
+- Password toggle button: Added `aria-label` (dynamic based on state), `aria-pressed`, `aria-hidden` on icons, visible focus ring
+- SearchInput clear button: Added `aria-label`, `aria-hidden` on icon, visible focus ring
+
+**`frontend/src/pages/Assistant.jsx`**:
+- Quick prompts container: Added `role="group"` and `aria-label`
+- Quick prompt buttons: Added `aria-label`, visible focus ring
+
+**`frontend/src/pages/Knowledge.jsx`**:
+- Folder tree: `aria-expanded`, `aria-controls`, `aria-label` on folder buttons, `role="group"` on note lists
+- Note buttons: `aria-current` for selected state, focus rings
+- View toggle: `role="tablist"`, `role="tab"`, `aria-selected`, `aria-controls`
+- Notes panel: `id` for ARIA reference, `role="tabpanel"`
+- List view: `role="listbox"`, `role="option"`, `aria-selected`
+- Command palette button: `aria-label`
+- Section visibility: `aria-pressed`, `aria-label`, `aria-hidden` on icons
+- Show All/None buttons: `aria-label`
+
+**`frontend/src/components/common/Modal.jsx`**:
+- ConfirmModal buttons: Added `focus-visible:ring` focus indicators
+
+**Accessibility improvements**:
+- All interactive elements now have visible focus indicators
+- Modal dialogs use Headless UI's built-in focus trap
+- Proper ARIA roles communicate UI semantics to assistive technology
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 24 completed
+- Total items: 39 (5 P0, 14 P1, 18 P2, 2 P3) — 25 completed

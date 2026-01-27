@@ -75,12 +75,14 @@ export const Input = forwardRef(function Input(
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition-colors"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            aria-pressed={showPassword}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-primary/50 rounded"
           >
             {showPassword ? (
-              <EyeSlashIcon className="w-5 h-5" />
+              <EyeSlashIcon className="w-5 h-5" aria-hidden="true" />
             ) : (
-              <EyeIcon className="w-5 h-5" />
+              <EyeIcon className="w-5 h-5" aria-hidden="true" />
             )}
           </button>
         )}
@@ -208,9 +210,10 @@ export const SearchInput = forwardRef(function SearchInput(
         <button
           type="button"
           onClick={onClear}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition-colors"
+          aria-label="Clear search"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-primary/50 rounded"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
