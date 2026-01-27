@@ -120,6 +120,7 @@ from app.services.processing.pipeline import (
     process_content as run_llm_pipeline,
     PipelineConfig,
 )
+from app.services.processing.cleanup import cleanup_before_reprocessing
 
 logger = logging.getLogger(__name__)
 
@@ -321,7 +322,34 @@ async def _run_llm_processing_impl(
 
         # Update status to processing
         db_content.status = ProcessingStatus.PROCESSING
+        content_pk = db_content.id  # Save for cleanup
         await session.commit()
+
+    # Cleanup old processing records before reprocessing (TD-012)
+    # This ensures no orphaned records remain after processing
+    async with task_session_maker() as cleanup_session:
+        result = await cleanup_session.execute(
+            select(Content).where(Content.content_uuid == content_id)
+        )
+        cleanup_content = result.scalar_one_or_none()
+        if cleanup_content:
+            # Get Neo4j client for relationship cleanup
+            from app.services.knowledge_graph.client import get_neo4j_client
+            try:
+                neo4j_client = await get_neo4j_client()
+            except Exception as e:
+                logger.warning(f"Could not get Neo4j client for cleanup: {e}")
+                neo4j_client = None
+
+            cleanup_result = await cleanup_before_reprocessing(
+                content_pk=cleanup_content.id,
+                content_uuid=content_id,
+                session=cleanup_session,
+                neo4j_client=neo4j_client,
+                delete_cards=False,  # Preserve user's spaced rep history
+            )
+            await cleanup_session.commit()
+            logger.info(f"Pre-processing cleanup: {cleanup_result}")
 
     # Run LLM processing pipeline with a new database session for card/exercise generation
     try:

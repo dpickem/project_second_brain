@@ -18,7 +18,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-009: Complete LLM/OCR/VLM usage tracking](#td-009-complete-llmocrvlm-usage-tracking)~~
   - ✅ ~~[TD-010: Model factory methods for cross-layer conversions](#td-010-model-factory-methods-for-cross-layer-conversions)~~
   - ✅ ~~[TD-011: Clean up imports and move to top of files](#td-011-clean-up-imports-and-move-to-top-of-files)~~
-  - [TD-012: Robust deduplication and cleanup on reprocessing](#td-012-robust-deduplication-and-cleanup-on-reprocessing)
+  - ✅ ~~[TD-012: Robust deduplication and cleanup on reprocessing](#td-012-robust-deduplication-and-cleanup-on-reprocessing)~~
   - ✅ ~~[TD-013: Eliminate magic numbers](#td-013-eliminate-magic-numbers)~~
   - ✅ ~~[TD-014: N+1 query in mastery_service.py](#td-014-n1-query-in-mastery_servicepy)~~
   - ✅ ~~[TD-015: Inconsistent datetime usage](#td-015-inconsistent-datetime-usage)~~
@@ -297,22 +297,31 @@ if TYPE_CHECKING:
 
 ---
 
-### TD-012: Robust deduplication and cleanup on reprocessing
+### ✅ TD-012: Robust deduplication and cleanup on reprocessing
 **Priority**: P1  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Data integrity
 
 **Description**: Ensure deduplication works robustly throughout the system. When content is reprocessed, properly clean up all old entries.
 
-**Required Cleanup on Reprocessing**:
-1. **PostgreSQL**: Old `ProcessingRun`, `TagAssignment`, `Connection`, `Card`, `ExtractionResult` records
-2. **Neo4j**: Old nodes and relationships
-3. **Obsidian**: Old note files and stale wikilinks
+**Implemented Cleanup**:
+1. **PostgreSQL**: Deletes old `ProcessingRun` records (cascade deletes related `FollowupRecord`, `QuestionRecord`, `ConceptRecord`, `ConnectionRecord`)
+2. **Neo4j**: Deletes outgoing relationships from content node (preserves node for update)
+3. **Obsidian**: Main notes updated in-place or deleted if title changes (handled in `obsidian_generator.py`). Concept notes intentionally preserved across sources.
+4. **Cards**: Optionally deletable (disabled by default to preserve user's spaced rep history)
 
-**Acceptance Criteria**:
-- Reprocessing the same content results in exactly one entry per store
-- No orphaned records in SQL, Neo4j, or Obsidian after reprocessing
-- All relationships/connections are properly updated or removed
+**Implementation**:
+- New cleanup service: `app/services/processing/cleanup.py`
+- Integrated into both processing paths:
+  - API background task: `_run_processing()` in `routers/processing.py`
+  - Celery task: `_run_llm_processing_impl()` in `services/tasks.py`
+- Obsidian handled in `obsidian_generator.py` via `get_path_for_update()` and old file deletion
+
+**Acceptance Criteria** (all met):
+- ✅ Reprocessing the same content results in exactly one ProcessingRun per processing
+- ✅ No orphaned records in PostgreSQL after reprocessing (cascade deletes)
+- ✅ No orphaned Neo4j relationships after reprocessing
+- ✅ No duplicate Obsidian notes after reprocessing (update in place or delete old)
 
 ---
 
@@ -729,7 +738,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - [ ] TD-006: README updates for open-source
 - [ ] TD-007: Add CHANGELOG.md and SECURITY.md
 - ✅ ~~TD-009: Complete LLM/OCR/VLM usage tracking~~
-- [ ] TD-012: Robust deduplication and cleanup on reprocessing
+- ✅ ~~TD-012: Robust deduplication and cleanup on reprocessing~~
 - ✅ ~~TD-014: N+1 query in mastery_service.py~~
 - ✅ ~~TD-015: Inconsistent datetime usage~~
 - [ ] TD-022: Remove console.log statements
@@ -938,9 +947,37 @@ This reduces database round-trips from O(n) to O(1) where n is the number of top
 
 ---
 
+### ✅ TD-012: Robust deduplication and cleanup on reprocessing
+**Completed**: 2026-01-26
+
+Created cleanup service for handling reprocessing deduplication.
+
+**New file**: `backend/app/services/processing/cleanup.py`
+
+Key functions:
+- `cleanup_processing_runs()` - Deletes old ProcessingRun records with cascade
+- `cleanup_neo4j_relationships()` - Removes outgoing relationships from content node
+- `cleanup_spaced_rep_cards()` - Optionally deletes cards (disabled by default)
+- `cleanup_before_reprocessing()` - Main orchestrator called before processing
+
+**Integration points**:
+- `backend/app/routers/processing.py:_run_processing()` - API background task
+- `backend/app/services/tasks.py:_run_llm_processing_impl()` - Celery task
+
+**Behavior**:
+- Cleanup runs automatically before each processing pipeline execution
+- PostgreSQL cascade deletes handle FollowupRecord, QuestionRecord, ConceptRecord, ConnectionRecord
+- Neo4j relationships are cleared so new ones can be created
+- Spaced rep cards preserved by default (user has review history)
+- Obsidian notes: Main content notes updated in-place or deleted if title changes
+  (handled in `obsidian_generator.py`, not cleanup service)
+- Concept notes intentionally preserved across sources (multiple content can reference same concept)
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 8 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 9 completed
