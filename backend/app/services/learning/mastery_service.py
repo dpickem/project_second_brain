@@ -60,43 +60,15 @@ from app.models.learning import (
     LogTimeResponse,
     MasteryOverview,
     MasteryState,
-    PracticeHistoryDay,
     PracticeHistoryResponse,
     StreakData,
-    TimeInvestmentPeriod,
     TimeInvestmentResponse,
     WeakSpot,
 )
+from app.services.learning.streak_tracking import StreakTrackingService
+from app.services.learning.time_tracking import TimeTrackingService
 
 logger = logging.getLogger(__name__)
-
-
-def _calculate_activity_level(count: int, max_count: int) -> int:
-    """
-    Calculate activity level (0-4) based on count relative to max.
-
-    Used for heatmap visualizations where higher levels indicate more activity.
-    Thresholds are configured in settings (ACTIVITY_LEVEL_*).
-
-    Args:
-        count: Activity count for the day.
-        max_count: Maximum activity count across all days.
-
-    Returns:
-        Activity level from 0 (no activity) to 4 (high activity).
-    """
-    if max_count == 0 or count == 0:
-        return 0
-
-    ratio = count / max_count
-    if ratio >= settings.ACTIVITY_LEVEL_HIGH:
-        return 4
-    elif ratio >= settings.ACTIVITY_LEVEL_MEDIUM_HIGH:
-        return 3
-    elif ratio >= settings.ACTIVITY_LEVEL_MEDIUM:
-        return 2
-    else:
-        return 1  # Any activity > 0
 
 
 def _calculate_trend(current_score: float, previous_score: float) -> MasteryTrend:
@@ -127,6 +99,10 @@ class MasteryService:
 
     Provides per-topic mastery calculation, weak spot detection,
     daily snapshot generation, and learning curve data.
+
+    Delegates to specialized sub-services:
+    - TimeTrackingService: Time investment analytics
+    - StreakTrackingService: Streak and practice history
     """
 
     def __init__(self, db: AsyncSession):
@@ -137,6 +113,8 @@ class MasteryService:
             db: Async database session for queries.
         """
         self.db = db
+        self._time_tracking = TimeTrackingService(db)
+        self._streak_tracking = StreakTrackingService(db)
 
     async def get_mastery_state(self, topic: str) -> MasteryState:
         """
@@ -1237,7 +1215,7 @@ class MasteryService:
         return get_suggested_exercise_types(state.mastery_score)
 
     # ===========================================
-    # Time Investment Methods
+    # Time Investment Methods (delegated to TimeTrackingService)
     # ===========================================
 
     async def get_time_investment(
@@ -1248,8 +1226,7 @@ class MasteryService:
         """
         Get time investment breakdown for learning activities.
 
-        Aggregates time from LearningTimeLog and PracticeSession records,
-        grouped by topic and activity type.
+        Delegates to TimeTrackingService.
 
         Args:
             period: Time period to analyze.
@@ -1258,494 +1235,69 @@ class MasteryService:
         Returns:
             TimeInvestmentResponse with aggregated time data and trends.
         """
-        end_date = datetime.now(timezone.utc)
-        start_date = self._calculate_period_start(period, end_date)
+        return await self._time_tracking.get_time_investment(period, group_by)
 
-        # Fetch time logs and sessions
-        logs = await self._fetch_time_logs(start_date, end_date)
-        sessions = await self._fetch_practice_sessions(start_date)
-
-        # Calculate totals from logs
-        total_seconds = sum(log.duration_seconds for log in logs)
-
-        # Add session durations not already tracked in logs
-        logged_session_ids = {log.session_id for log in logs if log.session_id}
-        for session in sessions:
-            if session.id not in logged_session_ids and session.duration_minutes:
-                total_seconds += session.duration_minutes * 60
-
-        total_minutes = total_seconds / 60
-
-        # Aggregate by topic for top_topics
-        topic_minutes = self._aggregate_by_topic(logs)
-
-        # Group into periods
-        periods = self._group_into_periods(logs, start_date, end_date, group_by)
-
-        # Calculate daily average
-        days = max((end_date - start_date).days, 1)
-        daily_average = total_minutes / days
-
-        # Get top topics
-        top_topics = sorted(topic_minutes.items(), key=lambda x: x[1], reverse=True)[
-            :10
-        ]
-
-        # Calculate trend
-        trend = self._calculate_time_trend(periods)
-
-        return TimeInvestmentResponse(
-            total_minutes=total_minutes,
-            periods=periods,
-            top_topics=top_topics,
-            daily_average=daily_average,
-            trend=trend,
-        )
-
-    @staticmethod
-    def _calculate_period_start(period: TimePeriod, end_date: datetime) -> datetime:
-        """
-        Calculate start date based on time period.
-
-        Maps TimePeriod enum values to timedelta offsets from the end date.
-        For TimePeriod.ALL, returns a date far in the past (2020-01-01).
-
-        Args:
-            period: Time period enum specifying the range (WEEK, MONTH, QUARTER, YEAR, ALL).
-            end_date: End date of the period (typically now).
-
-        Returns:
-            datetime: Start date for the specified period, timezone-aware (UTC).
-        """
-        period_map = {
-            TimePeriod.WEEK: timedelta(days=7),
-            TimePeriod.MONTH: timedelta(days=30),
-            TimePeriod.QUARTER: timedelta(days=90),
-            TimePeriod.YEAR: timedelta(days=365),
-        }
-        delta = period_map.get(period)
-        if delta:
-            return end_date - delta
-
-        # TimePeriod.ALL - return very old date
-        return datetime(2020, 1, 1, tzinfo=timezone.utc)
-
-    async def _fetch_time_logs(
-        self, start_date: datetime, end_date: datetime
-    ) -> list[LearningTimeLog]:
-        """
-        Fetch learning time logs within date range.
-
-        Queries LearningTimeLog records where the activity started after start_date
-        and ended before end_date.
-
-        Args:
-            start_date: Inclusive start of the date range (timezone-aware UTC).
-            end_date: Inclusive end of the date range (timezone-aware UTC).
-
-        Returns:
-            list[LearningTimeLog]: List of time log records within the range.
-        """
-        query = select(LearningTimeLog).where(
-            LearningTimeLog.started_at >= start_date,
-            LearningTimeLog.ended_at <= end_date,
-        )
-        result = await self.db.execute(query)
-        return list(result.scalars().all())
-
-    async def _fetch_practice_sessions(
-        self, start_date: datetime
-    ) -> list[PracticeSession]:
-        """
-        Fetch completed practice sessions since start date.
-
-        Only returns sessions that have been completed (ended_at is not None).
-        Used to aggregate session durations for time investment calculations.
-
-        Args:
-            start_date: Only include sessions started on or after this date (timezone-aware UTC).
-
-        Returns:
-            list[PracticeSession]: List of completed practice session records.
-        """
-        query = select(PracticeSession).where(
-            PracticeSession.started_at >= start_date,
-            PracticeSession.ended_at.isnot(None),
-        )
-        result = await self.db.execute(query)
-        return list(result.scalars().all())
-
-    @staticmethod
-    def _aggregate_by_topic(logs: list[LearningTimeLog]) -> dict[str, float]:
-        """
-        Aggregate time logs by topic.
-
-        Sums duration_seconds for each unique topic and converts to minutes.
-        Logs without a topic are excluded from aggregation.
-
-        Args:
-            logs: List of LearningTimeLog records to aggregate.
-
-        Returns:
-            dict[str, float]: Mapping of topic path to total minutes spent.
-        """
-        topic_minutes: dict[str, float] = {}
-        for log in logs:
-            if log.topic:
-                topic_minutes[log.topic] = (
-                    topic_minutes.get(log.topic, 0) + log.duration_seconds / 60
-                )
-        return topic_minutes
-
-    @staticmethod
-    def _aggregate_by_activity(logs: list[LearningTimeLog]) -> dict[str, float]:
-        """
-        Aggregate time logs by activity type.
-
-        Sums duration_seconds for each activity type (review, practice, reading, exercise)
-        and converts to minutes.
-
-        Args:
-            logs: List of LearningTimeLog records to aggregate.
-
-        Returns:
-            dict[str, float]: Mapping of activity type to total minutes spent.
-        """
-        activity_minutes: dict[str, float] = {}
-        for log in logs:
-            activity_minutes[log.activity_type] = (
-                activity_minutes.get(log.activity_type, 0) + log.duration_seconds / 60
-            )
-        return activity_minutes
-
-    def _group_into_periods(
-        self,
-        logs: list[LearningTimeLog],
-        start_date: datetime,
-        end_date: datetime,
-        group_by: GroupBy,
-    ) -> list[TimeInvestmentPeriod]:
-        """
-        Group time logs into periods based on grouping strategy.
-
-        For GroupBy.DAY, creates one TimeInvestmentPeriod per day in the range.
-        For GroupBy.WEEK, creates one TimeInvestmentPeriod per 7-day period.
-        For GroupBy.MONTH, creates one TimeInvestmentPeriod per calendar month.
-
-        Args:
-            logs: List of LearningTimeLog records to group.
-            start_date: Start of the date range (timezone-aware UTC).
-            end_date: End of the date range (timezone-aware UTC).
-            group_by: Grouping strategy (DAY, WEEK, or MONTH).
-
-        Returns:
-            list[TimeInvestmentPeriod]: List of period objects with time breakdowns.
-        """
-        periods: list[TimeInvestmentPeriod] = []
-
-        if group_by == GroupBy.DAY:
-            period_delta = timedelta(days=1)
-            current = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-        elif group_by == GroupBy.WEEK:
-            period_delta = timedelta(days=7)
-            # Align to start of week (Monday)
-            current = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-            days_since_monday = current.weekday()
-            current = current - timedelta(days=days_since_monday)
-        else:  # GroupBy.MONTH
-            # Start at first day of the start_date's month
-            current = start_date.replace(
-                day=1, hour=0, minute=0, second=0, microsecond=0
-            )
-            period_delta = None  # Handled specially for months
-
-        while current < end_date:
-            if group_by == GroupBy.MONTH:
-                # Calculate end of current month
-                if current.month == 12:
-                    period_end = current.replace(year=current.year + 1, month=1)
-                else:
-                    period_end = current.replace(month=current.month + 1)
-            else:
-                period_end = current + period_delta
-
-            # Cap period_end at end_date
-            effective_end = min(period_end, end_date)
-
-            # Filter logs for this period
-            period_logs = [
-                log for log in logs if current <= log.started_at < effective_end
-            ]
-
-            # Aggregate by topic and activity for this period
-            period_topic_mins = self._aggregate_by_topic(period_logs)
-            period_activity_mins = self._aggregate_by_activity(period_logs)
-            period_total = sum(log.duration_seconds for log in period_logs) / 60
-
-            periods.append(
-                TimeInvestmentPeriod(
-                    period_start=current,
-                    period_end=effective_end,
-                    total_minutes=period_total,
-                    by_topic=period_topic_mins,
-                    by_activity=period_activity_mins,
-                )
-            )
-
-            current = period_end
-
-        return periods
-
-    @staticmethod
-    def _calculate_time_trend(periods: list[TimeInvestmentPeriod]) -> str:
-        """
-        Calculate trend from time investment periods.
-
-        Compares average time investment between first half and second half of periods.
-        Returns "increasing" if second half is >10% higher, "decreasing" if >10% lower,
-        otherwise "stable".
-
-        Args:
-            periods: List of TimeInvestmentPeriod objects ordered chronologically.
-
-        Returns:
-            str: Trend indicator - "increasing", "decreasing", or "stable".
-        """
-        if len(periods) < 2:
-            return "stable"
-
-        mid = len(periods) // 2
-        first_half_avg = sum(p.total_minutes for p in periods[:mid]) / max(mid, 1)
-        second_half_avg = sum(p.total_minutes for p in periods[mid:]) / max(
-            len(periods) - mid, 1
-        )
-
-        if second_half_avg > first_half_avg * 1.1:
-            return "increasing"
-        elif second_half_avg < first_half_avg * 0.9:
-            return "decreasing"
-
-        return "stable"
+    # NOTE: The following methods have been moved to TimeTrackingService:
+    # - _calculate_period_start
+    # - _fetch_time_logs
+    # - _fetch_practice_sessions
+    # - _aggregate_by_topic
+    # - _aggregate_by_activity
+    # - _group_into_periods
+    # - _calculate_time_trend
 
     # ===========================================
-    # Detailed Streak Methods
+    # Streak Methods (delegated to StreakTrackingService)
     # ===========================================
 
     async def get_streak_data(self) -> StreakData:
         """
         Get detailed practice streak information.
 
-        Calculates current streak, longest streak, milestones, and activity counts
-        from PracticeSession records.
+        Delegates to StreakTrackingService.
 
         Returns:
             StreakData with comprehensive streak information.
         """
-        practice_dates = await self._fetch_practice_dates()
+        return await self._streak_tracking.get_streak_data()
 
-        if not practice_dates:
-            return StreakData(
-                current_streak=0,
-                longest_streak=0,
-                streak_start=None,
-                last_practice=None,
-                is_active_today=False,
-                days_this_week=0,
-                days_this_month=0,
-                milestones_reached=[],
-                next_milestone=7,
-            )
-
-        today = date.today()
-
-        # Calculate streaks
-        current_streak, streak_start = self._calculate_current_streak(
-            practice_dates, today
-        )
-        longest_streak = self._calculate_longest_streak(practice_dates)
-
-        # Milestones
-        milestones = settings.STREAK_MILESTONES
-        reached = [m for m in milestones if longest_streak >= m]
-        next_milestone = next((m for m in milestones if m > current_streak), None)
-
-        # Activity counts
-        days_this_week = self._count_days_in_period(practice_dates, 7)
-        days_this_month = self._count_days_in_period(practice_dates, 30)
-
-        return StreakData(
-            current_streak=current_streak,
-            longest_streak=longest_streak,
-            streak_start=streak_start,
-            last_practice=practice_dates[0] if practice_dates else None,
-            is_active_today=practice_dates[0] == today if practice_dates else False,
-            days_this_week=days_this_week,
-            days_this_month=days_this_month,
-            milestones_reached=reached,
-            next_milestone=next_milestone,
-        )
-
-    async def _fetch_practice_dates(self) -> list[date]:
+    async def get_practice_history(self, weeks: int = 52) -> PracticeHistoryResponse:
         """
-        Fetch distinct practice dates from completed sessions.
+        Get practice history for activity heatmap.
 
-        Queries all completed PracticeSession records and extracts unique dates,
-        ordered from most recent to oldest. Used for streak calculations.
-
-        Returns:
-            list[date]: List of unique practice dates in descending order (most recent first).
-        """
-        query = (
-            select(func.date(PracticeSession.started_at).label("practice_date"))
-            .where(PracticeSession.ended_at.isnot(None))
-            .distinct()
-            .order_by(func.date(PracticeSession.started_at).desc())
-        )
-        result = await self.db.execute(query)
-        return [row.practice_date for row in result]
-
-    @staticmethod
-    def _calculate_current_streak(
-        practice_dates: list[date], today: date
-    ) -> tuple[int, Optional[date]]:
-        """
-        Calculate current consecutive practice streak.
-
-        Counts consecutive practice days starting from today (or yesterday if no
-        practice today). The streak remains valid if the user practiced yesterday
-        but hasn't practiced today yet.
+        Delegates to StreakTrackingService.
 
         Args:
-            practice_dates: List of practice dates in descending order (most recent first).
-            today: Current date for streak calculation reference.
+            weeks: Number of weeks of history to return (default 52).
 
         Returns:
-            tuple[int, Optional[date]]: Tuple containing:
-                - streak_count: Number of consecutive practice days.
-                - streak_start_date: Date when the current streak began, or None if no streak.
+            PracticeHistoryResponse with daily activity data.
         """
-        if not practice_dates:
-            return 0, None
-
-        # Determine the reference date: today if practiced today, else yesterday
-        most_recent = practice_dates[0]
-        if most_recent == today:
-            reference_date = today
-        elif most_recent == today - timedelta(days=1):
-            # Streak still active - user hasn't practiced today but did yesterday
-            reference_date = most_recent
-        else:
-            # No recent practice - no active streak
-            return 0, None
-
-        # Count consecutive days backwards from the reference date
-        streak_count = 0
-        streak_start = None
-
-        for i, practice_date in enumerate(practice_dates):
-            expected_date = reference_date - timedelta(days=i)
-            if practice_date == expected_date:
-                streak_count += 1
-                streak_start = practice_date
-            else:
-                break
-
-        return streak_count, streak_start
-
-    @staticmethod
-    def _calculate_longest_streak(practice_dates: list[date]) -> int:
-        """
-        Calculate the longest streak from practice dates.
-
-        Sorts unique dates and iterates to find the longest sequence of consecutive days.
-        Handles duplicate dates by using a set.
-
-        Args:
-            practice_dates: List of practice dates (any order, may contain duplicates).
-
-        Returns:
-            int: Length of the longest consecutive day streak, or 0 if no practice dates.
-        """
-        if not practice_dates:
-            return 0
-
-        sorted_dates = sorted(set(practice_dates))
-        longest = 1
-        current = 1
-
-        for i in range(1, len(sorted_dates)):
-            if (sorted_dates[i] - sorted_dates[i - 1]).days == 1:
-                current += 1
-                longest = max(longest, current)
-            else:
-                current = 1
-
-        return longest
-
-    @staticmethod
-    def _count_days_in_period(practice_dates: list[date], days: int) -> int:
-        """
-        Count unique practice days in the last N days.
-
-        Filters practice dates to those on or after the cutoff date (today - days),
-        then counts unique dates.
-
-        Args:
-            practice_dates: List of practice dates (any order, may contain duplicates).
-            days: Number of days to look back from today.
-
-        Returns:
-            int: Count of unique practice days within the period.
-        """
-        if not practice_dates:
-            return 0
-        cutoff = date.today() - timedelta(days=days)
-        return len([d for d in set(practice_dates) if d >= cutoff])
-
-    # ===========================================
-    # Time Logging
-    # ===========================================
+        return await self._streak_tracking.get_practice_history(weeks)
 
     async def log_learning_time(self, request: LogTimeRequest) -> LogTimeResponse:
         """
         Log time spent on a learning activity.
 
-        Creates a LearningTimeLog record for time investment tracking.
+        Delegates to TimeTrackingService.
 
         Args:
             request: Time log details including activity type, timestamps, etc.
 
         Returns:
             LogTimeResponse with created log ID and duration.
-
-        Raises:
-            ValueError: If ended_at is before started_at.
         """
-        duration_seconds = int((request.ended_at - request.started_at).total_seconds())
+        return await self._time_tracking.log_learning_time(request)
 
-        if duration_seconds < 0:
-            raise ValueError("ended_at must be after started_at")
+    # NOTE: The following methods have been moved to StreakTrackingService:
+    # - _fetch_practice_dates
+    # - _calculate_current_streak
+    # - _calculate_longest_streak
+    # - _count_days_in_period
 
-        log = LearningTimeLog(
-            topic=request.topic,
-            content_id=request.content_id,
-            activity_type=request.activity_type,
-            started_at=request.started_at,
-            ended_at=request.ended_at,
-            duration_seconds=duration_seconds,
-            items_completed=request.items_completed,
-            session_id=request.session_id,
-        )
-
-        self.db.add(log)
-        await self.db.commit()
-        await self.db.refresh(log)
-
-        return LogTimeResponse(
-            id=log.id,
-            duration_seconds=duration_seconds,
-            message=f"Logged {duration_seconds // 60} minutes of {request.activity_type}",
-        )
+    # ===========================================
+    # Daily Stats (kept here - uses multiple services)
+    # ===========================================
 
     # ===========================================
     # Dashboard & Daily Stats
@@ -1814,95 +1366,4 @@ class MasteryService:
             overall_mastery=overview.overall_mastery,
             practice_time_today_minutes=practice_seconds // 60,
             last_practice_date=last_practice_date,
-        )
-
-    async def get_practice_history(self, weeks: int = 52) -> PracticeHistoryResponse:
-        """
-        Get practice history for activity heatmap.
-
-        Returns daily practice activity for the specified number of weeks,
-        combining both spaced repetition card reviews and exercise attempts.
-
-        Args:
-            weeks: Number of weeks of history to return (default 52).
-
-        Returns:
-            PracticeHistoryResponse with daily activity data.
-        """
-        now = datetime.now(timezone.utc)
-        cutoff = now - timedelta(weeks=weeks)
-
-        # Query daily practice counts from spaced repetition cards
-        card_result = await self.db.execute(
-            select(
-                func.date(SpacedRepCard.last_reviewed).label("practice_date"),
-                func.count(SpacedRepCard.id).label("count"),
-            )
-            .where(SpacedRepCard.last_reviewed >= cutoff)
-            .group_by(func.date(SpacedRepCard.last_reviewed))
-        )
-
-        card_rows = {row[0]: row[1] for row in card_result.fetchall()}
-
-        # Query daily exercise attempt counts
-        exercise_result = await self.db.execute(
-            select(
-                func.date(ExerciseAttempt.attempted_at).label("practice_date"),
-                func.count(ExerciseAttempt.id).label("count"),
-            )
-            .where(ExerciseAttempt.attempted_at >= cutoff)
-            .group_by(func.date(ExerciseAttempt.attempted_at))
-        )
-
-        exercise_rows = {row[0]: row[1] for row in exercise_result.fetchall()}
-
-        # Query daily practice time
-        time_result = await self.db.execute(
-            select(
-                func.date(LearningTimeLog.started_at).label("practice_date"),
-                func.sum(LearningTimeLog.duration_seconds).label("total_seconds"),
-            )
-            .where(LearningTimeLog.started_at >= cutoff)
-            .group_by(func.date(LearningTimeLog.started_at))
-        )
-
-        time_rows = {row[0]: row[1] for row in time_result.fetchall()}
-
-        # Combine all dates from cards and exercises
-        all_dates = set(card_rows.keys()) | set(exercise_rows.keys())
-
-        # Build response
-        days = []
-        max_count = 0
-        total_items = 0
-
-        for practice_date in sorted(all_dates):
-            card_count = card_rows.get(practice_date, 0)
-            exercise_count = exercise_rows.get(practice_date, 0)
-            count = card_count + exercise_count
-            minutes = (time_rows.get(practice_date, 0) or 0) // 60
-
-            max_count = max(max_count, count)
-            total_items += count
-
-            days.append(
-                PracticeHistoryDay(
-                    date=practice_date,
-                    count=count,
-                    minutes=minutes,
-                    level=0,  # Will be calculated below
-                )
-            )
-
-        total_practice_days = len(days)
-
-        # Calculate activity levels (0-4 based on count relative to max)
-        for day in days:
-            day.level = _calculate_activity_level(day.count, max_count)
-
-        return PracticeHistoryResponse(
-            days=days,
-            total_practice_days=total_practice_days,
-            total_items=total_items,
-            max_daily_count=max_count,
         )

@@ -23,7 +23,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-014: N+1 query in mastery_service.py](#td-014-n1-query-in-mastery_servicepy)~~
   - ✅ ~~[TD-015: Inconsistent datetime usage](#td-015-inconsistent-datetime-usage)~~
   - ✅ ~~[TD-016: Incomplete TODO implementations](#td-016-incomplete-todo-implementations)~~
-  - [TD-017: Large service files need splitting](#td-017-large-service-files-need-splitting)
+  - ✅ ~~[TD-017: Large service files need splitting](#td-017-large-service-files-need-splitting)~~
   - [TD-018: Inconsistent error handling patterns](#td-018-inconsistent-error-handling-patterns)
   - ✅ ~~[TD-019: Missing type hints](#td-019-missing-type-hints)~~
   - ✅ ~~[TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)~~
@@ -394,17 +394,40 @@ to expand the tags array, then GROUP BY to count cards per topic in one database
 
 ---
 
-### TD-017: Large service files need splitting
+### ✅ ~~TD-017: Large service files need splitting~~
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Code organization
 
-**Large Files**:
-- `backend/app/services/learning/mastery_service.py` - 1894+ lines
-- `backend/app/services/assistant/service.py` - 1007+ lines
-- `backend/app/services/learning/evaluator.py` - 828+ lines
+**Large Files (Before → After)**:
+- `backend/app/services/learning/mastery_service.py` - 1909 → 1369 lines (~28% reduction)
+- `backend/app/services/assistant/service.py` - 1020 → 834 lines (~18% reduction)
+- `backend/app/services/learning/evaluator.py` - 841 → 751 lines (~11% reduction)
 
-**Action**: Split into smaller, focused modules.
+**New Modules Created**:
+1. `backend/app/services/learning/time_tracking.py` (376 lines) - `TimeTrackingService`
+   - Time investment tracking
+   - Learning time logging
+   - Time aggregation by topic/activity
+   - Period grouping (day/week/month)
+
+2. `backend/app/services/learning/streak_tracking.py` (341 lines) - `StreakTrackingService`
+   - Practice streak calculations
+   - Activity heatmap data
+   - Milestone tracking
+
+3. `backend/app/services/assistant/conversation_manager.py` (311 lines) - `ConversationManager`
+   - Conversation CRUD operations
+   - Message management
+   - Separated from core chat/feature logic
+
+4. `backend/app/services/learning/evaluation_prompts.py` (112 lines)
+   - LLM prompts for text and code evaluation
+   - Separated from evaluator logic
+
+**Pattern Used**: Services delegate to sub-services for specific domains while maintaining existing public APIs.
+
+**Total**: 1140 lines extracted, improving code organization and maintainability.
 
 ---
 
@@ -768,7 +791,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-011: Clean up imports and move to top of files~~
 - ✅ ~~TD-013: Eliminate magic numbers~~
 - ✅ ~~TD-016: Incomplete TODO implementations~~
-- [ ] TD-017: Large service files need splitting
+- ✅ ~~TD-017: Large service files need splitting~~
 - [ ] TD-018: Inconsistent error handling patterns
 - ✅ ~~TD-019: Missing type hints~~
 - ✅ ~~TD-020: Hardcoded upload directory~~
@@ -1010,6 +1033,26 @@ Implemented three incomplete TODO items:
 
 ---
 
+### ✅ TD-017: Large service files need splitting
+**Completed**: 2026-01-26
+
+Split large service files into focused sub-modules:
+
+**1. `mastery_service.py` (1909 → 1369 lines, ~28% reduction)**:
+- Created `time_tracking.py` - `TimeTrackingService` (376 lines)
+- Created `streak_tracking.py` - `StreakTrackingService` (341 lines)
+
+**2. `assistant/service.py` (1020 → 834 lines, ~18% reduction)**:
+- Created `conversation_manager.py` - `ConversationManager` (311 lines)
+
+**3. `evaluator.py` (841 → 751 lines, ~11% reduction)**:
+- Created `evaluation_prompts.py` - LLM prompts (112 lines)
+
+**Pattern**: Parent services delegate to sub-services while maintaining existing public APIs.
+Total lines extracted: 1140
+
+---
+
 ### ✅ TD-020: Hardcoded upload directory
 **Completed**: 2026-01-26
 
@@ -1099,4 +1142,4 @@ Added comprehensive contribution guidelines derived from the existing project se
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 14 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 15 completed

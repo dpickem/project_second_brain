@@ -16,12 +16,9 @@ Usage:
 
 import logging
 import uuid
-from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.config.settings import settings
 from app.db.models_assistant import (
@@ -35,12 +32,10 @@ from app.models.assistant import (
     ChatResponse,
     ConversationDetail,
     ConversationListResponse,
-    ConversationSummary,
     ConversationUpdateResponse,
     ExplanationResponse,
     KnowledgeSearchResponse,
     KnowledgeSearchResult,
-    MessageInfo,
     PromptSuggestion,
     QuizQuestion,
     QuizResponse,
@@ -57,6 +52,7 @@ from app.services.learning.exercise_generator import ExerciseGenerator
 from app.services.learning.mastery_service import MasteryService
 from app.services.learning.spaced_rep_service import SpacedRepService
 from app.services.llm.client import LLMClient, get_default_text_model
+from app.services.assistant.conversation_manager import ConversationManager
 
 logger = logging.getLogger(__name__)
 
@@ -135,10 +131,18 @@ class AssistantService:
         self.neo4j = neo4j_client
         self.llm = llm_client
 
-        # Initialize learning services
+        # Initialize conversation manager
+        self._conversation_manager = ConversationManager(db)
+
+        # Initialize learning services (lazy)
         self._mastery_service: Optional[MasteryService] = None
         self._spaced_rep_service: Optional[SpacedRepService] = None
         self._exercise_generator: Optional[ExerciseGenerator] = None
+
+    @property
+    def conversation_manager(self) -> ConversationManager:
+        """Access to conversation manager for CRUD operations."""
+        return self._conversation_manager
 
     @property
     def mastery_service(self) -> MasteryService:
@@ -323,56 +327,18 @@ class AssistantService:
             )
 
     # =========================================================================
-    # Conversation Persistence Methods
+    # Conversation Persistence Methods (delegated to ConversationManager)
     # =========================================================================
 
     async def _create_conversation(self, first_message: str) -> AssistantConversation:
-        """
-        Create a new conversation with auto-generated title.
-
-        Title is derived from the first message, truncated to ASSISTANT_MAX_TITLE_LENGTH.
-
-        Args:
-            first_message: The user's first message in the conversation.
-
-        Returns:
-            The newly created AssistantConversation instance with messages loaded.
-        """
-        max_len = settings.ASSISTANT_MAX_TITLE_LENGTH
-        # Generate title from first message
-        title = first_message[:max_len].strip()
-        if len(first_message) > max_len:
-            title += "..."
-
-        conversation = AssistantConversation(
-            conversation_uuid=str(uuid.uuid4()),
-            title=title,
-        )
-        self.db.add(conversation)
-        await self.db.flush()
-
-        # Refresh with messages loaded to avoid lazy loading issues in async
-        await self.db.refresh(conversation, attribute_names=["messages"])
-        return conversation
+        """Create a new conversation. Delegates to ConversationManager."""
+        return await self._conversation_manager.create_conversation(first_message)
 
     async def _get_conversation(
         self, conversation_id: str
     ) -> Optional[AssistantConversation]:
-        """
-        Get a conversation by UUID.
-
-        Args:
-            conversation_id: The conversation's UUID.
-
-        Returns:
-            The conversation with messages loaded, or None if not found.
-        """
-        result = await self.db.execute(
-            select(AssistantConversation)
-            .options(selectinload(AssistantConversation.messages))
-            .where(AssistantConversation.conversation_uuid == conversation_id)
-        )
-        return result.scalar_one_or_none()
+        """Get conversation by ID. Delegates to ConversationManager."""
+        return await self._conversation_manager.get_conversation_by_id(conversation_id)
 
     async def _add_message(
         self,
@@ -380,32 +346,8 @@ class AssistantService:
         role: MessageRole,
         content: str,
     ) -> AssistantMessage:
-        """
-        Add a message to a conversation.
-
-        Also updates the conversation's updated_at timestamp.
-
-        Args:
-            conversation: The conversation to add the message to.
-            role: The message role (USER or ASSISTANT).
-            content: The message content.
-
-        Returns:
-            The newly created AssistantMessage instance.
-        """
-        message = AssistantMessage(
-            message_uuid=str(uuid.uuid4()),
-            conversation_id=conversation.id,
-            role=role,
-            content=content,
-        )
-        self.db.add(message)
-
-        # Update conversation timestamp
-        conversation.updated_at = datetime.now(timezone.utc)
-
-        await self.db.flush()
-        return message
+        """Add message to conversation. Delegates to ConversationManager."""
+        return await self._conversation_manager.add_message(conversation, role, content)
 
     # =========================================================================
     # Chat Methods
@@ -490,7 +432,7 @@ class AssistantService:
         )
 
     # =========================================================================
-    # Conversation Management
+    # Conversation Management (delegated to ConversationManager)
     # =========================================================================
 
     async def get_conversations(
@@ -498,161 +440,34 @@ class AssistantService:
         limit: Optional[int] = None,
         offset: int = 0,
     ) -> ConversationListResponse:
-        """
-        Get paginated list of conversations.
-
-        Conversations are ordered by updated_at descending (most recent first).
-
-        Args:
-            limit: Maximum conversations to return.
-            offset: Number to skip for pagination.
-
-        Returns:
-            ConversationListResponse with conversations list and total count.
-        """
-        limit = limit or settings.ASSISTANT_DEFAULT_PAGE_LIMIT
-
-        # Get total count
-        count_result = await self.db.execute(
-            select(func.count()).select_from(AssistantConversation)
-        )
-        total = count_result.scalar_one()
-
-        # Get conversations
-        result = await self.db.execute(
-            select(AssistantConversation)
-            .options(selectinload(AssistantConversation.messages))
-            .order_by(AssistantConversation.updated_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
-        conversations = result.scalars().all()
-
-        return ConversationListResponse(
-            conversations=[
-                ConversationSummary(
-                    id=c.conversation_uuid,
-                    title=c.title,
-                    created_at=c.created_at,
-                    updated_at=c.updated_at,
-                    message_count=len(c.messages),
-                )
-                for c in conversations
-            ],
-            total=total,
-        )
+        """Get paginated list of conversations. Delegates to ConversationManager."""
+        return await self._conversation_manager.get_conversations(limit, offset)
 
     async def get_conversation(
         self, conversation_id: str
     ) -> Optional[ConversationDetail]:
-        """
-        Get a specific conversation with all messages.
-
-        Args:
-            conversation_id: Conversation UUID.
-
-        Returns:
-            ConversationDetail with messages, or None if not found.
-        """
-        conversation = await self._get_conversation(conversation_id)
-        if not conversation:
-            return None
-
-        return ConversationDetail(
-            id=conversation.conversation_uuid,
-            title=conversation.title,
-            created_at=conversation.created_at,
-            messages=[
-                MessageInfo(
-                    id=m.message_uuid,
-                    role=m.role.value,  # type: ignore[arg-type]
-                    content=m.content,
-                    timestamp=m.created_at,
-                )
-                for m in conversation.messages
-            ],
-        )
+        """Get a specific conversation with all messages. Delegates to ConversationManager."""
+        return await self._conversation_manager.get_conversation(conversation_id)
 
     async def delete_conversation(self, conversation_id: str) -> bool:
-        """
-        Delete a conversation and all its messages.
-
-        Messages are cascade-deleted due to database relationship.
-
-        Args:
-            conversation_id: Conversation UUID.
-
-        Returns:
-            True if deleted, False if not found.
-        """
-        result = await self.db.execute(
-            delete(AssistantConversation).where(
-                AssistantConversation.conversation_uuid == conversation_id
-            )
-        )
-        return result.rowcount > 0
+        """Delete a conversation and all its messages. Delegates to ConversationManager."""
+        return await self._conversation_manager.delete_conversation(conversation_id)
 
     async def clear_conversation_messages(self, conversation_id: str) -> int:
-        """
-        Clear all messages from a conversation.
-
-        The conversation itself is preserved.
-
-        Args:
-            conversation_id: Conversation UUID.
-
-        Returns:
-            Number of messages deleted, or 0 if conversation not found.
-        """
-        conversation = await self._get_conversation(conversation_id)
-        if not conversation:
-            return 0
-
-        result = await self.db.execute(
-            delete(AssistantMessage).where(
-                AssistantMessage.conversation_id == conversation.id
-            )
-        )
-        return result.rowcount
+        """Clear all messages from a conversation. Delegates to ConversationManager."""
+        return await self._conversation_manager.clear_conversation_messages(conversation_id)
 
     async def clear_all_conversations(self) -> int:
-        """
-        Delete all conversations and messages.
-
-        Returns:
-            Number of conversations deleted.
-        """
-        result = await self.db.execute(delete(AssistantConversation))
-        return result.rowcount
+        """Delete all conversations and messages. Delegates to ConversationManager."""
+        return await self._conversation_manager.clear_all_conversations()
 
     async def rename_conversation(
         self,
         conversation_id: str,
         title: str,
     ) -> Optional[ConversationUpdateResponse]:
-        """
-        Rename a conversation.
-
-        Args:
-            conversation_id: Conversation UUID.
-            title: New title for the conversation.
-
-        Returns:
-            ConversationUpdateResponse with updated info, or None if not found.
-        """
-        conversation = await self._get_conversation(conversation_id)
-        if not conversation:
-            return None
-
-        conversation.title = title
-        conversation.updated_at = datetime.now(timezone.utc)
-        await self.db.flush()
-
-        return ConversationUpdateResponse(
-            id=conversation.conversation_uuid,
-            title=conversation.title,
-            updated_at=conversation.updated_at,
-        )
+        """Rename a conversation. Delegates to ConversationManager."""
+        return await self._conversation_manager.rename_conversation(conversation_id, title)
 
     # =========================================================================
     # Suggestions (powered by MasteryService)

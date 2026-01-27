@@ -13,6 +13,8 @@ Modules:
 - session_service: Practice session orchestration
 - session_budget: Time budget management for sessions
 - mastery_service: Mastery tracking and analytics
+- time_tracking: Time investment tracking and analytics
+- streak_tracking: Practice streak and activity history
 
 Usage:
     from app.services.learning import (
@@ -22,6 +24,8 @@ Usage:
         SessionService,
         SessionTimeBudget,
         MasteryService,
+        TimeTrackingService,
+        StreakTrackingService,
     )
 """
 
@@ -43,6 +47,8 @@ from app.services.learning.session_budget import (
     resolve_card_source,
 )
 from app.services.learning.mastery_service import MasteryService
+from app.services.learning.time_tracking import TimeTrackingService
+from app.services.learning.streak_tracking import StreakTrackingService
 
 __all__ = [
     # FSRS
@@ -62,4 +68,6 @@ __all__ = [
     "resolve_exercise_source",
     "resolve_card_source",
     "MasteryService",
+    "TimeTrackingService",
+    "StreakTrackingService",
 ]
