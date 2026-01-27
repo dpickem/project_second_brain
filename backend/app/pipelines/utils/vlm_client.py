@@ -75,9 +75,6 @@ def get_default_vlm_model() -> str:
     return getattr(settings, "VLM_MODEL", None) or settings.OCR_MODEL
 
 
-# TODO: Remove this. we don't care about backwards compatibility anymore.
-# Keep old name for backwards compatibility
-get_default_ocr_model = get_default_vlm_model
 
 
 # =============================================================================

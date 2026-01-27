@@ -22,7 +22,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-013: Eliminate magic numbers](#td-013-eliminate-magic-numbers)~~
   - ✅ ~~[TD-014: N+1 query in mastery_service.py](#td-014-n1-query-in-mastery_servicepy)~~
   - ✅ ~~[TD-015: Inconsistent datetime usage](#td-015-inconsistent-datetime-usage)~~
-  - [TD-016: Incomplete TODO implementations](#td-016-incomplete-todo-implementations)
+  - ✅ ~~[TD-016: Incomplete TODO implementations](#td-016-incomplete-todo-implementations)~~
   - [TD-017: Large service files need splitting](#td-017-large-service-files-need-splitting)
   - [TD-018: Inconsistent error handling patterns](#td-018-inconsistent-error-handling-patterns)
   - ✅ ~~[TD-019: Missing type hints](#td-019-missing-type-hints)~~
@@ -382,15 +382,15 @@ to expand the tags array, then GROUP BY to count cards per topic in one database
 
 ---
 
-### TD-016: Incomplete TODO implementations
+### ✅ TD-016: Incomplete TODO implementations
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Implementation gaps
 
-**TODOs Found**:
-1. `backend/app/services/tasks.py:957` - `cleanup_old_tasks()` needs implementation
-2. `backend/app/pipelines/base.py:190` - `check_duplicate()` returns None, needs DB query
-3. `backend/app/pipelines/utils/vlm_client.py:78` - Remove backwards compatibility alias
+**TODOs Implemented**:
+1. ✅ `cleanup_old_tasks()` in `tasks.py` - Now marks stuck PROCESSING items as FAILED after 6 hours
+2. ✅ `check_duplicate()` in `base.py` - Now queries database for matching `raw_file_hash`
+3. ✅ Removed `get_default_ocr_model` alias from `vlm_client.py` - Updated `book_ocr.py` to use `get_default_vlm_model`
 
 ---
 
@@ -754,7 +754,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-010: Model factory methods for cross-layer conversions~~
 - ✅ ~~TD-011: Clean up imports and move to top of files~~
 - ✅ ~~TD-013: Eliminate magic numbers~~
-- [ ] TD-016: Incomplete TODO implementations
+- ✅ ~~TD-016: Incomplete TODO implementations~~
 - [ ] TD-017: Large service files need splitting
 - [ ] TD-018: Inconsistent error handling patterns
 - ✅ ~~TD-019: Missing type hints~~
@@ -975,9 +975,31 @@ Key functions:
 
 ---
 
+### ✅ TD-016: Incomplete TODO implementations
+**Completed**: 2026-01-26
+
+Implemented three incomplete TODO items:
+
+**1. `cleanup_old_tasks()` in `backend/app/services/tasks.py`**:
+- Finds content stuck in PROCESSING status for >6 hours
+- Marks them as FAILED to prevent eternal stuck state
+- Redis cleanup handled automatically by Celery (result_expires=86400)
+
+**2. `check_duplicate()` in `backend/app/pipelines/base.py`**:
+- Now queries database for existing content with matching `raw_file_hash`
+- Returns existing UnifiedContent if found, enabling duplicate skip
+- Best-effort: logs warning but doesn't fail on errors
+
+**3. Removed backwards compatibility alias in `vlm_client.py`**:
+- Removed `get_default_ocr_model = get_default_vlm_model` alias
+- Updated `book_ocr.py` to import `get_default_vlm_model` directly
+- Updated `__init__.py` exports
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 9 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 10 completed

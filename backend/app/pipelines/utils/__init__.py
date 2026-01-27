@@ -18,7 +18,6 @@ from app.pipelines.utils.vlm_client import (
     vision_completion_sync,
     vision_completion_multi_image,
     get_default_vlm_model,
-    get_default_ocr_model,  # Backwards compatibility alias
 )
 from app.pipelines.utils.mistral_ocr_client import (
     ocr_pdf_document,
@@ -84,7 +83,6 @@ __all__ = [
     "vision_completion_sync",
     "vision_completion_multi_image",
     "get_default_vlm_model",
-    "get_default_ocr_model",  # Backwards compatibility
     # Mistral OCR client (PDF document OCR)
     "ocr_pdf_document",
     "ocr_pdf_document_annotated",

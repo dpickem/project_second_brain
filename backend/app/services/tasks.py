@@ -1091,7 +1091,11 @@ def sync_vault_note(note_path: str) -> VaultSyncResult:
 @celery_app.task(name="app.services.tasks.cleanup_old_tasks")
 def cleanup_old_tasks() -> TaskResultBase:
     """
-    Periodic task to clean up old task results and failed items.
+    Periodic task to clean up old task results and mark stuck items as failed.
+
+    Cleanup actions:
+    1. Mark content stuck in PROCESSING status for >6 hours as FAILED
+    2. Redis task result cleanup is handled automatically by Celery (result_expires=86400)
 
     Scheduling:
         This task is triggered by APScheduler in app/services/scheduler.py.
@@ -1102,11 +1106,42 @@ def cleanup_old_tasks() -> TaskResultBase:
     """
     logger.info("Running task cleanup")
 
-    # TODO: Implement cleanup logic
-    # - Remove old task results from Redis
-    # - Retry or mark as failed any stuck processing items
+    async def cleanup_stuck_items() -> int:
+        """Find and mark stuck processing items as failed."""
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=settings.STUCK_PROCESSING_HOURS)
+
+        async with task_session_maker() as session:
+            # Find content stuck in PROCESSING status
+            result = await session.execute(
+                select(Content).where(
+                    Content.status == ProcessingStatus.PROCESSING,
+                    Content.updated_at < cutoff_time,
+                )
+            )
+            stuck_items = result.scalars().all()
+
+            if not stuck_items:
+                logger.info("No stuck processing items found")
+                return 0
+
+            # Mark each as FAILED
+            count = 0
+            for item in stuck_items:
+                item.status = ProcessingStatus.FAILED
+                logger.warning(
+                    f"Marking stuck content as FAILED: {item.content_uuid} "
+                    f"(stuck since {item.updated_at})"
+                )
+                count += 1
+
+            await session.commit()
+            logger.info(f"Marked {count} stuck items as FAILED")
+            return count
+
+    stuck_count = asyncio.run(cleanup_stuck_items())
 
     return {
         "status": ProcessingRunStatus.COMPLETED.value,
         "cleaned_at": datetime.now(timezone.utc).isoformat(),
+        "stuck_items_marked_failed": stuck_count,
     }

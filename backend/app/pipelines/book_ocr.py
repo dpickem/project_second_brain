@@ -61,7 +61,7 @@ from app.pipelines.utils.image_utils import (
 )
 from app.pipelines.utils.vlm_client import (
     vision_completion,
-    get_default_ocr_model,
+    get_default_vlm_model,
 )
 from app.enums.pipeline import PipelineName
 from app.models.llm_usage import LLMUsage
@@ -201,7 +201,7 @@ class BookOCRPipeline(BasePipeline):
                 Recommended: 5-10 for most use cases, up to 20 for large batches.
         """
         super().__init__()
-        self.ocr_model = ocr_model or get_default_ocr_model()
+        self.ocr_model = ocr_model or get_default_vlm_model()
         self.text_model = text_model or get_default_text_model()
         self.ocr_max_tokens = ocr_max_tokens
         self.use_json_mode = use_json_mode

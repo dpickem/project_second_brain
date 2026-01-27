@@ -106,6 +106,13 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
 
     # =========================================================================
+    # TASK CLEANUP
+    # =========================================================================
+    # Maximum hours a content item can remain in PROCESSING status before
+    # being marked as FAILED by the cleanup_old_tasks scheduled job.
+    STUCK_PROCESSING_HOURS: int = 6
+
+    # =========================================================================
     # NEO4J
     # =========================================================================
     NEO4J_URI: str = "bolt://localhost:7687"
