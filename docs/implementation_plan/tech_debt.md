@@ -6,7 +6,7 @@ This document tracks known technical debt items and improvements for open-source
 
 - [Priority Levels](#priority-levels)
 - [Open-Source Release Blockers](#open-source-release-blockers)
-  - [TD-001: Missing LICENSE file](#td-001-missing-license-file)
+  - ✅ ~~[TD-001: Missing LICENSE file](#td-001-missing-license-file)~~
   - [TD-002: Missing CONTRIBUTING.md](#td-002-missing-contributingmd)
   - [TD-003: Missing CODE_OF_CONDUCT.md](#td-003-missing-code_of_conductmd)
   - [TD-004: CORS wildcard allows all origins](#td-004-cors-wildcard-allows-all-origins)
@@ -64,9 +64,9 @@ This document tracks known technical debt items and improvements for open-source
 
 ## Open-Source Release Blockers
 
-### TD-001: Missing LICENSE file
+### ✅ TD-001: Missing LICENSE file
 **Priority**: P0  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Repository root
 
 **Description**: No LICENSE file exists. Required for open-source release.
@@ -741,7 +741,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 ## Summary by Priority
 
 ### P0 - Critical (Must fix before release)
-- [ ] TD-001: Missing LICENSE file
+- ✅ ~~TD-001: Missing LICENSE file~~
 - [ ] TD-002: Missing CONTRIBUTING.md
 - [ ] TD-003: Missing CODE_OF_CONDUCT.md
 - [ ] TD-004: CORS wildcard allows all origins
@@ -1057,9 +1057,26 @@ Kept pdfplumber as it's used in `prototypes/test_pdfplumber_annotations.py`. Pro
 
 ---
 
+### ✅ TD-001: Missing LICENSE file
+**Completed**: 2026-01-26
+
+Added MIT License to repository root.
+
+**License chosen**: MIT License - the most permissive widely-recognized open source license. Allows:
+- Commercial use
+- Modification
+- Distribution
+- Private use
+
+With only one requirement: include license and copyright notice in copies.
+
+**File created**: `LICENSE` in repository root
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 12 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 13 completed
