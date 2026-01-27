@@ -8,8 +8,8 @@ This document tracks known technical debt items and improvements for open-source
 - [Open-Source Release Blockers](#open-source-release-blockers)
   - ✅ ~~[TD-001: Missing LICENSE file](#td-001-missing-license-file)~~
   - ✅ ~~[TD-002: Missing CONTRIBUTING.md](#td-002-missing-contributingmd)~~
-  - [TD-003: Missing CODE_OF_CONDUCT.md](#td-003-missing-code_of_conductmd)
-  - [TD-004: CORS wildcard allows all origins](#td-004-cors-wildcard-allows-all-origins)
+  - ⏭️ ~~[TD-003: Missing CODE_OF_CONDUCT.md](#td-003-missing-code_of_conductmd)~~ (won't do)
+  - ✅ ~~[TD-004: CORS wildcard allows all origins](#td-004-cors-wildcard-allows-all-origins)~~
   - [TD-005: Missing production deployment documentation](#td-005-missing-production-deployment-documentation)
   - [TD-006: README updates for open-source](#td-006-readme-updates-for-open-source)
   - [TD-007: Add CHANGELOG.md and SECURITY.md](#td-007-add-changelogmd-and-securitymd)
@@ -91,20 +91,22 @@ This document tracks known technical debt items and improvements for open-source
 
 ---
 
-### TD-003: Missing CODE_OF_CONDUCT.md
+### ⏭️ TD-003: Missing CODE_OF_CONDUCT.md
 **Priority**: P0  
-**Status**: Open  
+**Status**: Won't Do  
 **Area**: Repository root
 
 **Description**: No code of conduct exists. Standard for open-source projects.
 
 **Action**: Add Contributor Covenant or similar code of conduct.
 
+**Decision**: Deferred - can be added manually from https://www.contributor-covenant.org/ if needed.
+
 ---
 
-### TD-004: CORS wildcard allows all origins
+### ✅ TD-004: CORS wildcard allows all origins
 **Priority**: P0  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Security
 
 **Description**: `backend/app/main.py:117` uses `allow_origins=["*"]` with only a comment about configuring for production.
@@ -766,8 +768,8 @@ DATA_DIR=~/workspace/obsidian/second_brain
 ### P0 - Critical (Must fix before release)
 - ✅ ~~TD-001: Missing LICENSE file~~
 - ✅ ~~TD-002: Missing CONTRIBUTING.md~~
-- [ ] TD-003: Missing CODE_OF_CONDUCT.md
-- [ ] TD-004: CORS wildcard allows all origins
+- ⏭️ ~~TD-003: Missing CODE_OF_CONDUCT.md~~ (won't do)
+- ✅ ~~TD-004: CORS wildcard allows all origins~~
 - [ ] TD-005: Missing production deployment documentation
 
 ### P1 - High (Should address for clean release)
@@ -1137,9 +1139,33 @@ Added comprehensive contribution guidelines derived from the existing project se
 
 ---
 
+### ✅ TD-004: CORS wildcard allows all origins
+**Completed**: 2026-01-26
+
+Made CORS origins configurable via environment variable while keeping permissive defaults for development.
+
+**Changes**:
+- Added `CORS_ORIGINS` setting to `backend/app/config/settings.py`
+  - Default: `"*"` (allows all origins for development)
+  - Accepts comma-separated list of origins for production
+- Added `CORS_ORIGINS_LIST` property to parse the setting
+- Updated `backend/app/main.py` to use `settings.CORS_ORIGINS_LIST`
+- Documented in `.env.example`
+
+**Configuration**:
+```bash
+# Development (default)
+CORS_ORIGINS=*
+
+# Production
+CORS_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+```
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 15 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 16 completed

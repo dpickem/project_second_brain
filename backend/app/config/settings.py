@@ -65,6 +65,21 @@ class Settings(BaseSettings):
     CAPTURE_API_KEY: str = ""
 
     # =========================================================================
+    # CORS (Cross-Origin Resource Sharing)
+    # =========================================================================
+    # Comma-separated list of allowed origins for CORS.
+    # Use "*" for development (allows all origins).
+    # For production, specify exact origins: "https://example.com,https://app.example.com"
+    CORS_ORIGINS: str = "*"
+
+    @property
+    def CORS_ORIGINS_LIST(self) -> list[str]:
+        """Parse CORS_ORIGINS into a list of origins."""
+        if self.CORS_ORIGINS == "*":
+            return ["*"]
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    # =========================================================================
     # DATA DIRECTORY
     # =========================================================================
     # Root directory for all persistent data (postgres, redis, neo4j, obsidian)
