@@ -29,7 +29,7 @@ class PipelineSettings(BaseSettings):
     # ===========================================
     # PDF Processing
     # ===========================================
-    PDF_TEXT_ENGINE: str = "pymupdf"  # or "pdfplumber"
+    PDF_TEXT_ENGINE: str = "pymupdf"  # Only pymupdf is implemented (via pdf_utils.py)
     PDF_HANDWRITING_DETECTION: bool = True
     PDF_IMAGE_DPI: int = 300
     PDF_MAX_FILE_SIZE_MB: int = 50

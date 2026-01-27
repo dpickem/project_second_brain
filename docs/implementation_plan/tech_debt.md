@@ -27,7 +27,7 @@ This document tracks known technical debt items and improvements for open-source
   - [TD-018: Inconsistent error handling patterns](#td-018-inconsistent-error-handling-patterns)
   - ✅ ~~[TD-019: Missing type hints](#td-019-missing-type-hints)~~
   - ✅ ~~[TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)~~
-  - [TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)
+  - ✅ ~~[TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)~~
 - [Frontend Tech Debt](#frontend-tech-debt)
   - [TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)
   - [TD-023: Hardcoded URLs throughout frontend](#td-023-hardcoded-urls-throughout-frontend)
@@ -469,15 +469,23 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
-### TD-021: Review and clean up dependencies
+### ✅ TD-021: Review and clean up dependencies
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Dependencies
 
-**Issues**:
+**Issues identified**:
 - `backend/requirements.txt` uses `>=` constraints - consider pinning for production
 - `aisuite` (line 47) - unclear if actively used
 - Both `pdfplumber` and `pymupdf` included - code primarily uses `pymupdf`
+
+**Resolution**:
+- Removed `aisuite` - never imported anywhere in the codebase
+- Added production versioning guidance to requirements.txt header
+- Clarified pdfplumber is kept for prototypes (used in `prototypes/test_pdfplumber_annotations.py`)
+- Updated comments to clarify pymupdf is the production library
+- Fixed misleading config comment (`PDF_TEXT_ENGINE` only supports pymupdf)
+- Fixed inaccurate docstrings in `pdf_processor.py` that mentioned pdfplumber
 
 ---
 
@@ -764,7 +772,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - [ ] TD-018: Inconsistent error handling patterns
 - ✅ ~~TD-019: Missing type hints~~
 - ✅ ~~TD-020: Hardcoded upload directory~~
-- [ ] TD-021: Review and clean up dependencies
+- ✅ ~~TD-021: Review and clean up dependencies~~
 - [ ] TD-024: Missing prop validation
 - [ ] TD-026: Accessibility issues
 - [ ] TD-027: Performance - missing memoization
@@ -1025,9 +1033,33 @@ The upload directory is still fully configurable via the `UPLOAD_DIR` environmen
 
 ---
 
+### ✅ TD-021: Review and clean up dependencies
+**Completed**: 2026-01-26
+
+Reviewed and cleaned up `backend/requirements.txt`.
+
+**Changes**:
+
+**Removed**:
+- `aisuite` - Never imported anywhere in the codebase (searched all .py files)
+
+**Clarified**:
+- Added version strategy header explaining `>=` for dev, lock file for production
+- Reordered pymupdf before pdfplumber (pymupdf is the production library)
+- Updated comments: pymupdf is used by `pdf_utils.py`, pdfplumber is for prototypes
+
+**Fixed misleading documentation**:
+- `backend/app/config/pipelines.py`: Updated `PDF_TEXT_ENGINE` comment to note only pymupdf is implemented
+- `backend/app/pipelines/pdf_processor.py`: Fixed docstrings that incorrectly mentioned pdfplumber
+
+**Decision on pdfplumber**:
+Kept pdfplumber as it's used in `prototypes/test_pdfplumber_annotations.py`. Prototype cleanup is tracked separately in TD-032.
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 11 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 12 completed

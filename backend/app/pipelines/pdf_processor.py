@@ -3,14 +3,14 @@ PDF Processor Pipeline
 
 Extracts text, structure, and annotations from PDFs using a hybrid approach:
 - OCR (Mistral OCR) for text extraction and handwritten note detection
-- pdfplumber for PDF annotation extraction (highlights, comments, underlines)
+- PyMuPDF for PDF annotation extraction (highlights, comments, underlines)
 
 Features:
 - Full document OCR with Mistral OCR (SOTA for document AI)
 - Markdown-formatted text extraction preserving structure
 - Table and figure detection
 - Handwritten note detection via OCR image analysis
-- Highlight and comment extraction via pdfplumber
+- Highlight and comment extraction via PyMuPDF (pdf_utils.py)
 - Metadata extraction (title, authors from OCR)
 - Deduplication via file hash
 - LLM cost tracking

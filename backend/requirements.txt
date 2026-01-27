@@ -4,6 +4,12 @@
 # 
 # Note: For complete environment setup including system dependencies,
 #       use the project's environment.yml with miniconda instead.
+#
+# VERSION STRATEGY:
+# - Development: Uses >= constraints for flexibility
+# - Production: Generate a lock file with pinned versions:
+#     pip freeze > requirements.lock
+#   Then deploy with: pip install -r requirements.lock
 
 # ==========================================
 # Web Framework & API
@@ -44,7 +50,6 @@ openai>=1.12.0
 anthropic>=0.18.0
 tiktoken>=0.7.0
 tenacity>=8.2.3
-aisuite
 langchain-text-splitters>=0.2.0  # Text chunking for RAG pipelines
 
 # ==========================================
@@ -53,8 +58,8 @@ langchain-text-splitters>=0.2.0  # Text chunking for RAG pipelines
 mistralai>=0.1.0
 pillow>=10.2.0
 pillow-heif>=0.16.0          # HEIC/HEIF support (iOS photos)
-pdfplumber>=0.11.0           # PDF annotation extraction (highlights, comments)
-pymupdf>=1.24.0              # Robust PDF annotation extraction (alternative to pdfplumber)
+pymupdf>=1.24.0              # PDF text/annotation extraction (used by pdf_utils.py)
+pdfplumber>=0.11.0           # PDF processing (used in prototypes/, kept for experimentation)
 python-magic>=0.4.27         # File type detection
 
 # ==========================================
