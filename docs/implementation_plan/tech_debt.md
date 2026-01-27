@@ -16,7 +16,7 @@ This document tracks known technical debt items and improvements for open-source
 - [Backend Tech Debt](#backend-tech-debt)
   - ✅ ~~[TD-008: Use TYPE_CHECKING for type annotation imports](#td-008-use-type_checking-for-type-annotation-imports)~~
   - ✅ ~~[TD-009: Complete LLM/OCR/VLM usage tracking](#td-009-complete-llmocrvlm-usage-tracking)~~
-  - [TD-010: Model factory methods for cross-layer conversions](#td-010-model-factory-methods-for-cross-layer-conversions)
+  - ✅ ~~[TD-010: Model factory methods for cross-layer conversions](#td-010-model-factory-methods-for-cross-layer-conversions)~~
   - ✅ ~~[TD-011: Clean up imports and move to top of files](#td-011-clean-up-imports-and-move-to-top-of-files)~~
   - [TD-012: Robust deduplication and cleanup on reprocessing](#td-012-robust-deduplication-and-cleanup-on-reprocessing)
   - ✅ ~~[TD-013: Eliminate magic numbers](#td-013-eliminate-magic-numbers)~~
@@ -216,25 +216,32 @@ class MyClass:
 
 ---
 
-### TD-010: Model factory methods for cross-layer conversions
+### ✅ TD-010: Model factory methods for cross-layer conversions
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Backend models
 
 **Description**: Standardize factory constructors for converting between DB/Pydantic models.
+Use `from __future__ import annotations` for cleaner return type hints (no string quotes needed).
 
 **Target Pattern**:
 ```python
+from __future__ import annotations
+
 class SomeModel:
     @classmethod
-    def from_source_x(cls, x: SourceX) -> "SomeModel":
+    def from_db_record(cls, record: SomeRecord) -> SomeModel:
+        """Factory method for DB → Pydantic conversion."""
         ...
 ```
 
 **Candidates**:
-- [ ] `UnifiedContent.from_db_content(db_content)`
-- [ ] `ProcessingRun.from_processing_result(...)`
-- [ ] Similar factories for `TagAssignment`, `ExtractionResult`, `Connection`
+- [x] `UnifiedContent.from_db_content(db_content)` - Already implemented
+- [x] `ProcessingRun.from_processing_result(...)` - Already implemented
+- [x] `Concept.from_db_record(concept_record)` - DB record to Pydantic
+- [x] `Connection.from_db_record(connection_record)` - DB record to Pydantic
+- [x] `FollowupTask.from_db_record(followup_record)` - DB record to Pydantic
+- [x] `MasteryQuestion.from_db_record(question_record)` - DB record to Pydantic
 
 ---
 
@@ -722,7 +729,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 
 ### P2 - Medium (Address when touching related code)
 - ✅ ~~TD-008: Use TYPE_CHECKING for type annotation imports~~
-- [ ] TD-010: Model factory methods for cross-layer conversions
+- ✅ ~~TD-010: Model factory methods for cross-layer conversions~~
 - ✅ ~~TD-011: Clean up imports and move to top of files~~
 - ✅ ~~TD-013: Eliminate magic numbers~~
 - [ ] TD-016: Incomplete TODO implementations
@@ -856,9 +863,27 @@ All files now import `timezone` from `datetime` and use `datetime.now(timezone.u
 
 ---
 
+### ✅ TD-010: Model factory methods for cross-layer conversions
+**Completed**: 2026-01-26
+
+Added factory methods to Pydantic models for converting from SQLAlchemy DB records.
+Used `from __future__ import annotations` for cleaner return type hints.
+
+**`backend/app/models/processing.py`**:
+- Added `Concept.from_db_record(concept_record)` - converts ConceptRecord to Concept
+- Added `Connection.from_db_record(connection_record)` - converts ConnectionRecord to Connection
+- Added `FollowupTask.from_db_record(followup_record)` - converts FollowupRecord to FollowupTask
+- Added `MasteryQuestion.from_db_record(question_record)` - converts QuestionRecord to MasteryQuestion
+
+**Pre-existing factory methods** (already implemented):
+- `UnifiedContent.from_db_content()` in `app/models/content.py`
+- `ProcessingRun.from_processing_result()` in `app/db/models_processing.py`
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 6 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 7 completed

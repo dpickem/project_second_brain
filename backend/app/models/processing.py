@@ -18,6 +18,9 @@ ARCHITECTURE NOTE:
     Fields like `processing_run_id` and `content_id` (foreign keys) exist only
     in SQLAlchemy since they're database concerns, not pipeline concerns.
 
+    Factory methods (from_db_record) enable clean conversion from SQLAlchemy
+    models back to Pydantic models when loading from database.
+
 Models:
 - ContentAnalysis: Result of initial content analysis
 - Concept: Extracted concept with definition and context
@@ -37,15 +40,28 @@ Usage:
         analysis=ContentAnalysis(content_type="PAPER", domain="ml", ...),
         ...
     )
+
+    # Convert from DB record
+    concept = Concept.from_db_record(concept_record)
 """
 
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 import uuid
 
 from pydantic import BaseModel, Field
 
 from app.enums.processing import ConceptImportance
+
+if TYPE_CHECKING:
+    from app.db.models_processing import (
+        ConceptRecord,
+        ConnectionRecord,
+        FollowupRecord,
+        QuestionRecord,
+    )
 
 
 class ContentAnalysis(BaseModel):
@@ -168,6 +184,42 @@ class Concept(BaseModel):
         default=None, description="ID of corresponding Neo4j node (set after storage)"
     )
 
+    @classmethod
+    def from_db_record(cls, record: ConceptRecord) -> Concept:
+        """
+        Create a Concept from a database ConceptRecord.
+
+        Factory method for converting SQLAlchemy models to Pydantic models
+        when loading concepts from the database.
+
+        Args:
+            record: SQLAlchemy ConceptRecord from the database
+
+        Returns:
+            Concept instance with data from the database record
+
+        Example:
+            >>> concept = Concept.from_db_record(concept_record)
+        """
+        # Convert related_concepts from simple list to ConceptRelation objects
+        related = []
+        if record.related_concepts:
+            related = [
+                ConceptRelation(name=name, relationship="relates to")
+                for name in record.related_concepts
+            ]
+
+        return cls(
+            id=str(record.id),
+            name=record.name,
+            definition=record.definition or "",
+            context=record.context or "",
+            importance=record.importance or ConceptImportance.SUPPORTING.value,
+            related_concepts=related,
+            embedding=record.embedding,
+            neo4j_node_id=record.neo4j_node_id,
+        )
+
 
 class ExtractionResult(BaseModel):
     """
@@ -244,6 +296,33 @@ class Connection(BaseModel):
         default=False, description="Whether user has confirmed this connection"
     )
 
+    @classmethod
+    def from_db_record(cls, record: ConnectionRecord) -> Connection:
+        """
+        Create a Connection from a database ConnectionRecord.
+
+        Factory method for converting SQLAlchemy models to Pydantic models
+        when loading connections from the database.
+
+        Args:
+            record: SQLAlchemy ConnectionRecord from the database
+
+        Returns:
+            Connection instance with data from the database record
+
+        Example:
+            >>> connection = Connection.from_db_record(connection_record)
+        """
+        return cls(
+            id=str(record.id),
+            target_id=str(record.target_content_id),
+            target_title=record.target_title or "",
+            relationship_type=record.relationship_type,
+            strength=record.strength,
+            explanation=record.explanation or "",
+            verified_by_user=record.verified_by_user,
+        )
+
 
 class FollowupTask(BaseModel):
     """
@@ -278,6 +357,34 @@ class FollowupTask(BaseModel):
     created_at: datetime = Field(
         default_factory=datetime.now, description="When the task was created"
     )
+
+    @classmethod
+    def from_db_record(cls, record: FollowupRecord) -> FollowupTask:
+        """
+        Create a FollowupTask from a database FollowupRecord.
+
+        Factory method for converting SQLAlchemy models to Pydantic models
+        when loading follow-up tasks from the database.
+
+        Args:
+            record: SQLAlchemy FollowupRecord from the database
+
+        Returns:
+            FollowupTask instance with data from the database record
+
+        Example:
+            >>> task = FollowupTask.from_db_record(followup_record)
+        """
+        return cls(
+            id=str(record.id),
+            task=record.task,
+            task_type=record.task_type or "research",
+            priority=record.priority or "medium",
+            estimated_time=record.estimated_time or "30min",
+            completed=record.completed,
+            completed_at=record.completed_at,
+            created_at=record.created_at,
+        )
 
 
 class MasteryQuestion(BaseModel):
@@ -323,6 +430,36 @@ class MasteryQuestion(BaseModel):
     created_at: datetime = Field(
         default_factory=datetime.now, description="When the question was created"
     )
+
+    @classmethod
+    def from_db_record(cls, record: QuestionRecord) -> MasteryQuestion:
+        """
+        Create a MasteryQuestion from a database QuestionRecord.
+
+        Factory method for converting SQLAlchemy models to Pydantic models
+        when loading mastery questions from the database.
+
+        Args:
+            record: SQLAlchemy QuestionRecord from the database
+
+        Returns:
+            MasteryQuestion instance with data from the database record
+
+        Example:
+            >>> question = MasteryQuestion.from_db_record(question_record)
+        """
+        return cls(
+            id=str(record.id),
+            question=record.question,
+            question_type=record.question_type or "conceptual",
+            difficulty=record.difficulty or "intermediate",
+            hints=record.hints or [],
+            key_points=record.key_points or [],
+            next_review_at=record.next_review_at,
+            review_count=record.review_count,
+            ease_factor=record.ease_factor,
+            created_at=record.created_at,
+        )
 
 
 class ProcessingResult(BaseModel):
