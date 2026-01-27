@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import get_db
 from app.db.models_learning import Exercise
 from app.enums.learning import ExerciseDifficulty, ExerciseType
+from app.middleware.error_handling import handle_endpoint_errors
 from app.models.learning import (
     AttemptConfidenceUpdate,
     AttemptEvaluationResponse,
@@ -96,6 +97,7 @@ async def get_session_service(
 
 
 @router.post("/session", response_model=SessionResponse)
+@handle_endpoint_errors("Create session")
 async def create_session(
     request: SessionCreateRequest,
     service: SessionService = Depends(get_session_service),
@@ -108,14 +110,11 @@ async def create_session(
     - 30% weak spot exercises
     - 30% new/interleaved content
     """
-    try:
-        return await service.create_session(request)
-    except Exception as e:
-        logger.error(f"Failed to create session: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.create_session(request)
 
 
 @router.post("/session/{session_id}/end", response_model=SessionSummary)
+@handle_endpoint_errors("End session")
 async def end_session(
     session_id: int,
     service: SessionService = Depends(get_session_service),
@@ -123,13 +122,7 @@ async def end_session(
     """
     End a practice session and get summary statistics.
     """
-    try:
-        return await service.end_session(session_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(f"Failed to end session: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.end_session(session_id)
 
 
 # ===========================================
@@ -138,6 +131,7 @@ async def end_session(
 
 
 @router.post("/exercise/generate", response_model=ExerciseResponse)
+@handle_endpoint_errors("Generate exercise")
 async def generate_exercise(
     request: ExerciseGenerateRequest,
     mastery_level: float = Query(
@@ -153,21 +147,18 @@ async def generate_exercise(
     - 0.3-0.7: Free recall, implementations
     - > 0.7: Applications, teach-back
     """
-    try:
-        exercise, usages = await generator.generate_exercise(
-            request=request,
-            mastery_level=mastery_level,
-        )
-        # Track LLM usage for cost monitoring
-        if usages:
-            await CostTracker.log_usages_batch(usages)
-        return exercise
-    except Exception as e:
-        logger.error(f"Failed to generate exercise: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    exercise, usages = await generator.generate_exercise(
+        request=request,
+        mastery_level=mastery_level,
+    )
+    # Track LLM usage for cost monitoring
+    if usages:
+        await CostTracker.log_usages_batch(usages)
+    return exercise
 
 
 @router.get("/exercises", response_model=list[ExerciseResponse])
+@handle_endpoint_errors("List exercises")
 async def list_exercises(
     topic: str | None = Query(None, description="Filter by topic path"),
     exercise_type: ExerciseType | None = Query(
@@ -221,6 +212,7 @@ async def list_exercises(
 
 
 @router.get("/exercise/{exercise_id}", response_model=ExerciseResponse)
+@handle_endpoint_errors("Get exercise")
 async def get_exercise(
     exercise_id: int,
     db: AsyncSession = Depends(get_db),
@@ -257,6 +249,7 @@ async def get_exercise(
 
 
 @router.post("/submit", response_model=AttemptEvaluationResponse)
+@handle_endpoint_errors("Submit attempt")
 async def submit_attempt(
     request: AttemptSubmitRequest,
     db: AsyncSession = Depends(get_db),
@@ -292,18 +285,15 @@ async def submit_attempt(
                 language=exercise.language or "python",
             )
 
-    try:
-        return await evaluator.evaluate_response(
-            exercise=exercise,
-            request=request,
-            code_test_results=test_results,
-        )
-    except Exception as e:
-        logger.error(f"Failed to evaluate attempt: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await evaluator.evaluate_response(
+        exercise=exercise,
+        request=request,
+        code_test_results=test_results,
+    )
 
 
 @router.patch("/attempt/{attempt_id}/confidence")
+@handle_endpoint_errors("Update confidence")
 async def update_confidence(
     attempt_id: int,
     request: AttemptConfidenceUpdate,
@@ -312,9 +302,5 @@ async def update_confidence(
     """
     Update confidence rating after viewing feedback.
     """
-    try:
-        await evaluator.update_confidence(attempt_id, request.confidence_after)
-        return {"status": "updated"}
-    except Exception as e:
-        logger.error(f"Failed to update confidence: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    await evaluator.update_confidence(attempt_id, request.confidence_after)
+    return {"status": "updated"}

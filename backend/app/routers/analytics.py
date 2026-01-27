@@ -12,26 +12,27 @@ Endpoints:
 - GET /api/analytics/streak - Get practice streak information
 """
 
-from typing import Optional
 import logging
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.base import get_db
-from app.enums.learning import TimePeriod, GroupBy
+from app.enums.learning import GroupBy, TimePeriod
+from app.middleware.error_handling import handle_endpoint_errors
 from app.models.learning import (
-    MasteryState,
-    MasteryOverview,
-    WeakSpotsResponse,
+    DailyStatsResponse,
     LearningCurveResponse,
-    TimeInvestmentResponse,
-    StreakData,
     LogTimeRequest,
     LogTimeResponse,
-    DailyStatsResponse,
+    MasteryOverview,
+    MasteryState,
     PracticeHistoryResponse,
+    StreakData,
+    TimeInvestmentResponse,
+    WeakSpotsResponse,
 )
 from app.services.learning import MasteryService
 
@@ -57,6 +58,7 @@ async def get_mastery_service(
 
 
 @router.get("/overview", response_model=MasteryOverview)
+@handle_endpoint_errors("Get mastery overview")
 async def get_mastery_overview(
     service: MasteryService = Depends(get_mastery_service),
 ) -> MasteryOverview:
@@ -69,14 +71,11 @@ async def get_mastery_overview(
     - Topic masteries
     - Practice streak
     """
-    try:
-        return await service.get_overview()
-    except Exception as e:
-        logger.error(f"Failed to get mastery overview: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.get_overview()
 
 
 @router.get("/daily", response_model=DailyStatsResponse)
+@handle_endpoint_errors("Get daily stats")
 async def get_daily_stats(
     service: MasteryService = Depends(get_mastery_service),
 ) -> DailyStatsResponse:
@@ -90,14 +89,11 @@ async def get_daily_stats(
     - Overall mastery
     - Practice time today
     """
-    try:
-        return await service.get_daily_stats()
-    except Exception as e:
-        logger.error(f"Failed to get daily stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.get_daily_stats()
 
 
 @router.get("/practice-history", response_model=PracticeHistoryResponse)
+@handle_endpoint_errors("Get practice history")
 async def get_practice_history(
     weeks: int = Query(52, ge=1, le=104, description="Number of weeks of history"),
     service: MasteryService = Depends(get_mastery_service),
@@ -108,14 +104,11 @@ async def get_practice_history(
     Returns daily practice activity for the specified number of weeks,
     suitable for rendering a GitHub-style contribution heatmap.
     """
-    try:
-        return await service.get_practice_history(weeks=weeks)
-    except Exception as e:
-        logger.error(f"Failed to get practice history: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.get_practice_history(weeks=weeks)
 
 
 @router.get("/mastery/{topic:path}", response_model=MasteryState)
+@handle_endpoint_errors("Get topic mastery")
 async def get_topic_mastery(
     topic: str,
     service: MasteryService = Depends(get_mastery_service),
@@ -125,14 +118,11 @@ async def get_topic_mastery(
 
     Topic paths use slashes (e.g., "ml/transformers/attention").
     """
-    try:
-        return await service.get_mastery_state(topic)
-    except Exception as e:
-        logger.error(f"Failed to get topic mastery: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.get_mastery_state(topic)
 
 
 @router.get("/weak-spots", response_model=WeakSpotsResponse)
+@handle_endpoint_errors("Get weak spots")
 async def get_weak_spots(
     limit: int = Query(10, ge=1, le=50, description="Maximum weak spots to return"),
     service: MasteryService = Depends(get_mastery_service),
@@ -145,21 +135,18 @@ async def get_weak_spots(
     - At least 3 practice attempts
     - Declining trends prioritized
     """
-    try:
-        weak_spots = await service.get_weak_spots(limit=limit)
-        overview = await service.get_overview()
+    weak_spots = await service.get_weak_spots(limit=limit)
+    overview = await service.get_overview()
 
-        return WeakSpotsResponse(
-            weak_spots=weak_spots,
-            total_topics=len(overview.topics),
-            weak_spot_threshold=settings.MASTERY_WEAK_SPOT_THRESHOLD,
-        )
-    except Exception as e:
-        logger.error(f"Failed to get weak spots: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return WeakSpotsResponse(
+        weak_spots=weak_spots,
+        total_topics=len(overview.topics),
+        weak_spot_threshold=settings.MASTERY_WEAK_SPOT_THRESHOLD,
+    )
 
 
 @router.get("/learning-curve", response_model=LearningCurveResponse)
+@handle_endpoint_errors("Get learning curve")
 async def get_learning_curve(
     topic: Optional[str] = Query(
         None, description="Topic to get curve for (None for overall)"
@@ -172,11 +159,7 @@ async def get_learning_curve(
 
     Returns historical mastery data points for charting progress over time.
     """
-    try:
-        return await service.get_learning_curve(topic=topic, days=days)
-    except Exception as e:
-        logger.error(f"Failed to get learning curve: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.get_learning_curve(topic=topic, days=days)
 
 
 # ===========================================
@@ -185,6 +168,7 @@ async def get_learning_curve(
 
 
 @router.post("/snapshot", response_model=dict)
+@handle_endpoint_errors("Take mastery snapshot")
 async def take_mastery_snapshot(
     service: MasteryService = Depends(get_mastery_service),
 ) -> dict:
@@ -194,12 +178,8 @@ async def take_mastery_snapshot(
     This is normally done by a scheduled job at midnight,
     but can be triggered manually for testing.
     """
-    try:
-        count = await service.take_daily_snapshot()
-        return {"status": "success", "snapshots_created": count}
-    except Exception as e:
-        logger.error(f"Failed to take snapshot: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    count = await service.take_daily_snapshot()
+    return {"status": "success", "snapshots_created": count}
 
 
 # ===========================================
@@ -208,6 +188,7 @@ async def take_mastery_snapshot(
 
 
 @router.get("/time-investment", response_model=TimeInvestmentResponse)
+@handle_endpoint_errors("Get time investment")
 async def get_time_investment(
     period: TimePeriod = Query(TimePeriod.MONTH, description="Time period to analyze"),
     group_by: GroupBy = Query(GroupBy.DAY, description="How to group the data"),
@@ -226,11 +207,7 @@ async def get_time_investment(
     Returns:
         Time investment summary with trends
     """
-    try:
-        return await service.get_time_investment(period=period, group_by=group_by)
-    except Exception as e:
-        logger.error(f"Failed to get time investment: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.get_time_investment(period=period, group_by=group_by)
 
 
 # ===========================================
@@ -239,6 +216,7 @@ async def get_time_investment(
 
 
 @router.get("/streak", response_model=StreakData)
+@handle_endpoint_errors("Get streak data")
 async def get_streak_data(
     service: MasteryService = Depends(get_mastery_service),
 ) -> StreakData:
@@ -251,11 +229,7 @@ async def get_streak_data(
     Returns:
         Current streak, history, and milestones
     """
-    try:
-        return await service.get_streak_data()
-    except Exception as e:
-        logger.error(f"Failed to get streak data: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.get_streak_data()
 
 
 # ===========================================
@@ -264,6 +238,7 @@ async def get_streak_data(
 
 
 @router.post("/time-log", response_model=LogTimeResponse)
+@handle_endpoint_errors("Log learning time")
 async def log_learning_time(
     request: LogTimeRequest,
     service: MasteryService = Depends(get_mastery_service),
@@ -280,10 +255,4 @@ async def log_learning_time(
     Returns:
         Created time log record
     """
-    try:
-        return await service.log_learning_time(request)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Failed to log time: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.log_learning_time(request)

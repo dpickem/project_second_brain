@@ -24,7 +24,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-015: Inconsistent datetime usage](#td-015-inconsistent-datetime-usage)~~
   - ✅ ~~[TD-016: Incomplete TODO implementations](#td-016-incomplete-todo-implementations)~~
   - ✅ ~~[TD-017: Large service files need splitting](#td-017-large-service-files-need-splitting)~~
-  - [TD-018: Inconsistent error handling patterns](#td-018-inconsistent-error-handling-patterns)
+  - ✅ ~~[TD-018: Inconsistent error handling patterns](#td-018-inconsistent-error-handling-patterns)~~
   - ✅ ~~[TD-019: Missing type hints](#td-019-missing-type-hints)~~
   - ✅ ~~[TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)~~
   - ✅ ~~[TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)~~
@@ -433,18 +433,18 @@ to expand the tags array, then GROUP BY to count cards per topic in one database
 
 ---
 
-### TD-018: Inconsistent error handling patterns
+### ✅ TD-018: Inconsistent error handling patterns
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Code consistency
 
-**Issues**:
+**Issues** (resolved):
 - Most endpoints use `HTTPException` from FastAPI
 - Some use custom `ServiceError` exceptions
 - `backend/app/routers/assistant.py` uses `@handle_endpoint_errors` decorator
 - Other routers don't use this pattern consistently
 
-**Fix**: Standardize on consistent error handling pattern across all routers.
+**Fix Applied**: Standardized error handling across all routers using the `@handle_endpoint_errors` decorator.
 
 ---
 
@@ -794,7 +794,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-013: Eliminate magic numbers~~
 - ✅ ~~TD-016: Incomplete TODO implementations~~
 - ✅ ~~TD-017: Large service files need splitting~~
-- [ ] TD-018: Inconsistent error handling patterns
+- ✅ ~~TD-018: Inconsistent error handling patterns~~
 - ✅ ~~TD-019: Missing type hints~~
 - ✅ ~~TD-020: Hardcoded upload directory~~
 - ✅ ~~TD-021: Review and clean up dependencies~~
@@ -1195,6 +1195,42 @@ Created comprehensive production deployment documentation.
 
 ---
 
+### ✅ TD-018: Inconsistent error handling patterns
+**Completed**: 2026-01-27
+
+Standardized error handling across all routers using a shared decorator pattern.
+
+**Changes**:
+
+**Shared Error Handling Decorator** (`backend/app/middleware/error_handling.py`):
+- Moved `handle_endpoint_errors` decorator from `assistant.py` to shared middleware module
+- Added imports: `functools`, `Callable`, `Coroutine`, `Any`, `TypeVar`
+- Decorator catches exceptions and converts to appropriate HTTPException:
+  - `HTTPException` → re-raised as-is
+  - `ValueError` → 404 (typically not-found scenarios)
+  - Other exceptions → 500 with logged error
+
+**Routers Updated**:
+
+| Router | Endpoints Updated |
+|--------|------------------|
+| `assistant.py` | 12 endpoints (removed local decorator definition) |
+| `analytics.py` | 10 endpoints |
+| `review.py` | 10 endpoints |
+| `practice.py` | 8 endpoints |
+| `knowledge.py` | 9 endpoints |
+| `llm_usage.py` | 5 endpoints |
+
+**Total**: 54 endpoints now use consistent `@handle_endpoint_errors` decorator.
+
+**Benefits**:
+- Consistent error response format across all endpoints
+- Centralized logging of errors with operation context
+- Reduced boilerplate (removed ~200 lines of repetitive try/except blocks)
+- Easier to maintain and enhance error handling logic
+
+---
+
 ### ✅ TD-006: README updates for open-source
 **Completed**: 2026-01-27
 
@@ -1236,4 +1272,4 @@ Updated README.md with all missing sections for open-source release readiness.
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 18 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 19 completed

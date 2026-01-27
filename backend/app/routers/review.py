@@ -13,29 +13,30 @@ Endpoints:
 - GET /api/review/stats - Get card statistics
 """
 
-from typing import Optional
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
+from app.middleware.error_handling import handle_endpoint_errors
 from app.models.learning import (
     CardCreate,
+    CardEvaluateRequest,
+    CardEvaluateResponse,
+    CardGenerationRequest,
+    CardGenerationResponse,
     CardResponse,
     CardReviewRequest,
     CardReviewResponse,
-    DueCardsResponse,
     CardStats,
-    CardGenerationRequest,
-    CardGenerationResponse,
-    CardEvaluateRequest,
-    CardEvaluateResponse,
+    DueCardsResponse,
 )
 from app.services.cost_tracking import CostTracker
 from app.services.learning import SpacedRepService
-from app.services.learning.card_generator import CardGeneratorService
 from app.services.learning.card_evaluator import CardAnswerEvaluator
+from app.services.learning.card_generator import CardGeneratorService
 from app.services.llm.client import get_llm_client
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,7 @@ async def get_card_evaluator() -> CardAnswerEvaluator:
 
 
 @router.post("/cards", response_model=CardResponse)
+@handle_endpoint_errors("Create card")
 async def create_card(
     card_data: CardCreate,
     service: SpacedRepService = Depends(get_spaced_rep_service),
@@ -81,14 +83,11 @@ async def create_card(
 
     Card is created in NEW state with FSRS initial parameters.
     """
-    try:
-        return await service.create_card(card_data)
-    except Exception as e:
-        logger.error(f"Failed to create card: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.create_card(card_data)
 
 
 @router.get("/cards/{card_id}", response_model=CardResponse)
+@handle_endpoint_errors("Get card")
 async def get_card(
     card_id: int,
     service: SpacedRepService = Depends(get_spaced_rep_service),
@@ -103,6 +102,7 @@ async def get_card(
 
 
 @router.get("/cards", response_model=list[CardResponse])
+@handle_endpoint_errors("List cards")
 async def list_cards(
     topic: Optional[str] = Query(None, description="Filter by topic tag"),
     card_type: Optional[str] = Query(None, description="Filter by card type"),
@@ -113,20 +113,16 @@ async def list_cards(
 ) -> list[CardResponse]:
     """
     List all cards with optional filters.
-    
+
     Browse the entire card catalogue with filtering by topic, type, or state.
     """
-    try:
-        return await service.list_cards(
-            topic_filter=topic,
-            card_type=card_type,
-            state_filter=state,
-            limit=limit,
-            offset=offset,
-        )
-    except Exception as e:
-        logger.error(f"Failed to list cards: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.list_cards(
+        topic_filter=topic,
+        card_type=card_type,
+        state_filter=state,
+        limit=limit,
+        offset=offset,
+    )
 
 
 # ===========================================
@@ -135,6 +131,7 @@ async def list_cards(
 
 
 @router.get("/due", response_model=DueCardsResponse)
+@handle_endpoint_errors("Get due cards")
 async def get_due_cards(
     limit: int = Query(50, ge=1, le=200, description="Maximum cards to return"),
     topic: Optional[str] = Query(None, description="Filter by topic tag"),
@@ -145,17 +142,14 @@ async def get_due_cards(
 
     Returns cards ordered by due date (oldest first) with a review forecast.
     """
-    try:
-        return await service.get_due_cards(
-            limit=limit,
-            topic_filter=topic,
-        )
-    except Exception as e:
-        logger.error(f"Failed to get due cards: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.get_due_cards(
+        limit=limit,
+        topic_filter=topic,
+    )
 
 
 @router.post("/rate", response_model=CardReviewResponse)
+@handle_endpoint_errors("Rate card")
 async def rate_card(
     request: CardReviewRequest,
     service: SpacedRepService = Depends(get_spaced_rep_service),
@@ -171,16 +165,11 @@ async def rate_card(
 
     Returns the new scheduling information.
     """
-    try:
-        return await service.review_card(request)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(f"Failed to rate card: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.review_card(request)
 
 
 @router.post("/evaluate", response_model=CardEvaluateResponse)
+@handle_endpoint_errors("Evaluate card answer")
 async def evaluate_card_answer(
     request: CardEvaluateRequest,
     service: SpacedRepService = Depends(get_spaced_rep_service),
@@ -206,26 +195,22 @@ async def evaluate_card_answer(
     if card is None:
         raise HTTPException(status_code=404, detail="Card not found")
 
-    try:
-        # Evaluate the user's answer against the expected answer
-        result = await evaluator.evaluate_answer(
-            question=card.front,
-            expected_answer=card.back,
-            user_answer=request.user_answer,
-        )
+    # Evaluate the user's answer against the expected answer
+    result = await evaluator.evaluate_answer(
+        question=card.front,
+        expected_answer=card.back,
+        user_answer=request.user_answer,
+    )
 
-        return CardEvaluateResponse(
-            card_id=request.card_id,
-            rating=result["rating"],
-            is_correct=result["is_correct"],
-            feedback=result["feedback"],
-            key_points_covered=result["key_points_covered"],
-            key_points_missed=result["key_points_missed"],
-            expected_answer=card.back,
-        )
-    except Exception as e:
-        logger.error(f"Failed to evaluate card answer: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return CardEvaluateResponse(
+        card_id=request.card_id,
+        rating=result["rating"],
+        is_correct=result["is_correct"],
+        feedback=result["feedback"],
+        key_points_covered=result["key_points_covered"],
+        key_points_missed=result["key_points_missed"],
+        expected_answer=card.back,
+    )
 
 
 # ===========================================
@@ -234,6 +219,7 @@ async def evaluate_card_answer(
 
 
 @router.get("/stats", response_model=CardStats)
+@handle_endpoint_errors("Get card stats")
 async def get_card_stats(
     topic: Optional[str] = Query(None, description="Filter by topic tag"),
     service: SpacedRepService = Depends(get_spaced_rep_service),
@@ -243,11 +229,7 @@ async def get_card_stats(
 
     Returns counts by state, average stability/difficulty, and due counts.
     """
-    try:
-        return await service.get_card_stats(topic_filter=topic)
-    except Exception as e:
-        logger.error(f"Failed to get card stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.get_card_stats(topic_filter=topic)
 
 
 # ===========================================
@@ -256,6 +238,7 @@ async def get_card_stats(
 
 
 @router.post("/generate", response_model=CardGenerationResponse)
+@handle_endpoint_errors("Generate cards")
 async def generate_cards(
     request: CardGenerationRequest,
     generator: CardGeneratorService = Depends(get_card_generator),
@@ -266,32 +249,29 @@ async def generate_cards(
     Uses existing content and LLM to generate flashcards for the specified topic.
     Useful when starting a review session for a topic with few or no cards.
     """
-    try:
-        cards, usages = await generator.generate_for_topic(
-            topic=request.topic,
-            count=request.count,
-            difficulty=request.difficulty,
-        )
-        # Track LLM usage for cost monitoring
-        if usages:
-            await CostTracker.log_usages_batch(usages)
+    cards, usages = await generator.generate_for_topic(
+        topic=request.topic,
+        count=request.count,
+        difficulty=request.difficulty,
+    )
+    # Track LLM usage for cost monitoring
+    if usages:
+        await CostTracker.log_usages_batch(usages)
 
-        # Get total card count for topic
-        total, more_usages = await generator.ensure_minimum_cards(request.topic, minimum=0)
-        if more_usages:
-            await CostTracker.log_usages_batch(more_usages)
+    # Get total card count for topic
+    total, more_usages = await generator.ensure_minimum_cards(request.topic, minimum=0)
+    if more_usages:
+        await CostTracker.log_usages_batch(more_usages)
 
-        return CardGenerationResponse(
-            generated_count=len(cards),
-            total_cards=total,
-            topic=request.topic,
-        )
-    except Exception as e:
-        logger.error(f"Failed to generate cards: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return CardGenerationResponse(
+        generated_count=len(cards),
+        total_cards=total,
+        topic=request.topic,
+    )
 
 
 @router.post("/ensure-cards", response_model=CardGenerationResponse)
+@handle_endpoint_errors("Ensure cards for topic")
 async def ensure_cards_for_topic(
     topic: str = Query(..., description="Topic path"),
     minimum: int = Query(5, ge=1, le=50, description="Minimum cards required"),
@@ -303,20 +283,16 @@ async def ensure_cards_for_topic(
     If fewer than `minimum` cards exist, generates more using LLM.
     Returns immediately if enough cards already exist.
     """
-    try:
-        total, usages = await generator.ensure_minimum_cards(
-            topic=topic,
-            minimum=minimum,
-        )
-        # Track LLM usage for cost monitoring
-        if usages:
-            await CostTracker.log_usages_batch(usages)
+    total, usages = await generator.ensure_minimum_cards(
+        topic=topic,
+        minimum=minimum,
+    )
+    # Track LLM usage for cost monitoring
+    if usages:
+        await CostTracker.log_usages_batch(usages)
 
-        return CardGenerationResponse(
-            generated_count=max(0, total - minimum) if total >= minimum else total,
-            total_cards=total,
-            topic=topic,
-        )
-    except Exception as e:
-        logger.error(f"Failed to ensure cards: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return CardGenerationResponse(
+        generated_count=max(0, total - minimum) if total >= minimum else total,
+        total_cards=total,
+        topic=topic,
+    )

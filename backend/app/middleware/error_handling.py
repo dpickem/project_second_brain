@@ -8,15 +8,26 @@ Features:
 - Correlation IDs for log tracking
 - Sanitized responses (hides internal details in production)
 - Custom exception classes for different error types
+- Reusable error handling decorator for endpoints
 
 Usage:
-    from app.middleware.error_handling import ErrorHandlingMiddleware, ServiceError
+    from app.middleware.error_handling import (
+        ErrorHandlingMiddleware,
+        ServiceError,
+        handle_endpoint_errors,
+    )
 
     # Add middleware to app
     app.add_middleware(ErrorHandlingMiddleware)
 
     # Raise custom exceptions
     raise ServiceError("Something went wrong", status_code=500)
+
+    # Use decorator on endpoints
+    @router.get("/items/{id}")
+    @handle_endpoint_errors("Get item")
+    async def get_item(id: int):
+        ...
 
 How Exception Interception Works:
     This middleware uses ASGI middleware architecture (via Starlette's
@@ -46,10 +57,14 @@ How Exception Interception Works:
     response body starts streaming (not an issue for JSON APIs).
 """
 
+from __future__ import annotations
+
+import functools
 import logging
 import traceback
+from collections.abc import Callable, Coroutine
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional, TypeVar
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
@@ -58,6 +73,9 @@ from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
+
+# Generic type for async endpoint functions
+T = TypeVar("T")
 
 
 # =============================================================================
@@ -323,3 +341,60 @@ def create_error_response(
             "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     )
+
+
+# =============================================================================
+# Endpoint Error Handling Decorator
+# =============================================================================
+
+
+def handle_endpoint_errors(
+    operation_name: str,
+) -> Callable[
+    [Callable[..., Coroutine[Any, Any, T]]], Callable[..., Coroutine[Any, Any, T]]
+]:
+    """
+    Decorator to handle common endpoint error patterns.
+
+    Catches exceptions, logs them with the operation name, and raises
+    appropriate HTTPExceptions. Provides consistent error handling across
+    all router endpoints.
+
+    Args:
+        operation_name: Human-readable name of the operation for error messages.
+
+    Returns:
+        Decorated async function with standardized error handling.
+
+    Example:
+        @router.get("/items/{id}")
+        @handle_endpoint_errors("Get item")
+        async def get_item(id: int):
+            item = await service.get_item(id)
+            if not item:
+                raise ValueError("Item not found")
+            return item
+    """
+
+    def decorator(
+        func: Callable[..., Coroutine[Any, Any, T]],
+    ) -> Callable[..., Coroutine[Any, Any, T]]:
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
+            try:
+                return await func(*args, **kwargs)
+            except HTTPException:
+                # Re-raise HTTP exceptions as-is (already formatted)
+                raise
+            except ValueError as e:
+                # Value errors typically indicate not-found or validation issues
+                raise HTTPException(status_code=404, detail=str(e))
+            except Exception as e:
+                logger.error(f"{operation_name} failed: {e}")
+                raise HTTPException(
+                    status_code=500, detail=f"{operation_name} failed: {e!s}"
+                )
+
+        return wrapper
+
+    return decorator

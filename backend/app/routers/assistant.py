@@ -20,16 +20,14 @@ Endpoints:
 Models are defined in app.models.assistant.
 """
 
-import functools
 import logging
-from collections.abc import Callable, Coroutine
-from typing import Any, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.enums import ExplanationStyle
+from app.middleware.error_handling import handle_endpoint_errors
 from app.models.assistant import (
     ChatRequest,
     ChatResponse,
@@ -52,56 +50,6 @@ from app.services.llm import get_llm_client
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/assistant", tags=["assistant"])
-
-# Generic type for async endpoint functions
-T = TypeVar("T")
-
-
-# =============================================================================
-# Error Handling Decorator
-# =============================================================================
-
-
-def handle_endpoint_errors(
-    operation_name: str,
-) -> Callable[
-    [Callable[..., Coroutine[Any, Any, T]]], Callable[..., Coroutine[Any, Any, T]]
-]:
-    """
-    Decorator to handle common endpoint error patterns.
-
-    Catches exceptions, logs them with the operation name, and raises
-    appropriate HTTPExceptions.
-
-    Args:
-        operation_name: Human-readable name of the operation for error messages.
-
-    Returns:
-        Decorated async function with standardized error handling.
-    """
-
-    def decorator(
-        func: Callable[..., Coroutine[Any, Any, T]],
-    ) -> Callable[..., Coroutine[Any, Any, T]]:
-        @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> T:
-            try:
-                return await func(*args, **kwargs)
-            except HTTPException:
-                # Re-raise HTTP exceptions as-is (already formatted)
-                raise
-            except ValueError as e:
-                # Value errors typically indicate not-found scenarios
-                raise HTTPException(status_code=404, detail=str(e))
-            except Exception as e:
-                logger.error(f"{operation_name} failed: {e}")
-                raise HTTPException(
-                    status_code=500, detail=f"{operation_name} failed: {e!s}"
-                )
-
-        return wrapper
-
-    return decorator
 
 
 # =============================================================================

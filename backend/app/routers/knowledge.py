@@ -22,10 +22,11 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from app.enums.knowledge import ConnectionDirection
+from app.middleware.error_handling import handle_endpoint_errors
 from app.models.knowledge import (
     ConnectionsResponse,
-    GraphNode,
     GraphEdge,
+    GraphNode,
     GraphResponse,
     GraphStats,
     NodeConnection,
@@ -36,9 +37,9 @@ from app.models.knowledge import (
     TopicHierarchyResponse,
 )
 from app.services.knowledge_graph import (
+    KnowledgeSearchService,
     get_neo4j_client,
     get_visualization_service,
-    KnowledgeSearchService,
 )
 from app.services.llm import get_llm_client
 
@@ -53,6 +54,7 @@ router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
 
 @router.get("/graph", response_model=GraphResponse)
+@handle_endpoint_errors("Get graph visualization")
 async def get_graph_visualization(
     center_id: Optional[str] = Query(None, description="Center graph on this node ID"),
     node_types: str = Query(
@@ -75,53 +77,49 @@ async def get_graph_visualization(
     Returns:
         GraphResponse with nodes, edges, and metadata
     """
-    try:
-        service = await get_visualization_service()
-        node_type_list = [t.strip() for t in node_types.split(",")]
+    service = await get_visualization_service()
+    node_type_list = [t.strip() for t in node_types.split(",")]
 
-        result = await service.get_graph(
-            center_id=center_id,
-            node_types=node_type_list,
-            depth=depth,
-            limit=limit,
+    result = await service.get_graph(
+        center_id=center_id,
+        node_types=node_type_list,
+        depth=depth,
+        limit=limit,
+    )
+
+    # Convert to response models
+    nodes = [
+        GraphNode(
+            id=n["id"],
+            label=n["label"],
+            type=n["type"],
+            content_type=n.get("content_type"),
+            metadata=n.get("metadata", {}),
         )
+        for n in result["nodes"]
+    ]
 
-        # Convert to response models
-        nodes = [
-            GraphNode(
-                id=n["id"],
-                label=n["label"],
-                type=n["type"],
-                content_type=n.get("content_type"),
-                metadata=n.get("metadata", {}),
-            )
-            for n in result["nodes"]
-        ]
-
-        edges = [
-            GraphEdge(
-                source=e["source"],
-                target=e["target"],
-                type=e["type"],
-                strength=e["strength"],
-            )
-            for e in result["edges"]
-        ]
-
-        return GraphResponse(
-            nodes=nodes,
-            edges=edges,
-            center_id=result["center_id"],
-            total_nodes=result["total_nodes"],
-            total_edges=result["total_edges"],
+    edges = [
+        GraphEdge(
+            source=e["source"],
+            target=e["target"],
+            type=e["type"],
+            strength=e["strength"],
         )
+        for e in result["edges"]
+    ]
 
-    except Exception as e:
-        logger.error(f"Error fetching graph data: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch graph: {str(e)}")
+    return GraphResponse(
+        nodes=nodes,
+        edges=edges,
+        center_id=result["center_id"],
+        total_nodes=result["total_nodes"],
+        total_edges=result["total_edges"],
+    )
 
 
 @router.get("/stats", response_model=GraphStats)
+@handle_endpoint_errors("Get graph stats")
 async def get_graph_stats() -> GraphStats:
     """
     Get summary statistics for the knowledge graph.
@@ -129,24 +127,20 @@ async def get_graph_stats() -> GraphStats:
     Returns:
         GraphStats with node and relationship counts
     """
-    try:
-        service = await get_visualization_service()
-        result = await service.get_stats()
+    service = await get_visualization_service()
+    result = await service.get_stats()
 
-        return GraphStats(
-            total_content=result["total_content"],
-            total_concepts=result["total_concepts"],
-            total_notes=result["total_notes"],
-            total_relationships=result["total_relationships"],
-            content_by_type=result["content_by_type"],
-        )
-
-    except Exception as e:
-        logger.error(f"Error fetching graph stats: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
+    return GraphStats(
+        total_content=result["total_content"],
+        total_concepts=result["total_concepts"],
+        total_notes=result["total_notes"],
+        total_relationships=result["total_relationships"],
+        content_by_type=result["content_by_type"],
+    )
 
 
 @router.get("/node/{node_id}", response_model=NodeDetails)
+@handle_endpoint_errors("Get node details")
 async def get_node_details(node_id: str) -> NodeDetails:
     """
     Get detailed information about a specific node.
@@ -160,35 +154,29 @@ async def get_node_details(node_id: str) -> NodeDetails:
     Raises:
         HTTPException 404: If node not found
     """
-    try:
-        service = await get_visualization_service()
-        result = await service.get_node_details(node_id)
+    service = await get_visualization_service()
+    result = await service.get_node_details(node_id)
 
-        if not result:
-            raise HTTPException(status_code=404, detail="Node not found")
+    if not result:
+        raise HTTPException(status_code=404, detail="Node not found")
 
-        return NodeDetails(
-            id=result["id"],
-            label=result["label"],
-            type=result["type"],
-            content_type=result.get("content_type"),
-            summary=result.get("summary"),
-            tags=result.get("tags", []),
-            source_url=result.get("source_url"),
-            created_at=result.get("created_at"),
-            connections=result.get("connections", 0),
-            file_path=result.get("file_path"),
-            name=result.get("name"),
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error fetching node details: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch node: {str(e)}")
+    return NodeDetails(
+        id=result["id"],
+        label=result["label"],
+        type=result["type"],
+        content_type=result.get("content_type"),
+        summary=result.get("summary"),
+        tags=result.get("tags", []),
+        source_url=result.get("source_url"),
+        created_at=result.get("created_at"),
+        connections=result.get("connections", 0),
+        file_path=result.get("file_path"),
+        name=result.get("name"),
+    )
 
 
 @router.get("/health")
+@handle_endpoint_errors("Knowledge graph health")
 async def knowledge_graph_health() -> dict:
     """
     Check Neo4j connection health.
@@ -206,6 +194,7 @@ async def knowledge_graph_health() -> dict:
 
 
 @router.post("/search", response_model=SearchResponse)
+@handle_endpoint_errors("Search knowledge")
 async def search_knowledge(request: SearchRequest) -> SearchResponse:
     """
     Semantic search across knowledge base.
@@ -220,52 +209,47 @@ async def search_knowledge(request: SearchRequest) -> SearchResponse:
     Returns:
         SearchResponse with ranked results
     """
-    try:
-        neo4j_client = await get_neo4j_client()
-        await neo4j_client._ensure_initialized()
+    neo4j_client = await get_neo4j_client()
+    await neo4j_client._ensure_initialized()
 
-        # Get LLM client for vector search (optional)
-        llm_client = None
-        if request.use_vector:
-            try:
-                llm_client = get_llm_client()
-            except Exception:
-                logger.debug("LLM client not available, using text search only")
+    # Get LLM client for vector search (optional)
+    llm_client = None
+    if request.use_vector:
+        try:
+            llm_client = get_llm_client()
+        except Exception:
+            logger.debug("LLM client not available, using text search only")
 
-        search_service = KnowledgeSearchService(neo4j_client, llm_client)
+    search_service = KnowledgeSearchService(neo4j_client, llm_client)
 
-        results, search_time_ms = await search_service.semantic_search(
-            query=request.query,
-            node_types=request.node_types,
-            limit=request.limit,
-            min_score=request.min_score,
-            use_vector=request.use_vector and llm_client is not None,
+    results, search_time_ms = await search_service.semantic_search(
+        query=request.query,
+        node_types=request.node_types,
+        limit=request.limit,
+        min_score=request.min_score,
+        use_vector=request.use_vector and llm_client is not None,
+    )
+
+    # Convert to response format
+    search_results = [
+        SearchResult(
+            id=r.get("id", ""),
+            node_type=r.get("node_type", "Unknown"),
+            title=r.get("title", "Untitled"),
+            summary=r.get("summary"),
+            score=min(r.get("score", 0), 1.0),  # Cap at 1.0
+            highlights=[],  # Could extract snippets in future
         )
+        for r in results
+        if r.get("id")
+    ]
 
-        # Convert to response format
-        search_results = [
-            SearchResult(
-                id=r.get("id", ""),
-                node_type=r.get("node_type", "Unknown"),
-                title=r.get("title", "Untitled"),
-                summary=r.get("summary"),
-                score=min(r.get("score", 0), 1.0),  # Cap at 1.0
-                highlights=[],  # Could extract snippets in future
-            )
-            for r in results
-            if r.get("id")
-        ]
-
-        return SearchResponse(
-            query=request.query,
-            results=search_results,
-            total=len(search_results),
-            search_time_ms=search_time_ms,
-        )
-
-    except Exception as e:
-        logger.error(f"Search failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+    return SearchResponse(
+        query=request.query,
+        results=search_results,
+        total=len(search_results),
+        search_time_ms=search_time_ms,
+    )
 
 
 # =============================================================================
@@ -274,6 +258,7 @@ async def search_knowledge(request: SearchRequest) -> SearchResponse:
 
 
 @router.get("/connections/{node_id}", response_model=ConnectionsResponse)
+@handle_endpoint_errors("Get connections")
 async def get_connections(
     node_id: str,
     direction: ConnectionDirection = Query(
@@ -294,52 +279,45 @@ async def get_connections(
     Returns:
         ConnectionsResponse with incoming and outgoing lists
     """
-    try:
-        service = await get_visualization_service()
-        result = await service.get_connections(
-            node_id=node_id,
-            direction=direction,
-            limit=limit,
+    service = await get_visualization_service()
+    result = await service.get_connections(
+        node_id=node_id,
+        direction=direction,
+        limit=limit,
+    )
+
+    incoming = [
+        NodeConnection(
+            source_id=c["source_id"],
+            target_id=c["target_id"],
+            target_title=c["target_title"],
+            target_type=c["target_type"],
+            relationship=c["relationship"],
+            strength=c.get("strength", 1.0),
+            context=c.get("context"),
         )
+        for c in result["incoming"]
+    ]
 
-        incoming = [
-            NodeConnection(
-                source_id=c["source_id"],
-                target_id=c["target_id"],
-                target_title=c["target_title"],
-                target_type=c["target_type"],
-                relationship=c["relationship"],
-                strength=c.get("strength", 1.0),
-                context=c.get("context"),
-            )
-            for c in result["incoming"]
-        ]
-
-        outgoing = [
-            NodeConnection(
-                source_id=c["source_id"],
-                target_id=c["target_id"],
-                target_title=c["target_title"],
-                target_type=c["target_type"],
-                relationship=c["relationship"],
-                strength=c.get("strength", 1.0),
-                context=c.get("context"),
-            )
-            for c in result["outgoing"]
-        ]
-
-        return ConnectionsResponse(
-            node_id=result["node_id"],
-            incoming=incoming,
-            outgoing=outgoing,
-            total=result["total"],
+    outgoing = [
+        NodeConnection(
+            source_id=c["source_id"],
+            target_id=c["target_id"],
+            target_title=c["target_title"],
+            target_type=c["target_type"],
+            relationship=c["relationship"],
+            strength=c.get("strength", 1.0),
+            context=c.get("context"),
         )
+        for c in result["outgoing"]
+    ]
 
-    except Exception as e:
-        logger.error(f"Error fetching connections: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch connections: {str(e)}"
-        )
+    return ConnectionsResponse(
+        node_id=result["node_id"],
+        incoming=incoming,
+        outgoing=outgoing,
+        total=result["total"],
+    )
 
 
 # =============================================================================
@@ -348,6 +326,7 @@ async def get_connections(
 
 
 @router.get("/topics", response_model=TopicHierarchyResponse)
+@handle_endpoint_errors("Get topic hierarchy")
 async def get_topic_hierarchy(
     min_content: int = Query(0, ge=0, description="Min content count to include"),
 ) -> TopicHierarchyResponse:
@@ -365,19 +344,14 @@ async def get_topic_hierarchy(
     Returns:
         TopicHierarchyResponse with tree structure
     """
-    try:
-        service = await get_visualization_service()
-        result = await service.get_topic_hierarchy(min_content=min_content)
+    service = await get_visualization_service()
+    result = await service.get_topic_hierarchy(min_content=min_content)
 
-        return TopicHierarchyResponse(
-            roots=result["roots"],
-            total_topics=result["total_topics"],
-            max_depth=result["max_depth"],
-        )
-
-    except Exception as e:
-        logger.error(f"Error fetching topic hierarchy: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch topics: {str(e)}")
+    return TopicHierarchyResponse(
+        roots=result["roots"],
+        total_topics=result["total_topics"],
+        max_depth=result["max_depth"],
+    )
 
 
 # =============================================================================
@@ -386,6 +360,7 @@ async def get_topic_hierarchy(
 
 
 @router.post("/link-content-notes")
+@handle_endpoint_errors("Link content to notes")
 async def link_content_to_notes() -> dict:
     """
     Create REPRESENTS relationships between Content and Note nodes.
@@ -401,20 +376,13 @@ async def link_content_to_notes() -> dict:
     Returns:
         Dict with count of newly created links
     """
-    try:
-        neo4j_client = await get_neo4j_client()
-        linked_count = await neo4j_client.link_all_content_to_notes()
+    neo4j_client = await get_neo4j_client()
+    linked_count = await neo4j_client.link_all_content_to_notes()
 
-        logger.info(f"Linked {linked_count} Content-Note pairs")
+    logger.info(f"Linked {linked_count} Content-Note pairs")
 
-        return {
-            "status": "success",
-            "linked_count": linked_count,
-            "message": f"Created {linked_count} REPRESENTS relationships",
-        }
-
-    except Exception as e:
-        logger.error(f"Error linking content to notes: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to link content to notes: {str(e)}"
-        )
+    return {
+        "status": "success",
+        "linked_count": linked_count,
+        "message": f"Created {linked_count} REPRESENTS relationships",
+    }
