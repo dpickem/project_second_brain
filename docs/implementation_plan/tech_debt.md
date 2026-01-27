@@ -26,7 +26,7 @@ This document tracks known technical debt items and improvements for open-source
   - [TD-017: Large service files need splitting](#td-017-large-service-files-need-splitting)
   - [TD-018: Inconsistent error handling patterns](#td-018-inconsistent-error-handling-patterns)
   - ✅ ~~[TD-019: Missing type hints](#td-019-missing-type-hints)~~
-  - [TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)
+  - ✅ ~~[TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)~~
   - [TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)
 - [Frontend Tech Debt](#frontend-tech-debt)
   - [TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)
@@ -450,17 +450,22 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
-### TD-020: Hardcoded upload directory
+### ✅ TD-020: Hardcoded upload directory
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Configuration
 
-**Location**: `backend/app/config/pipelines.py:102`
-```python
-UPLOAD_DIR: str = "/tmp/second_brain_uploads"
-```
+**Location**: `backend/app/config/settings.py:168`
 
-**Fix**: Make configurable via environment variable.
+**Issue**: `UPLOAD_DIR` was hardcoded to `/tmp/second_brain_uploads`:
+- Not cross-platform (Windows uses different temp paths)
+- Duplicate definition existed in `pipelines.py` (never used)
+
+**Fix**:
+- Changed default to use `tempfile.gettempdir()` for cross-platform compatibility
+- Added `UPLOAD_DIR_PATH` property for convenient Path object access
+- Removed redundant definition from `pipelines.py`
+- Updated `.env.example` documentation
 
 ---
 
@@ -758,7 +763,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - [ ] TD-017: Large service files need splitting
 - [ ] TD-018: Inconsistent error handling patterns
 - ✅ ~~TD-019: Missing type hints~~
-- [ ] TD-020: Hardcoded upload directory
+- ✅ ~~TD-020: Hardcoded upload directory~~
 - [ ] TD-021: Review and clean up dependencies
 - [ ] TD-024: Missing prop validation
 - [ ] TD-026: Accessibility issues
@@ -997,9 +1002,32 @@ Implemented three incomplete TODO items:
 
 ---
 
+### ✅ TD-020: Hardcoded upload directory
+**Completed**: 2026-01-26
+
+Made upload directory configurable with cross-platform default.
+
+**Changes**:
+
+**`backend/app/config/settings.py`**:
+- Changed `UPLOAD_DIR` default from hardcoded `/tmp/second_brain_uploads` to `tempfile.gettempdir() / "second_brain_uploads"`
+- Added `UPLOAD_DIR_PATH` property for convenient Path object access
+- Uses Python's `tempfile` module for cross-platform temp directory detection
+
+**`backend/app/config/pipelines.py`**:
+- Removed redundant `UPLOAD_DIR` definition (was never used, storage.py imports from settings.py)
+
+**`.env.example`**:
+- Updated documentation to explain default behavior
+- Changed example to commented-out override instead of hardcoded value
+
+The upload directory is still fully configurable via the `UPLOAD_DIR` environment variable for users who need a specific location.
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 10 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 11 completed

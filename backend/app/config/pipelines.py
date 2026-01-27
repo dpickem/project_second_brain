@@ -96,11 +96,6 @@ class PipelineSettings(BaseSettings):
     DEDUP_WINDOW_DAYS: int = 30
     DEDUP_HASH_ALGORITHM: str = "sha256"
 
-    # ===========================================
-    # File Storage
-    # ===========================================
-    UPLOAD_DIR: str = "/tmp/second_brain_uploads"
-
     class Config:
         env_prefix = "PIPELINE_"
         env_file = ".env"

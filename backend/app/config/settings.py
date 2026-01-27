@@ -25,6 +25,7 @@ Usage:
 
 from __future__ import annotations
 
+import tempfile
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -165,7 +166,15 @@ class Settings(BaseSettings):
     # Temporary staging area for raw uploads, NOT the vault's assets/.
     # Uploads may fail processing or be rejected; only successful content goes to vault.
     # Flow: Upload → UPLOAD_DIR → Pipeline → Vault assets/ (if successful)
-    UPLOAD_DIR: str = "/tmp/second_brain_uploads"
+    #
+    # Default uses system temp directory for cross-platform compatibility.
+    # Override via UPLOAD_DIR environment variable if needed.
+    UPLOAD_DIR: str = str(Path(tempfile.gettempdir()) / "second_brain_uploads")
+
+    @property
+    def UPLOAD_DIR_PATH(self) -> Path:
+        """Expanded UPLOAD_DIR as Path object."""
+        return Path(self.UPLOAD_DIR).expanduser().resolve()
 
     # =========================================================================
     # LLM API KEYS
