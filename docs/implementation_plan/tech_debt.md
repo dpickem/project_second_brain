@@ -7,7 +7,7 @@ This document tracks known technical debt items and improvements for open-source
 - [Priority Levels](#priority-levels)
 - [Open-Source Release Blockers](#open-source-release-blockers)
   - ✅ ~~[TD-001: Missing LICENSE file](#td-001-missing-license-file)~~
-  - [TD-002: Missing CONTRIBUTING.md](#td-002-missing-contributingmd)
+  - ✅ ~~[TD-002: Missing CONTRIBUTING.md](#td-002-missing-contributingmd)~~
   - [TD-003: Missing CODE_OF_CONDUCT.md](#td-003-missing-code_of_conductmd)
   - [TD-004: CORS wildcard allows all origins](#td-004-cors-wildcard-allows-all-origins)
   - [TD-005: Missing production deployment documentation](#td-005-missing-production-deployment-documentation)
@@ -75,9 +75,9 @@ This document tracks known technical debt items and improvements for open-source
 
 ---
 
-### TD-002: Missing CONTRIBUTING.md
+### ✅ TD-002: Missing CONTRIBUTING.md
 **Priority**: P0  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Repository root
 
 **Description**: No contribution guidelines exist. Essential for community contributions.
@@ -742,7 +742,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 
 ### P0 - Critical (Must fix before release)
 - ✅ ~~TD-001: Missing LICENSE file~~
-- [ ] TD-002: Missing CONTRIBUTING.md
+- ✅ ~~TD-002: Missing CONTRIBUTING.md~~
 - [ ] TD-003: Missing CODE_OF_CONDUCT.md
 - [ ] TD-004: CORS wildcard allows all origins
 - [ ] TD-005: Missing production deployment documentation
@@ -1074,9 +1074,29 @@ With only one requirement: include license and copyright notice in copies.
 
 ---
 
+### ✅ TD-002: Missing CONTRIBUTING.md
+**Completed**: 2026-01-26
+
+Added comprehensive contribution guidelines derived from the existing project setup.
+
+**Contents**:
+- Development setup instructions (prerequisites, setup script, Docker services)
+- Development workflow (branching strategy, making changes)
+- Commit message convention (Conventional Commits format)
+- Code style guidelines:
+  - Python: type hints, import organization, naming conventions, constants
+  - JavaScript/React: ESLint rules, Prettier formatting, component structure
+- Testing requirements (pytest for backend, Vitest/Playwright for frontend)
+- Pull request process
+- Issue reporting guidelines
+
+**File created**: `CONTRIBUTING.md` in repository root
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 13 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 14 completed
