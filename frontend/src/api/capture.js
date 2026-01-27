@@ -34,6 +34,7 @@
  */
 
 import { typedApi } from './typed-client'
+import { API_URL } from './client'
 
 export const captureApi = {
   /**
@@ -55,7 +56,6 @@ export const captureApi = {
     formData.append('create_cards', createCards.toString())
     formData.append('create_exercises', createExercises.toString())
     
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
     const response = await fetch(`${API_URL}/api/capture/text`, {
       method: 'POST',
       body: formData,
@@ -82,7 +82,6 @@ export const captureApi = {
     if (notes) formData.append('notes', notes)
     if (tags && tags.length > 0) formData.append('tags', tags.join(','))
     
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
     const response = await fetch(`${API_URL}/api/capture/url`, {
       method: 'POST',
       body: formData,
@@ -110,7 +109,6 @@ export const captureApi = {
     if (options.tags) formData.append('tags', JSON.stringify(options.tags))
     if (options.contentType) formData.append('content_type', options.contentType)
     
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
     const response = await fetch(`${API_URL}/api/capture/file`, {
       method: 'POST',
       body: formData,

@@ -53,11 +53,21 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 
 /**
- * Base URL for all API requests.
- * Configured via environment variable VITE_API_URL, defaults to localhost:8000 for development.
+ * Default API URL used when VITE_API_URL environment variable is not set.
  * @constant {string}
  */
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const DEFAULT_API_URL = 'http://localhost:8000'
+
+/**
+ * Base URL for all API requests.
+ * Configured via environment variable VITE_API_URL, defaults to localhost:8000 for development.
+ * 
+ * This constant is exported so other API modules (capture.js, typed-client.js) can share
+ * the same configuration instead of redefining it.
+ * 
+ * @constant {string}
+ */
+export const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL
 
 /**
  * Pre-configured Axios instance for making HTTP requests to the backend API.

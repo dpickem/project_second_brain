@@ -9,7 +9,29 @@
  *   If no key is configured, requests are sent without authentication (dev mode).
  */
 
-// Determine API URL - use same host as PWA but port 8000 for backend
+/**
+ * Default API URL when VITE_API_URL is not set.
+ * Used for local development.
+ * @constant {string}
+ */
+const DEFAULT_API_URL = 'http://localhost:8000';
+
+/**
+ * Default backend port for dynamic URL resolution.
+ * @constant {number}
+ */
+const DEFAULT_BACKEND_PORT = 8000;
+
+/**
+ * Determine API URL with intelligent fallback for mobile access.
+ * 
+ * Resolution order:
+ * 1. If VITE_API_URL is set and not localhost, use it (production)
+ * 2. If on localhost, use VITE_API_URL or default localhost URL (dev)
+ * 3. Otherwise, use same host as PWA with backend port (mobile on LAN)
+ * 
+ * @returns {string} The API base URL
+ */
 function getApiUrl() {
   const envUrl = import.meta.env.VITE_API_URL;
   
@@ -20,12 +42,12 @@ function getApiUrl() {
   
   // If we're on localhost, use localhost
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return envUrl || 'http://localhost:8000';
+    return envUrl || DEFAULT_API_URL;
   }
   
   // Otherwise, use the same host as the PWA but with backend port
   // This handles accessing from mobile devices on the same network
-  return `http://${window.location.hostname}:8000`;
+  return `http://${window.location.hostname}:${DEFAULT_BACKEND_PORT}`;
 }
 
 const API_URL = getApiUrl();

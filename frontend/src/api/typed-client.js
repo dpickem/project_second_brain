@@ -52,15 +52,11 @@
  */
 
 import createClient from 'openapi-fetch'
+import { API_URL } from './client'
+
 // Types generated from OpenAPI schema - run `npm run generate:api-types` to update
 // @ts-ignore - JSDoc types work in JS files even without explicit import
 /** @typedef {import('./schema').paths} paths */
-
-/**
- * API base URL.
- * Same configuration as the axios client for consistency.
- */
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 /**
  * Typed API client created from OpenAPI schema.

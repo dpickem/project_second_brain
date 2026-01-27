@@ -30,7 +30,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)~~
 - [Frontend Tech Debt](#frontend-tech-debt)
   - ✅ ~~[TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)~~
-  - [TD-023: Hardcoded URLs throughout frontend](#td-023-hardcoded-urls-throughout-frontend)
+  - ✅ ~~[TD-023: Hardcoded URLs throughout frontend](#td-023-hardcoded-urls-throughout-frontend)~~
   - [TD-024: Missing prop validation](#td-024-missing-prop-validation)
   - [TD-025: Missing error boundaries](#td-025-missing-error-boundaries)
   - [TD-026: Accessibility issues](#td-026-accessibility-issues)
@@ -538,21 +538,25 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
-### TD-023: Hardcoded URLs throughout frontend
+### ✅ TD-023: Hardcoded URLs throughout frontend
 **Priority**: P1  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Configuration
 
-**Locations**:
-- `frontend/src/api/client.js:60` - `'http://localhost:8000'`
-- `frontend/src/api/capture.js:58, 85, 113` - Multiple localhost instances
-- `frontend/src/api/typed-client.js:63` - localhost
-- `frontend/capture/src/api/capture.js:23, 28` - localhost
-- `frontend/capture/index.html:25` - Hardcoded preconnect
-- `frontend/capture/vite.config.js:28` - Hardcoded proxy target
-- `frontend/scripts/generate-api-types.js:29` - Hardcoded backend URL
+**Locations** (all fixed):
+- `frontend/src/api/client.js` - Now exports `API_URL` for shared use
+- `frontend/src/api/capture.js` - Now imports `API_URL` from client.js
+- `frontend/src/api/typed-client.js` - Now imports `API_URL` from client.js
+- `frontend/capture/src/api/capture.js` - Uses constants for defaults, smart fallback for mobile
+- `frontend/capture/index.html` - Removed hardcoded preconnect
+- `frontend/capture/vite.config.js` - Now uses `process.env.VITE_API_URL` for proxy target
+- `frontend/scripts/generate-api-types.js` - Already used `process.env.BACKEND_URL` (no change needed)
 
-**Fix**: Use environment variables consistently.
+**Fix Applied**: 
+- Centralized `API_URL` export in `client.js` as single source of truth
+- Other modules now import from `client.js` instead of redefining
+- PWA uses named constants with intelligent fallback for mobile LAN access
+- Created `frontend/.env.example` documenting `VITE_API_URL` and `VITE_CAPTURE_API_KEY`
 
 ---
 
@@ -784,7 +788,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-014: N+1 query in mastery_service.py~~
 - ✅ ~~TD-015: Inconsistent datetime usage~~
 - ✅ ~~TD-022: Remove console.log statements~~
-- [ ] TD-023: Hardcoded URLs throughout frontend
+- ✅ ~~TD-023: Hardcoded URLs throughout frontend~~
 - [ ] TD-025: Missing error boundaries
 - [ ] TD-030: Skipped tests due to missing dependencies
 - [ ] TD-031: Hardcoded path in run_processing.py
@@ -1340,9 +1344,47 @@ Removed all production console.log/warn/error statements from frontend code.
 
 ---
 
+### ✅ TD-023: Hardcoded URLs throughout frontend
+**Completed**: 2026-01-27
+
+Centralized API URL configuration across the frontend codebase.
+
+**Changes**:
+
+**`frontend/src/api/client.js`**:
+- Exported `API_URL` constant as single source of truth
+- Added `DEFAULT_API_URL` constant for clarity
+
+**`frontend/src/api/capture.js`**:
+- Now imports `API_URL` from `client.js`
+- Removed 3 redundant inline `API_URL` definitions
+
+**`frontend/src/api/typed-client.js`**:
+- Now imports `API_URL` from `client.js`
+- Removed redundant `API_URL` definition
+
+**`frontend/capture/src/api/capture.js`**:
+- Added named constants (`DEFAULT_API_URL`, `DEFAULT_BACKEND_PORT`)
+- Enhanced `getApiUrl()` JSDoc documentation
+- Smart fallback preserved for mobile LAN access
+
+**`frontend/capture/index.html`**:
+- Removed hardcoded `<link rel="preconnect" href="http://localhost:8000">`
+
+**`frontend/capture/vite.config.js`**:
+- Proxy target now uses `process.env.VITE_API_URL || 'http://localhost:8000'`
+
+**New file: `frontend/.env.example`**:
+- Documents `VITE_API_URL` environment variable
+- Documents `VITE_CAPTURE_API_KEY` for PWA authentication
+
+**Note**: `frontend/scripts/generate-api-types.js` already used `process.env.BACKEND_URL` - no change needed.
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 21 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 22 completed
