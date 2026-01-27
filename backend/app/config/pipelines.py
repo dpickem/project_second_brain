@@ -76,6 +76,8 @@ class PipelineSettings(BaseSettings):
     GITHUB_SYNC_STARRED: bool = True
     GITHUB_MAX_REPOS: int = 100
     GITHUB_ANALYZE_STRUCTURE: bool = True
+    GITHUB_GENERATE_CARDS: bool = True  # Generate spaced repetition cards for repos
+    GITHUB_GENERATE_EXERCISES: bool = True  # Generate practice exercises for repos
 
     # ===========================================
     # Voice Transcription

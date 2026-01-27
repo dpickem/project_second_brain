@@ -93,6 +93,7 @@ from tenacity import (
 # Internal imports
 # =============================================================================
 from app.config import settings
+from app.config.pipelines import pipeline_settings
 from app.pipelines import (
     BookOCRPipeline,
     GitHubImporter,
@@ -1009,7 +1010,10 @@ def sync_github(limit: int = 50) -> SyncResult:
         logger.error(f"GitHub sync failed after all retries: {e}")
         raise
 
-    # Save each item to database and queue for processing
+    # Save each item to database and queue for LLM processing
+    # Note: GitHubImporter already does repo analysis (ingestion), so we skip
+    # re-ingestion and go directly to process_content for summaries, concepts,
+    # cards, and Obsidian note generation.
     async def save_and_queue():
         saved_count = 0
         for item in items:
@@ -1017,11 +1021,13 @@ def sync_github(limit: int = 50) -> SyncResult:
                 # Save content to database first
                 await save_content(item)
                 saved_count += 1
-                # Then queue for processing
-                ingest_content_low.delay(
+                # Queue for LLM processing (skip ingestion - already done by GitHubImporter)
+                process_content.delay(
                     content_id=item.id,
-                    content_type=PipelineContentType.CODE.value,
-                    source_url=item.source_url,
+                    config_dict={
+                        "generate_cards": pipeline_settings.GITHUB_GENERATE_CARDS,
+                        "generate_exercises": pipeline_settings.GITHUB_GENERATE_EXERCISES,
+                    },
                 )
             except Exception as e:
                 logger.error(f"Failed to save/queue repo {item.id}: {e}")

@@ -197,6 +197,133 @@ def _get_template_name(content_type: str) -> str:
     return f"{content_type}.md.j2"
 
 
+def _extract_code_template_data(content: UnifiedContent) -> dict[str, Any]:
+    """
+    Extract CODE-specific template variables from GitHub repo analysis.
+
+    Parses the structured LLM analysis in full_text to extract sections like
+    Purpose, Architecture, Tech Stack, and Key Learnings. Also extracts
+    metadata like stars, language from content.metadata.
+
+    Args:
+        content: UnifiedContent with GitHub repo analysis in full_text
+
+    Returns:
+        Dict with code.md.j2 template variables:
+        - url, language, stars (from metadata)
+        - purpose, architecture, tech_stack, learnings, ideas (from full_text)
+    """
+    metadata = content.metadata or {}
+    full_text = content.full_text or ""
+
+    # Helper to extract a section from markdown
+    def extract_section(text: str, section_patterns: list[str]) -> str:
+        """Extract content between a section header and the next section."""
+        for pattern in section_patterns:
+            match = re.search(
+                pattern + r"[:\s]*\n(.*?)(?=\n(?:###|\d+\.\s*\*\*|\*\*\d+\.)|$)",
+                text,
+                re.DOTALL | re.IGNORECASE
+            )
+            if match:
+                return match.group(1).strip()
+        return ""
+
+    # Helper to extract list items from a section
+    def extract_list_items(text: str, section_patterns: list[str]) -> list[str]:
+        """Extract bullet points or numbered items from a section."""
+        section = extract_section(text, section_patterns)
+        if not section:
+            return []
+        
+        items = []
+        # Match numbered items (1., 2.) or bullet points (-, *)
+        for match in re.finditer(r"(?:^|\n)\s*(?:\d+\.|\-|\*)\s*(.+?)(?=\n|$)", section):
+            item = match.group(1).strip()
+            # Remove markdown formatting like **bold**
+            item = re.sub(r"\*\*(.+?)\*\*", r"\1", item)
+            if item:
+                items.append(item)
+        
+        return items
+
+    # Extract purpose
+    purpose = extract_section(full_text, [
+        r"\*\*Purpose\*\*",
+        r"### 1\. Purpose",
+        r"## Purpose",
+        r"1\.\s*\*\*Purpose\*\*",
+    ])
+
+    # Extract architecture
+    architecture = extract_section(full_text, [
+        r"\*\*Architecture Overview\*\*",
+        r"### 2\. Architecture",
+        r"## Architecture Overview",
+        r"2\.\s*\*\*Architecture Overview\*\*",
+    ])
+
+    # Extract tech stack as structured data
+    tech_stack_section = extract_section(full_text, [
+        r"\*\*Tech Stack\*\*",
+        r"### 3\. Tech Stack",
+        r"## Tech Stack",
+        r"3\.\s*\*\*Tech Stack\*\*",
+    ])
+    tech_stack = {
+        "language": metadata.get("language", ""),
+        "framework": "",
+        "dependencies": "",
+    }
+    # Try to parse framework/dependencies from tech stack section
+    if tech_stack_section:
+        # Look for patterns like "Framework: X" or "- Framework: X"
+        framework_match = re.search(r"[Ff]ramework[s]?[:\s]+([^\n,]+)", tech_stack_section)
+        if framework_match:
+            tech_stack["framework"] = framework_match.group(1).strip()
+        
+        deps_match = re.search(r"[Dd]ependenc(?:y|ies)[:\s]+([^\n]+)", tech_stack_section)
+        if deps_match:
+            tech_stack["dependencies"] = deps_match.group(1).strip()
+
+    # Extract key learnings as list
+    learnings = extract_list_items(full_text, [
+        r"\*\*Key Learnings\*\*",
+        r"### 4\. Key Learnings",
+        r"## Key Learnings",
+        r"4\.\s*\*\*Key Learnings\*\*",
+    ])
+
+    # Extract notable features as ideas
+    ideas = extract_list_items(full_text, [
+        r"\*\*Notable Features\*\*",
+        r"### 5\. Notable Features",
+        r"## Notable Features",
+        r"5\.\s*\*\*Notable Features\*\*",
+    ])
+
+    # Extract patterns from architecture section (look for pattern mentions)
+    patterns = []
+    if architecture:
+        # Look for "pattern" mentions
+        pattern_matches = re.findall(r"(?:\*\*)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+[Pp]attern)(?:\*\*)?", architecture)
+        for p in pattern_matches[:5]:  # Limit to 5
+            patterns.append({"name": p, "description": ""})
+
+    return {
+        "url": content.source_url or "",
+        "language": metadata.get("language", ""),
+        "stars": metadata.get("stars", ""),
+        "purpose": purpose,
+        "why_saved": "",  # User can fill this in
+        "architecture": architecture,
+        "tech_stack": tech_stack,
+        "patterns": patterns,
+        "learnings": learnings,
+        "ideas": ideas,
+    }
+
+
 def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) -> TemplateData:
     """
     Prepare data dict for template rendering.
@@ -298,7 +425,8 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
     if content.metadata:
         source_path = content.metadata.get("source_path", "") or content.metadata.get("file_path", "")
     
-    return {
+    # Build base template data (common to all content types)
+    data: dict[str, Any] = {
         # Basic metadata
         "content_type": result.analysis.content_type,
         "title": _escape_yaml_string(best_title),
@@ -346,6 +474,17 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
         ),
         "next_steps": [t["task"] for t in tasks],
     }
+
+    # Add CODE-specific variables for code.md.j2 template
+    # These are extracted from the GitHubImporter's structured LLM analysis
+    if result.analysis.content_type == "code":
+        code_data = _extract_code_template_data(content)
+        data.update(code_data)
+        # Override 'related' with connections if we have them, otherwise keep code_data's empty list
+        if connections:
+            data["related"] = [c["note"] for c in connections]
+
+    return data
 
 
 async def generate_obsidian_note(
