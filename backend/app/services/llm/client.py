@@ -55,6 +55,22 @@ from app.models.llm_usage import (
 
 logger = logging.getLogger(__name__)
 
+
+# =============================================================================
+# LLM Client Configuration Constants
+# =============================================================================
+
+# Retry configuration for LLM API calls
+LLM_RETRY_ATTEMPTS = 3
+LLM_RETRY_MULTIPLIER_SEC = 1
+LLM_RETRY_MIN_SEC = 2
+LLM_RETRY_MAX_SEC = 30
+
+# Default generation parameters
+DEFAULT_TEMPERATURE = 0.3
+DEFAULT_MAX_TOKENS = 4096
+
+
 # Configure LiteLLM
 litellm.drop_params = True  # Drop unsupported params instead of erroring
 if settings.DEBUG:
@@ -188,8 +204,12 @@ class LLMClient:
         return self.MODELS.get(operation, settings.TEXT_MODEL)
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=30),
+        stop=stop_after_attempt(LLM_RETRY_ATTEMPTS),
+        wait=wait_exponential(
+            multiplier=LLM_RETRY_MULTIPLIER_SEC,
+            min=LLM_RETRY_MIN_SEC,
+            max=LLM_RETRY_MAX_SEC,
+        ),
         reraise=True,
     )
     async def complete(
@@ -291,8 +311,12 @@ class LLMClient:
             raise
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=30),
+        stop=stop_after_attempt(LLM_RETRY_ATTEMPTS),
+        wait=wait_exponential(
+            multiplier=LLM_RETRY_MULTIPLIER_SEC,
+            min=LLM_RETRY_MIN_SEC,
+            max=LLM_RETRY_MAX_SEC,
+        ),
         reraise=True,
     )
     def complete_sync(
@@ -396,8 +420,12 @@ class LLMClient:
             raise
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=30),
+        stop=stop_after_attempt(LLM_RETRY_ATTEMPTS),
+        wait=wait_exponential(
+            multiplier=LLM_RETRY_MULTIPLIER_SEC,
+            min=LLM_RETRY_MIN_SEC,
+            max=LLM_RETRY_MAX_SEC,
+        ),
         reraise=True,
     )
     async def embed(
@@ -438,8 +466,12 @@ class LLMClient:
         return embeddings, usage
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=30),
+        stop=stop_after_attempt(LLM_RETRY_ATTEMPTS),
+        wait=wait_exponential(
+            multiplier=LLM_RETRY_MULTIPLIER_SEC,
+            min=LLM_RETRY_MIN_SEC,
+            max=LLM_RETRY_MAX_SEC,
+        ),
         reraise=True,
     )
     def embed_sync(
@@ -483,8 +515,12 @@ class LLMClient:
         return embeddings, usage
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=30),
+        stop=stop_after_attempt(LLM_RETRY_ATTEMPTS),
+        wait=wait_exponential(
+            multiplier=LLM_RETRY_MULTIPLIER_SEC,
+            min=LLM_RETRY_MIN_SEC,
+            max=LLM_RETRY_MAX_SEC,
+        ),
         reraise=True,
     )
     async def complete_with_vision(

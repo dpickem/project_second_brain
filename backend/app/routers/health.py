@@ -25,6 +25,9 @@ from app.services.obsidian.lifecycle import get_watcher_status
 from app.services.obsidian.vault import get_vault_manager
 from app.services.queue import celery_app
 
+# Health check configuration constants
+CELERY_INSPECT_TIMEOUT_SEC = 2.0
+
 router = APIRouter(prefix="/api/health", tags=["health"])
 
 
@@ -136,7 +139,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str,
 
     # Check Celery workers
     try:
-        inspect = celery_app.control.inspect(timeout=2.0)
+        inspect = celery_app.control.inspect(timeout=CELERY_INSPECT_TIMEOUT_SEC)
         ping_response = inspect.ping()
 
         if ping_response:

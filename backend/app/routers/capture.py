@@ -38,7 +38,7 @@ Usage:
         -F "files=@p1.jpg" -F "files=@p2.jpg" -F "title=Deep Work"
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import re
 from pathlib import Path
@@ -65,6 +65,18 @@ from app.services.tasks import (
     ingest_content_high,
     process_content,
 )
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+# Title generation
+MAX_TITLE_LENGTH = 100
+TITLE_TRUNCATE_SUFFIX = "..."
+
+# URL fetching
+URL_FETCH_TIMEOUT_SEC = 10.0
+URL_FETCH_USER_AGENT = "Second Brain Bot 1.0"
 
 # Router with API key authentication for all endpoints
 router = APIRouter(
@@ -113,7 +125,7 @@ async def capture_text(
     ucf = UnifiedContent(
         source_type=ContentType.IDEA,
         title=title,
-        created_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
         full_text=content,
         tags=tag_list,
     )
@@ -198,7 +210,7 @@ async def capture_url(
         source_type=ContentType.ARTICLE,
         source_url=normalized_url,
         title=title,
-        created_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
         full_text="",  # Will be fetched during processing
         annotations=annotations,
         tags=tag_list,
@@ -308,7 +320,7 @@ async def capture_photo(
         source_type=content_type,
         source_file_path=str(file_path),
         title=title,
-        created_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
         full_text="",  # Will be extracted during processing
         annotations=annotations,
         asset_paths=[str(file_path)],
@@ -415,8 +427,8 @@ async def capture_voice(
     ucf = UnifiedContent(
         source_type=ContentType.VOICE_MEMO,
         source_file_path=str(file_path),
-        title=f"Voice memo - {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-        created_at=datetime.now(),
+        title=f"Voice memo - {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
+        created_at=datetime.now(timezone.utc),
         full_text="",  # Will be transcribed
         asset_paths=[str(file_path)],
         raw_file_hash=file_hash,
@@ -516,7 +528,7 @@ async def capture_pdf(
         source_type=ContentType.PAPER,
         source_file_path=str(file_path),
         title=title,
-        created_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
         full_text="",  # Will be extracted
         asset_paths=[str(file_path)],
         raw_file_hash=file_hash,
@@ -664,14 +676,14 @@ async def capture_book(
         )
 
     # Generate title if not provided
-    book_title = title or f"Book capture - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    book_title = title or f"Book capture - {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}"
 
     # Create content entry (will be updated after processing)
     ucf = UnifiedContent(
         source_type=ContentType.BOOK,
         title=book_title,
         authors=author_list,
-        created_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
         full_text="",  # Will be populated by pipeline
         annotations=annotations,
         asset_paths=saved_paths,
@@ -738,16 +750,17 @@ def _generate_title(content: str) -> str:
              or a date-based fallback title if content is empty.
     """
     if not content:
-        return f"Note - {datetime.now().strftime('%Y-%m-%d')}"
+        return f"Note - {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
 
     # Use first line as title
     first_line = content.strip().split("\n")[0]
     first_line = first_line.lstrip("#").strip()
 
-    if len(first_line) > 100:
-        first_line = first_line[:97] + "..."
+    if len(first_line) > MAX_TITLE_LENGTH:
+        truncate_at = MAX_TITLE_LENGTH - len(TITLE_TRUNCATE_SUFFIX)
+        first_line = first_line[:truncate_at] + TITLE_TRUNCATE_SUFFIX
 
-    return first_line or f"Note - {datetime.now().strftime('%Y-%m-%d')}"
+    return first_line or f"Note - {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
 
 
 async def _fetch_page_title(url: str) -> str:
@@ -762,10 +775,10 @@ async def _fetch_page_title(url: str) -> str:
              Uses a 10-second timeout and follows redirects.
     """
     try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=URL_FETCH_TIMEOUT_SEC, follow_redirects=True) as client:
             response = await client.get(
                 url,
-                headers={"User-Agent": "Second Brain Bot 1.0"},
+                headers={"User-Agent": URL_FETCH_USER_AGENT},
             )
 
             if response.status_code == 200:

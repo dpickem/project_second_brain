@@ -72,7 +72,7 @@ Usage:
 # =============================================================================
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional, TypedDict
 
@@ -122,6 +122,32 @@ from app.services.processing.pipeline import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Retry configuration constants
+# =============================================================================
+
+# Content processing retry settings (ingestion pipeline)
+CONTENT_RETRY_ATTEMPTS = 3
+CONTENT_RETRY_MULTIPLIER_SEC = 60  # 1 minute
+CONTENT_RETRY_MIN_SEC = 60  # 1 minute minimum wait
+CONTENT_RETRY_MAX_SEC = 240  # 4 minutes maximum wait
+
+# External API sync retry settings (Raindrop, GitHub)
+SYNC_RETRY_ATTEMPTS = 3
+SYNC_RETRY_MULTIPLIER_SEC = 300  # 5 minutes
+SYNC_RETRY_MIN_SEC = 300  # 5 minutes minimum wait
+SYNC_RETRY_MAX_SEC = 1200  # 20 minutes maximum wait
+
+# LLM processing retry settings (expensive, fewer retries)
+LLM_RETRY_ATTEMPTS = 2
+LLM_RETRY_MULTIPLIER_SEC = 120  # 2 minutes
+LLM_RETRY_MIN_SEC = 120  # 2 minutes minimum wait
+LLM_RETRY_MAX_SEC = 300  # 5 minutes maximum wait
+
+# Default sync window
+DEFAULT_SYNC_HOURS = 24
 
 
 # =============================================================================
@@ -211,29 +237,40 @@ class VaultSyncResult(TaskResultBase):
 # Retry configurations using tenacity
 # =============================================================================
 
-# For content processing: 3 attempts, 1-4 min exponential backoff
+# For content processing: exponential backoff with configurable limits
 # Don't retry validation errors (file size limits, missing files, invalid content types)
 content_retry = retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=60, min=60, max=240),
+    stop=stop_after_attempt(CONTENT_RETRY_ATTEMPTS),
+    wait=wait_exponential(
+        multiplier=CONTENT_RETRY_MULTIPLIER_SEC,
+        min=CONTENT_RETRY_MIN_SEC,
+        max=CONTENT_RETRY_MAX_SEC,
+    ),
     before_sleep=before_sleep_log(logger, logging.WARNING),
     retry=retry_if_not_exception_type((ValueError, FileNotFoundError)),
     reraise=True,
 )
 
-# For external API syncs: 3 attempts, 5-20 min exponential backoff
+# For external API syncs: longer backoff for rate limits
 sync_retry = retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=300, min=300, max=1200),
+    stop=stop_after_attempt(SYNC_RETRY_ATTEMPTS),
+    wait=wait_exponential(
+        multiplier=SYNC_RETRY_MULTIPLIER_SEC,
+        min=SYNC_RETRY_MIN_SEC,
+        max=SYNC_RETRY_MAX_SEC,
+    ),
     before_sleep=before_sleep_log(logger, logging.WARNING),
     reraise=True,
 )
 
-# For LLM processing: 2 attempts, 2-5 min exponential backoff
-# Fewer retries than ingestion since LLM processing is expensive.
+# For LLM processing: fewer retries since LLM processing is expensive
 llm_processing_retry = retry(
-    stop=stop_after_attempt(2),
-    wait=wait_exponential(multiplier=120, min=120, max=300),
+    stop=stop_after_attempt(LLM_RETRY_ATTEMPTS),
+    wait=wait_exponential(
+        multiplier=LLM_RETRY_MULTIPLIER_SEC,
+        min=LLM_RETRY_MIN_SEC,
+        max=LLM_RETRY_MAX_SEC,
+    ),
     before_sleep=before_sleep_log(logger, logging.WARNING),
     reraise=True,
 )
@@ -311,7 +348,7 @@ async def _run_llm_processing_impl(
 
                 # Update content status and metadata
                 db_content.status = ProcessingStatus.PROCESSED
-                db_content.processed_at = datetime.utcnow()
+                db_content.processed_at = datetime.now(timezone.utc)
                 db_content.summary = processing_result.summaries.get("standard", "")
                 if processing_result.obsidian_note_path:
                     db_content.vault_path = processing_result.obsidian_note_path
@@ -518,7 +555,7 @@ def _ingest_content_impl(
             "content_id": content_id,
             "content_type": content_type,
             "title": result.title,
-            "ingested_at": datetime.utcnow().isoformat(),
+            "ingested_at": datetime.now(timezone.utc).isoformat(),
             "processing_queued": True,
         }
 
@@ -527,7 +564,7 @@ def _ingest_content_impl(
         "content_id": content_id,
         "content_type": content_type,
         "title": result.title,
-        "ingested_at": datetime.utcnow().isoformat(),
+        "ingested_at": datetime.now(timezone.utc).isoformat(),
         "processing_queued": False,
     }
 
@@ -723,7 +760,7 @@ def _process_book_impl(
             "title": result.title,
             "pages_processed": result.metadata.get("total_pages_processed", 0),
             "llm_cost_usd": result.metadata.get("llm_cost_usd", 0),
-            "ingested_at": datetime.utcnow().isoformat(),
+            "ingested_at": datetime.now(timezone.utc).isoformat(),
             "processing_queued": True,
         }
 
@@ -733,7 +770,7 @@ def _process_book_impl(
         "title": result.title,
         "pages_processed": result.metadata.get("total_pages_processed", 0),
         "llm_cost_usd": result.metadata.get("llm_cost_usd", 0),
-        "ingested_at": datetime.utcnow().isoformat(),
+        "ingested_at": datetime.now(timezone.utc).isoformat(),
         "processing_queued": False,
     }
 
@@ -852,7 +889,7 @@ def sync_raindrop(
     if since:
         since_dt = datetime.fromisoformat(since)
     else:
-        since_dt = datetime.utcnow() - timedelta(hours=24)
+        since_dt = datetime.now(timezone.utc) - timedelta(hours=DEFAULT_SYNC_HOURS)
 
     # Check for API token early (skip without retry)
     if not settings.RAINDROP_ACCESS_TOKEN:
@@ -889,7 +926,7 @@ def sync_raindrop(
     return {
         "status": ProcessingRunStatus.COMPLETED.value,
         "items_synced": saved_count,
-        "synced_at": datetime.utcnow().isoformat(),
+        "synced_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -968,7 +1005,7 @@ def sync_github(limit: int = 50) -> SyncResult:
     return {
         "status": ProcessingRunStatus.COMPLETED.value,
         "repos_synced": saved_count,
-        "synced_at": datetime.utcnow().isoformat(),
+        "synced_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -1043,5 +1080,5 @@ def cleanup_old_tasks() -> TaskResultBase:
 
     return {
         "status": ProcessingRunStatus.COMPLETED.value,
-        "cleaned_at": datetime.utcnow().isoformat(),
+        "cleaned_at": datetime.now(timezone.utc).isoformat(),
     }

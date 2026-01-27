@@ -40,13 +40,34 @@ Usage:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Scheduler Configuration Constants
+# =============================================================================
+
+# Sync window defaults
+DEFAULT_SYNC_HOURS = 24
+
+# GitHub sync defaults
+GITHUB_SYNC_DEFAULT_LIMIT = 100
+
+# Scheduler run intervals (hours)
+RAINDROP_SYNC_INTERVAL_HOURS = 6
+GITHUB_SYNC_CRON_HOUR = 7  # 7 AM UTC
+CLEANUP_CRON_HOUR = 3  # 3 AM UTC
+TAXONOMY_SYNC_CRON_HOUR = 4  # 4 AM UTC
+
+# Misfire handling
+MISFIRE_GRACE_TIME_SEC = 3600  # 1 hour grace period
+
 
 # Global scheduler instance
 scheduler = AsyncIOScheduler()
@@ -58,7 +79,7 @@ async def trigger_raindrop_sync() -> None:
     # Importing here avoids loading the full task module at scheduler initialization.
     from app.services.tasks import sync_raindrop
 
-    since = datetime.utcnow() - timedelta(hours=24)
+    since = datetime.now(timezone.utc) - timedelta(hours=DEFAULT_SYNC_HOURS)
     sync_raindrop.delay(since.isoformat())
     logger.info(f"Triggered Raindrop sync since {since}")
 
@@ -68,7 +89,7 @@ async def trigger_github_sync() -> None:
     # Deferred import: Celery tasks are heavy and may have circular dependencies.
     from app.services.tasks import sync_github
 
-    sync_github.delay(limit=100)
+    sync_github.delay(limit=GITHUB_SYNC_DEFAULT_LIMIT)
     logger.info("Triggered GitHub sync")
 
 
@@ -96,44 +117,44 @@ async def trigger_taxonomy_sync() -> None:
 def setup_scheduled_jobs() -> None:
     """Configure all scheduled sync jobs."""
 
-    # Raindrop sync - every 6 hours
+    # Raindrop sync - every N hours (configurable)
     scheduler.add_job(
         trigger_raindrop_sync,
-        CronTrigger(hour="*/6"),
+        CronTrigger(hour=f"*/{RAINDROP_SYNC_INTERVAL_HOURS}"),
         id="raindrop_sync",
         name="Raindrop.io Sync",
         replace_existing=True,
-        misfire_grace_time=3600,  # Allow 1 hour grace period
+        misfire_grace_time=MISFIRE_GRACE_TIME_SEC,
     )
 
-    # GitHub starred sync - daily at 7 AM UTC
+    # GitHub starred sync - daily at configured hour UTC
     scheduler.add_job(
         trigger_github_sync,
-        CronTrigger(hour=7, minute=0),
+        CronTrigger(hour=GITHUB_SYNC_CRON_HOUR, minute=0),
         id="github_sync",
         name="GitHub Starred Sync",
         replace_existing=True,
-        misfire_grace_time=3600,
+        misfire_grace_time=MISFIRE_GRACE_TIME_SEC,
     )
 
-    # Cleanup task - daily at 3 AM UTC
+    # Cleanup task - daily at configured hour UTC
     scheduler.add_job(
         trigger_cleanup,
-        CronTrigger(hour=3, minute=0),
+        CronTrigger(hour=CLEANUP_CRON_HOUR, minute=0),
         id="cleanup",
         name="Task Cleanup",
         replace_existing=True,
-        misfire_grace_time=3600,
+        misfire_grace_time=MISFIRE_GRACE_TIME_SEC,
     )
 
-    # Taxonomy sync - daily at 4 AM UTC
+    # Taxonomy sync - daily at configured hour UTC
     scheduler.add_job(
         trigger_taxonomy_sync,
-        CronTrigger(hour=4, minute=0),
+        CronTrigger(hour=TAXONOMY_SYNC_CRON_HOUR, minute=0),
         id="taxonomy_sync",
         name="Tag Taxonomy Sync",
         replace_existing=True,
-        misfire_grace_time=3600,
+        misfire_grace_time=MISFIRE_GRACE_TIME_SEC,
     )
 
     logger.info("Scheduled jobs configured:")
@@ -193,7 +214,7 @@ def trigger_job_now(job_id: str) -> bool:
     """
     job = scheduler.get_job(job_id)
     if job:
-        job.modify(next_run_time=datetime.now())
+        job.modify(next_run_time=datetime.now(timezone.utc))
         logger.info(f"Manually triggered job: {job_id}")
         return True
 
