@@ -20,7 +20,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-011: Clean up imports and move to top of files](#td-011-clean-up-imports-and-move-to-top-of-files)~~
   - [TD-012: Robust deduplication and cleanup on reprocessing](#td-012-robust-deduplication-and-cleanup-on-reprocessing)
   - ✅ ~~[TD-013: Eliminate magic numbers](#td-013-eliminate-magic-numbers)~~
-  - [TD-014: N+1 query in mastery_service.py](#td-014-n1-query-in-mastery_servicepy)
+  - ✅ ~~[TD-014: N+1 query in mastery_service.py](#td-014-n1-query-in-mastery_servicepy)~~
   - ✅ ~~[TD-015: Inconsistent datetime usage](#td-015-inconsistent-datetime-usage)~~
   - [TD-016: Incomplete TODO implementations](#td-016-incomplete-todo-implementations)
   - [TD-017: Large service files need splitting](#td-017-large-service-files-need-splitting)
@@ -343,21 +343,17 @@ def process_items(items):
 
 ---
 
-### TD-014: N+1 query in mastery_service.py
+### ✅ TD-014: N+1 query in mastery_service.py
 **Priority**: P1  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Performance
 
-**Location**: `backend/app/services/learning/mastery_service.py:412-420`
+**Location**: `backend/app/services/learning/mastery_service.py:409-431`
 
-**Issue**: Loop executes a separate query per topic:
-```python
-for topic_path in topic_paths:
-    card_count_query = select(func.count(SpacedRepCard.id)).where(...)
-    result = await self.db.execute(card_count_query)
-```
+**Issue**: Loop executed a separate query per topic when counting cards.
 
-**Fix**: Batch queries or use a single query with GROUP BY.
+**Fix**: Replaced N+1 loop with a single batched query using PostgreSQL's `unnest` function
+to expand the tags array, then GROUP BY to count cards per topic in one database round-trip.
 
 ---
 
@@ -734,7 +730,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - [ ] TD-007: Add CHANGELOG.md and SECURITY.md
 - ✅ ~~TD-009: Complete LLM/OCR/VLM usage tracking~~
 - [ ] TD-012: Robust deduplication and cleanup on reprocessing
-- [ ] TD-014: N+1 query in mastery_service.py
+- ✅ ~~TD-014: N+1 query in mastery_service.py~~
 - ✅ ~~TD-015: Inconsistent datetime usage~~
 - [ ] TD-022: Remove console.log statements
 - [ ] TD-023: Hardcoded URLs throughout frontend
@@ -913,9 +909,38 @@ All files now use `from __future__ import annotations` and `TYPE_CHECKING` impor
 
 ---
 
+### ✅ TD-014: N+1 query in mastery_service.py
+**Completed**: 2026-01-26
+
+Fixed N+1 query performance issue in `get_enhanced_topic_states()` method.
+
+**Before**: Loop executed separate query for each topic (N+1 pattern):
+```python
+for topic_path in topic_paths:
+    card_count_query = select(func.count(SpacedRepCard.id)).where(...)
+    result = await self.db.execute(card_count_query)
+```
+
+**After**: Single batched query using PostgreSQL `unnest` + GROUP BY:
+```python
+unnested_tags = select(
+    SpacedRepCard.id.label("card_id"),
+    func.unnest(SpacedRepCard.tags).label("topic"),
+).subquery()
+
+card_count_query = select(
+    unnested_tags.c.topic,
+    func.count(distinct(unnested_tags.c.card_id)).label("card_count"),
+).where(unnested_tags.c.topic.in_(topic_paths)).group_by(unnested_tags.c.topic)
+```
+
+This reduces database round-trips from O(n) to O(1) where n is the number of topics.
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 7 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 8 completed

@@ -407,17 +407,30 @@ class MasteryService:
         }
 
         # Get card counts per topic using unnest to properly handle the tags array
-        # For cards, we count cards that have the topic in their tags array
-        card_counts = {}
-        for topic_path in topic_paths:
-            card_count_query = (
-                select(func.count(SpacedRepCard.id))
-                .where(SpacedRepCard.tags.any(topic_path))
+        # This uses a single batched query instead of N+1 queries (TD-014 fix)
+        # Create a subquery that unnests the tags array into individual rows
+        unnested_tags = (
+            select(
+                SpacedRepCard.id.label("card_id"),
+                func.unnest(SpacedRepCard.tags).label("topic"),
             )
-            result = await self.db.execute(card_count_query)
-            count = result.scalar() or 0
-            if count > 0:
-                card_counts[topic_path] = count
+            .where(SpacedRepCard.tags.isnot(None))
+            .subquery()
+        )
+
+        # Count cards per topic, filtering to only the topics we care about
+        card_count_query = (
+            select(
+                unnested_tags.c.topic,
+                func.count(distinct(unnested_tags.c.card_id)).label("card_count"),
+            )
+            .where(unnested_tags.c.topic.in_(topic_paths))
+            .group_by(unnested_tags.c.topic)
+        )
+        card_count_result = await self.db.execute(card_count_query)
+        card_counts = {
+            row.topic: row.card_count for row in card_count_result.fetchall()
+        }
 
         # Enhance each topic state
         enhanced_states = []
