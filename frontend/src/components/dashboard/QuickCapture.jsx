@@ -9,10 +9,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { clsx } from 'clsx'
 import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import PropTypes from 'prop-types'
 import { Card, Button, Textarea, Checkbox } from '../common'
 import { captureApi } from '../../api/capture'
 import { scaleIn } from '../../utils/animations'
 
+/**
+ * QuickCapture component for capturing notes with optional learning material generation.
+ */
 export function QuickCapture({
   onSuccess,
   placeholder = 'Capture a thought, idea, or note...',
@@ -145,7 +149,15 @@ export function QuickCapture({
   )
 }
 
-// Minimal inline capture variant
+QuickCapture.propTypes = {
+  onSuccess: PropTypes.func,
+  placeholder: PropTypes.string,
+  className: PropTypes.string,
+}
+
+/**
+ * Minimal inline capture variant.
+ */
 export function InlineCapture({ onSuccess, className }) {
   const [text, setText] = useState('')
   const [isFocused, setIsFocused] = useState(false)
@@ -207,6 +219,11 @@ export function InlineCapture({ onSuccess, className }) {
       </div>
     </motion.div>
   )
+}
+
+InlineCapture.propTypes = {
+  onSuccess: PropTypes.func,
+  className: PropTypes.string,
 }
 
 export default QuickCapture

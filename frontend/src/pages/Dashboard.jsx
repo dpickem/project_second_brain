@@ -7,6 +7,7 @@
 import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { clsx } from 'clsx'
+import PropTypes from 'prop-types'
 import { 
   StatsHeader, 
   PracticeActionCard, 
@@ -188,6 +189,13 @@ function QuickLink({ to, icon, title, description }) {
       <p className="text-xs text-text-muted mt-0.5">{description}</p>
     </motion.a>
   )
+}
+
+QuickLink.propTypes = {
+  to: PropTypes.string.isRequired,
+  icon: PropTypes.string.isRequired,
+  title: PropTypes.string.isRequired,
+  description: PropTypes.string.isRequired,
 }
 
 export default Dashboard

@@ -7,6 +7,7 @@
 import { forwardRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import PropTypes from 'prop-types'
 
 const sizes = {
   sm: 'px-3 py-1.5 text-sm',
@@ -103,6 +104,18 @@ export const Input = forwardRef(function Input(
   )
 })
 
+Input.propTypes = {
+  label: PropTypes.string,
+  error: PropTypes.string,
+  hint: PropTypes.string,
+  icon: PropTypes.node,
+  iconPosition: PropTypes.oneOf(['left', 'right']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg']),
+  type: PropTypes.string,
+  className: PropTypes.string,
+  wrapperClassName: PropTypes.string,
+}
+
 // Textarea variant
 export const Textarea = forwardRef(function Textarea(
   {
@@ -154,6 +167,16 @@ export const Textarea = forwardRef(function Textarea(
   )
 })
 
+Textarea.propTypes = {
+  label: PropTypes.string,
+  error: PropTypes.string,
+  hint: PropTypes.string,
+  size: PropTypes.oneOf(['sm', 'md', 'lg']),
+  rows: PropTypes.number,
+  className: PropTypes.string,
+  wrapperClassName: PropTypes.string,
+}
+
 // Search Input
 export const SearchInput = forwardRef(function SearchInput(
   { placeholder = 'Search...', onClear, value, ...props },
@@ -195,6 +218,12 @@ export const SearchInput = forwardRef(function SearchInput(
     </div>
   )
 })
+
+SearchInput.propTypes = {
+  placeholder: PropTypes.string,
+  onClear: PropTypes.func,
+  value: PropTypes.string,
+}
 
 // Select Input
 export const Select = forwardRef(function Select(
@@ -272,6 +301,23 @@ export const Select = forwardRef(function Select(
   )
 })
 
+Select.propTypes = {
+  label: PropTypes.string,
+  error: PropTypes.string,
+  hint: PropTypes.string,
+  size: PropTypes.oneOf(['sm', 'md', 'lg']),
+  options: PropTypes.arrayOf(
+    PropTypes.shape({
+      value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      label: PropTypes.string.isRequired,
+      disabled: PropTypes.bool,
+    })
+  ),
+  placeholder: PropTypes.string,
+  className: PropTypes.string,
+  wrapperClassName: PropTypes.string,
+}
+
 // Checkbox
 export const Checkbox = forwardRef(function Checkbox(
   { label, description, error, className, ...props },
@@ -307,5 +353,12 @@ export const Checkbox = forwardRef(function Checkbox(
     </div>
   )
 })
+
+Checkbox.propTypes = {
+  label: PropTypes.string,
+  description: PropTypes.string,
+  error: PropTypes.string,
+  className: PropTypes.string,
+}
 
 export default Input

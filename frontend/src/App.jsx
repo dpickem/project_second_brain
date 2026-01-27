@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { clsx } from 'clsx'
+import PropTypes from 'prop-types'
 import { PageLoader, Tooltip, CommandPalette } from './components/common'
 import { useSettingsStore } from './stores'
 import { pageTransition } from './utils/animations'
@@ -117,6 +118,13 @@ function NavItem({ to, icon, title, shortcut }) {
       </NavLink>
     </Tooltip>
   )
+}
+
+NavItem.propTypes = {
+  to: PropTypes.string.isRequired,
+  icon: PropTypes.node.isRequired,
+  title: PropTypes.string.isRequired,
+  shortcut: PropTypes.string,
 }
 
 // Icons
@@ -227,6 +235,10 @@ function AnimatedPage({ children }) {
       {children}
     </motion.div>
   )
+}
+
+AnimatedPage.propTypes = {
+  children: PropTypes.node.isRequired,
 }
 
 function App() {

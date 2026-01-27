@@ -31,7 +31,7 @@ This document tracks known technical debt items and improvements for open-source
 - [Frontend Tech Debt](#frontend-tech-debt)
   - ✅ ~~[TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)~~
   - ✅ ~~[TD-023: Hardcoded URLs throughout frontend](#td-023-hardcoded-urls-throughout-frontend)~~
-  - [TD-024: Missing prop validation](#td-024-missing-prop-validation)
+  - ✅ ~~[TD-024: Missing prop validation](#td-024-missing-prop-validation)~~
   - [TD-025: Missing error boundaries](#td-025-missing-error-boundaries)
   - [TD-026: Accessibility issues](#td-026-accessibility-issues)
   - [TD-027: Performance - missing memoization](#td-027-performance---missing-memoization)
@@ -560,20 +560,20 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
-### TD-024: Missing prop validation
+### ✅ TD-024: Missing prop validation
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Type safety
 
-**Issue**: No PropTypes or TypeScript. `eslint.config.js:37` has `'react/prop-types': 'off'`.
+**Issue**: No PropTypes or TypeScript. `eslint.config.js:37` had `'react/prop-types': 'off'`.
 
 **Affected Components**:
-- `frontend/src/App.jsx:92` - `NavItem` component
-- `frontend/src/pages/Dashboard.jsx:172` - `QuickLink` component
-- `frontend/src/components/dashboard/QuickCapture.jsx:16`
-- `frontend/src/components/common/Input.jsx` - All components
+- `frontend/src/App.jsx` - `NavItem` and `AnimatedPage` components
+- `frontend/src/pages/Dashboard.jsx` - `QuickLink` component
+- `frontend/src/components/dashboard/QuickCapture.jsx` - `QuickCapture` and `InlineCapture` components
+- `frontend/src/components/common/Input.jsx` - `Input`, `Textarea`, `SearchInput`, `Select`, `Checkbox` components
 
-**Fix**: Add PropTypes or consider TypeScript migration.
+**Fix Applied**: Added PropTypes to all affected components and enabled `react/prop-types: 'warn'` in ESLint.
 
 ---
 
@@ -806,7 +806,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-019: Missing type hints~~
 - ✅ ~~TD-020: Hardcoded upload directory~~
 - ✅ ~~TD-021: Review and clean up dependencies~~
-- [ ] TD-024: Missing prop validation
+- ✅ ~~TD-024: Missing prop validation~~
 - [ ] TD-026: Accessibility issues
 - [ ] TD-027: Performance - missing memoization
 - [ ] TD-028: Magic numbers in frontend
@@ -1382,9 +1382,44 @@ Centralized API URL configuration across the frontend codebase.
 
 ---
 
+### ✅ TD-024: Missing prop validation
+**Completed**: 2026-01-27
+
+Added PropTypes validation to all key frontend components and enabled ESLint enforcement.
+
+**Files updated**:
+
+**`frontend/src/App.jsx`**:
+- Added `PropTypes` import
+- Added `NavItem.propTypes` - validates `to` (string, required), `icon` (node, required), `title` (string, required), `shortcut` (string, optional)
+- Added `AnimatedPage.propTypes` - validates `children` (node, required)
+
+**`frontend/src/pages/Dashboard.jsx`**:
+- Added `PropTypes` import
+- Added `QuickLink.propTypes` - validates `to`, `icon`, `title`, `description` (all strings, required)
+
+**`frontend/src/components/dashboard/QuickCapture.jsx`**:
+- Added `PropTypes` import
+- Added `QuickCapture.propTypes` - validates `onSuccess` (func), `placeholder` (string), `className` (string)
+- Added `InlineCapture.propTypes` - validates `onSuccess` (func), `className` (string)
+
+**`frontend/src/components/common/Input.jsx`**:
+- Added `PropTypes` import
+- Added `Input.propTypes` - validates label, error, hint, icon, iconPosition, size, type, className, wrapperClassName
+- Added `Textarea.propTypes` - validates label, error, hint, size, rows, className, wrapperClassName
+- Added `SearchInput.propTypes` - validates placeholder, onClear, value
+- Added `Select.propTypes` - validates label, error, hint, size, options (with shape), placeholder, className, wrapperClassName
+- Added `Checkbox.propTypes` - validates label, description, error, className
+
+**`frontend/eslint.config.js`**:
+- Changed `'react/prop-types': 'off'` to `'react/prop-types': 'warn'`
+- Enables lint warnings for components missing PropTypes validation
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 22 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 23 completed
