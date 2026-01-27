@@ -13,22 +13,7 @@ vi.mock('recharts', () => ({
   Area: () => <div data-testid="area" />,
 }))
 
-// Mock framer-motion
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, className, ...props }) => (
-      <div className={className} {...props}>
-        {children}
-      </div>
-    ),
-    span: ({ children, ...props }) => <span {...props}>{children}</span>,
-    button: ({ children, className, ...props }) => (
-      <button className={className} {...props}>
-        {children}
-      </button>
-    ),
-  },
-}))
+// Note: framer-motion is globally mocked in src/test/setup.js
 
 describe('StatsGrid', () => {
   // Mock stats now use the new property names
@@ -53,7 +38,7 @@ describe('StatsGrid', () => {
     // Default values should be 0 - multiple stat items show 0
     expect(screen.getByText('0%')).toBeInTheDocument() // retention
     expect(screen.getByText('0d')).toBeInTheDocument() // streak
-    expect(screen.getByText('0h')).toBeInTheDocument() // learning time
+    expect(screen.getByText('0m')).toBeInTheDocument() // learning time (minutes, not hours when 0)
   })
 
   it('renders all stat items in combined view', () => {
@@ -117,11 +102,11 @@ describe('StatsGrid', () => {
 
   it('renders descriptions for each stat', () => {
     render(<StatsGrid stats={mockStats} />)
-    // Summary mode descriptions
-    expect(screen.getByText('Card reviews')).toBeInTheDocument()
-    expect(screen.getByText('All time')).toBeInTheDocument()
-    expect(screen.getByText('Keep it going!')).toBeInTheDocument()
-    expect(screen.getByText('Average recall')).toBeInTheDocument()
+    // Combined mode descriptions (default viewMode)
+    expect(screen.getByText('Keep it going!')).toBeInTheDocument() // Streak description
+    expect(screen.getByText('Average recall')).toBeInTheDocument() // Retention description
+    // Learning time shows specific description based on time
+    expect(screen.getByText('120 min total')).toBeInTheDocument() // 2h = 120 min
   })
 
   it('applies custom className', () => {

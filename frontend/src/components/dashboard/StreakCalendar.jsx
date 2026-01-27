@@ -74,7 +74,6 @@ export function StreakCalendar({
     activityData.forEach(({ date, count }) => {
       const d = typeof date === 'string' ? parseISO(date) : date
       const key = format(d, 'yyyy-MM-dd')
-      console.log('Calendar mapping:', { date, count, key })
       activityMap.set(key, count)
     })
 
@@ -130,8 +129,6 @@ export function StreakCalendar({
 
   // Calculate stats
   const stats = useMemo(() => {
-    // Debug: log received activity data
-    console.log('StreakCalendar activityData:', activityData)
     const total = activityData.reduce((sum, d) => sum + (d.count || 0), 0)
     const activeDays = activityData.filter(d => d.count > 0).length
     const average = activeDays > 0 ? Math.round(total / activeDays) : 0

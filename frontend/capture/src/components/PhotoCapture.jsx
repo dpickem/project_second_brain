@@ -120,7 +120,6 @@ export function PhotoCapture({ onComplete, isOnline }) {
 
       onComplete();
     } catch (err) {
-      console.error('Photo capture failed:', err);
       toast.error(err.message || 'Capture failed');
     } finally {
       setIsSubmitting(false);

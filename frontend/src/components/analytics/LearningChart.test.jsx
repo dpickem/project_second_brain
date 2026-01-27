@@ -2,23 +2,37 @@
  * LearningChart Component Tests
  */
 
+import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '../../test/test-utils'
 import { LearningChart, LearningSparkline } from './LearningChart'
 
 // Mock recharts components since they require canvas/SVG rendering
+// Note: We render children but filter out raw SVG elements like 'defs' that cause jsdom warnings
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }) => <div data-testid="responsive-container">{children}</div>,
-  LineChart: ({ children, data }) => (
-    <div data-testid="line-chart" data-length={data?.length}>
-      {children}
-    </div>
-  ),
-  AreaChart: ({ children, data }) => (
-    <div data-testid="area-chart" data-length={data?.length}>
-      {children}
-    </div>
-  ),
+  LineChart: ({ children, data }) => {
+    // Filter out raw string-type elements (like 'defs') that cause SVG warnings in jsdom
+    const filteredChildren = React.Children.toArray(children).filter(
+      child => child && typeof child.type !== 'string'
+    )
+    return (
+      <div data-testid="line-chart" data-length={data?.length}>
+        {filteredChildren}
+      </div>
+    )
+  },
+  AreaChart: ({ children, data }) => {
+    // Filter out raw string-type elements (like 'defs') that cause SVG warnings in jsdom
+    const filteredChildren = React.Children.toArray(children).filter(
+      child => child && typeof child.type !== 'string'
+    )
+    return (
+      <div data-testid="area-chart" data-length={data?.length}>
+        {filteredChildren}
+      </div>
+    )
+  },
   Line: ({ dataKey, name, stroke }) => (
     <div data-testid={`line-${dataKey}`} data-name={name} data-stroke={stroke} />
   ),
@@ -32,16 +46,7 @@ vi.mock('recharts', () => ({
   Legend: () => <div data-testid="legend" />,
 }))
 
-// Mock framer-motion
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, className, ...props }) => (
-      <div className={className} {...props}>
-        {children}
-      </div>
-    ),
-  },
-}))
+// Note: framer-motion is globally mocked in src/test/setup.js
 
 describe('LearningChart', () => {
   const mockData = [

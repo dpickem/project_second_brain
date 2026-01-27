@@ -7,21 +7,7 @@ import { renderWithProviders, screen } from '../../test/test-utils'
 import userEvent from '@testing-library/user-event'
 import { WeakSpotsAnalysis } from './WeakSpotsAnalysis'
 
-// Mock framer-motion
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, className, ...props }) => (
-      <div className={className} {...props}>
-        {children}
-      </div>
-    ),
-    button: ({ children, className, ...props }) => (
-      <button className={className} {...props}>
-        {children}
-      </button>
-    ),
-  },
-}))
+// Note: framer-motion is globally mocked in src/test/setup.js
 
 describe('WeakSpotsAnalysis', () => {
   const mockWeakSpots = [

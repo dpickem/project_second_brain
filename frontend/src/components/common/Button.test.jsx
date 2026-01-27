@@ -6,19 +6,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '../../test/test-utils'
 import { Button, IconButton } from './Button'
 
-// Disable framer-motion for testing
-vi.mock('framer-motion', async () => {
-  const actual = await vi.importActual('framer-motion')
-  return {
-    ...actual,
-    motion: {
-      button: ({ children, ...props }) => (
-        <button {...props}>{children}</button>
-      ),
-      div: ({ children, ...props }) => <div {...props}>{children}</div>,
-    },
-  }
-})
+// Note: framer-motion is globally mocked in src/test/setup.js
 
 describe('Button', () => {
   describe('Rendering', () => {

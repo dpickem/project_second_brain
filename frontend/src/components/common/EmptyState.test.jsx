@@ -16,19 +16,7 @@ import {
   NoConnectionsEmptyState,
 } from './EmptyState'
 
-// Mock framer-motion
-vi.mock('framer-motion', async () => {
-  const actual = await vi.importActual('framer-motion')
-  return {
-    ...actual,
-    motion: {
-      div: ({ children, ...props }) => (
-        <div {...props}>{children}</div>
-      ),
-      button: ({ children, ...props }) => <button {...props}>{children}</button>,
-    },
-  }
-})
+// Note: framer-motion is globally mocked in src/test/setup.js
 
 describe('EmptyState', () => {
   describe('Rendering', () => {

@@ -49,7 +49,6 @@ export function TextCapture({ onComplete, isOnline }) {
       toast.success(isOnline ? 'Captured!' : 'Saved offline');
       onComplete();
     } catch (err) {
-      console.error('Text capture failed:', err);
       toast.error(err.message || 'Capture failed');
     } finally {
       setIsSubmitting(false);

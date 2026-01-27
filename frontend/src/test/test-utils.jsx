@@ -28,7 +28,7 @@ export function renderWithProviders(ui, options = {}) {
   function Wrapper({ children }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           {children}
         </BrowserRouter>
       </QueryClientProvider>

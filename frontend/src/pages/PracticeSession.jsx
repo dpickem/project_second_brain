@@ -211,13 +211,7 @@ export function PracticeSession() {
   // End session mutation
   const endSessionMutation = useMutation({
     mutationFn: (sessionId) => practiceApi.endSession(sessionId),
-    onSuccess: () => {
-      console.log('Session ended successfully in backend')
-    },
-    onError: (error) => {
-      // Don't show error to user - session ending is best-effort
-      console.warn('Failed to end session in backend:', error)
-    },
+    // Session end is best-effort - no user feedback needed
   })
 
   // Track if we've already ended the session to prevent duplicate calls

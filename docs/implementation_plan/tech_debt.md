@@ -29,7 +29,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)~~
   - ✅ ~~[TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)~~
 - [Frontend Tech Debt](#frontend-tech-debt)
-  - [TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)
+  - ✅ ~~[TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)~~
   - [TD-023: Hardcoded URLs throughout frontend](#td-023-hardcoded-urls-throughout-frontend)
   - [TD-024: Missing prop validation](#td-024-missing-prop-validation)
   - [TD-025: Missing error boundaries](#td-025-missing-error-boundaries)
@@ -516,21 +516,25 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ## Frontend Tech Debt
 
-### TD-022: Remove console.log statements
+### ✅ TD-022: Remove console.log statements
 **Priority**: P1  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Production code quality
 
 **Issue**: 76+ console.log/console.warn statements in production code.
 
-**Key Locations**:
-- `frontend/src/pages/PracticeSession.jsx:215, 219`
-- `frontend/src/components/dashboard/StreakCalendar.jsx:77, 134`
-- `frontend/src/api/client.js:159`
-- `frontend/capture/src/` - Multiple files with extensive logging
-- `frontend/capture/public/sw.js` - Service worker logging
+**Key Locations** (all fixed):
+- `frontend/src/pages/PracticeSession.jsx` - Removed debug logs
+- `frontend/src/components/dashboard/StreakCalendar.jsx` - Removed debug logs
+- `frontend/src/api/client.js` - Already gated behind `import.meta.env.DEV`
+- `frontend/capture/src/` - Removed extensive logging from capture components
+- `frontend/capture/public/sw.js` - Removed service worker logging
 
-**Fix**: Remove or gate behind `import.meta.env.DEV` checks.
+**Fix Applied**: Removed all console.log/warn/error statements from production code. Remaining statements are in:
+- Test files (e2e specs) - appropriate for test output
+- Build scripts - appropriate for build feedback
+- JSDoc documentation examples - not actual code execution
+- DEV-gated statements (`client.js` response interceptor)
 
 ---
 
@@ -779,7 +783,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-012: Robust deduplication and cleanup on reprocessing~~
 - ✅ ~~TD-014: N+1 query in mastery_service.py~~
 - ✅ ~~TD-015: Inconsistent datetime usage~~
-- [ ] TD-022: Remove console.log statements
+- ✅ ~~TD-022: Remove console.log statements~~
 - [ ] TD-023: Hardcoded URLs throughout frontend
 - [ ] TD-025: Missing error boundaries
 - [ ] TD-030: Skipped tests due to missing dependencies
@@ -1300,9 +1304,45 @@ Created all required files for open-source release readiness.
 
 ---
 
+### ✅ TD-022: Remove console.log statements
+**Completed**: 2026-01-27
+
+Removed all production console.log/warn/error statements from frontend code.
+
+**Files updated**:
+
+**Main app (`frontend/src/`)**:
+- `pages/PracticeSession.jsx` - Removed session end debug logs
+- `components/dashboard/StreakCalendar.jsx` - Removed calendar mapping debug logs
+- `hooks/useLocalStorage.js` - Removed localStorage error warnings
+- `api/client.js` - Already properly gated behind `import.meta.env.DEV`
+
+**Mobile capture PWA (`frontend/capture/`)**:
+- `src/api/capture.js` - Removed sync progress logs and debug statements
+- `src/hooks/useMediaRecorder.js` - Removed extensive MediaRecorder debug logs
+- `src/main.jsx` - Removed PWA service worker registration logs
+- `src/components/TextCapture.jsx` - Removed capture error logs
+- `src/components/PhotoCapture.jsx` - Removed capture error logs
+- `src/components/UrlCapture.jsx` - Removed capture error logs
+- `src/components/VoiceCapture.jsx` - Removed recording and capture logs
+- `src/components/PdfCapture.jsx` - Removed capture error logs
+- `src/components/RecentCaptures.jsx` - Removed clear error logs
+- `src/hooks/usePendingCaptures.js` - Removed IndexedDB error logs
+- `src/pages/MobileCapture.jsx` - Removed sync progress logs
+- `src/pages/ShareTarget.jsx` - Removed share handling error logs
+- `public/sw.js` - Removed service worker debug logs (added DEBUG constant)
+
+**Preserved (appropriate locations)**:
+- Test files (`e2e/screenshots.spec.js`) - Test output
+- Build scripts (`scripts/generate-api-types.js`) - Build feedback
+- JSDoc examples in API documentation - Not actual code execution
+- DEV-gated logs (`client.js` response interceptor) - Only in development
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 20 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 21 completed

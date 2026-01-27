@@ -93,7 +93,6 @@ export function ShareTarget() {
         // Navigate to home after a brief delay
         setTimeout(() => navigate('/'), 1500);
       } catch (err) {
-        console.error('Share capture failed:', err);
         setError(err.message);
         setStatus('error');
       }
@@ -187,8 +186,7 @@ async function getSharedFiles() {
     }
     
     return files;
-  } catch (err) {
-    console.error('Failed to get shared files:', err);
+  } catch {
     return null;
   }
 }
@@ -199,7 +197,7 @@ async function getSharedFiles() {
 async function clearSharedFiles() {
   try {
     await caches.delete('share-target-files');
-  } catch (err) {
-    console.error('Failed to clear shared files:', err);
+  } catch {
+    // Ignore cache clear failures
   }
 }

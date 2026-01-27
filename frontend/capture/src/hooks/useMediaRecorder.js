@@ -31,7 +31,6 @@ function getSupportedMimeType() {
   
   for (const mimeType of mimeTypes) {
     if (mimeType === '' || (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mimeType))) {
-      console.log('Using audio mime type:', mimeType || 'browser default');
       return mimeType;
     }
   }
@@ -117,8 +116,6 @@ export function useMediaRecorder({
       setError(null);
       chunksRef.current = [];
       
-      console.log('Requesting microphone access...');
-      
       // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
@@ -128,7 +125,6 @@ export function useMediaRecorder({
         } 
       });
       
-      console.log('Microphone access granted');
       streamRef.current = stream;
       
       // Determine supported mime type
@@ -136,25 +132,19 @@ export function useMediaRecorder({
       
       // Create MediaRecorder with options
       const options = mimeType ? { mimeType } : {};
-      console.log('Creating MediaRecorder with options:', options);
       
       const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       
-      console.log('MediaRecorder created, state:', mediaRecorder.state);
-      
       mediaRecorder.ondataavailable = (event) => {
-        console.log('Data available, size:', event.data.size);
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
       };
       
       mediaRecorder.onstop = () => {
-        console.log('Recording stopped, chunks:', chunksRef.current.length);
         const finalMimeType = mediaRecorder.mimeType || mimeType || 'audio/mp4';
         const blob = new Blob(chunksRef.current, { type: finalMimeType });
-        console.log('Created blob, size:', blob.size, 'type:', blob.type);
         onRecordingComplete?.(blob);
         
         // Stop all tracks
@@ -164,8 +154,7 @@ export function useMediaRecorder({
         }
       };
       
-      mediaRecorder.onerror = (event) => {
-        console.error('MediaRecorder error:', event.error);
+      mediaRecorder.onerror = () => {
         setError('Recording failed. Please try again.');
         setIsRecording(false);
         
@@ -178,12 +167,9 @@ export function useMediaRecorder({
       
       // Start recording - iOS needs longer timeslice or no timeslice
       const timeslice = isIOS() ? undefined : 1000;
-      console.log('Starting recording with timeslice:', timeslice);
       mediaRecorder.start(timeslice);
       setIsRecording(true);
       setDuration(0);
-      
-      console.log('Recording started, state:', mediaRecorder.state);
       
       // Start duration timer
       timerRef.current = setInterval(() => {
@@ -202,8 +188,6 @@ export function useMediaRecorder({
       }, 1000);
       
     } catch (err) {
-      console.error('Failed to start recording:', err);
-      
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setError('Microphone access denied. Please allow microphone permissions in Settings.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
@@ -219,8 +203,6 @@ export function useMediaRecorder({
   }, [onRecordingComplete, maxDuration]);
 
   const stopRecording = useCallback(() => {
-    console.log('Stopping recording...');
-    
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;

@@ -28,8 +28,7 @@ export function useLocalStorage(key, initialValue, options = {}) {
     try {
       const item = window.localStorage.getItem(key)
       return item ? deserialize(item) : initialValue
-    } catch (error) {
-      console.warn(`Error reading localStorage key "${key}":`, error)
+    } catch {
       return initialValue
     }
   }, [key, initialValue, deserialize])
@@ -55,8 +54,8 @@ export function useLocalStorage(key, initialValue, options = {}) {
           }))
         }
       }
-    } catch (error) {
-      console.warn(`Error setting localStorage key "${key}":`, error)
+    } catch {
+      // localStorage write failed (e.g., quota exceeded, private mode)
     }
   }, [key, serialize, storedValue, syncAcrossTabs])
 
@@ -67,8 +66,8 @@ export function useLocalStorage(key, initialValue, options = {}) {
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(key)
       }
-    } catch (error) {
-      console.warn(`Error removing localStorage key "${key}":`, error)
+    } catch {
+      // localStorage remove failed
     }
   }, [key, initialValue])
 
@@ -80,8 +79,8 @@ export function useLocalStorage(key, initialValue, options = {}) {
       if (event.key === key && event.newValue !== null) {
         try {
           setStoredValue(deserialize(event.newValue))
-        } catch (error) {
-          console.warn(`Error parsing storage event for "${key}":`, error)
+        } catch {
+          // Storage event parse failed - ignore malformed data
         }
       }
     }

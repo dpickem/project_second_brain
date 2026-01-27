@@ -6,13 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { Tooltip, KeyboardShortcut, TooltipWithShortcut } from './Tooltip'
 
-// Mock framer-motion to avoid animation issues in tests
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, ...props }) => <div {...props}>{children}</div>,
-  },
-  AnimatePresence: ({ children }) => <>{children}</>,
-}))
+// Note: framer-motion is globally mocked in src/test/setup.js
 
 describe('Tooltip', () => {
   beforeEach(() => {

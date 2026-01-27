@@ -7,6 +7,9 @@
  * - Background sync for queued captures
  */
 
+// Set to true for development debugging (logs to console)
+const DEBUG = false;
+
 const CACHE_NAME = 'capture-v2';
 const OFFLINE_QUEUE_NAME = 'capture-queue';
 const DB_NAME = 'capture-offline-db';
@@ -40,7 +43,6 @@ const PRECACHE_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Precaching assets');
       return cache.addAll(PRECACHE_ASSETS);
     })
   );
@@ -143,8 +145,6 @@ self.addEventListener('fetch', (event) => {
 // ============================================================================
 
 async function handleShareTarget(request) {
-  console.log('[SW] Handling share target request');
-  
   try {
     const formData = await request.formData();
     
@@ -173,7 +173,6 @@ async function handleShareTarget(request) {
             headers: { 'Content-Type': file.type || 'application/octet-stream' }
           });
           await cache.put(cacheKey, response);
-          console.log(`[SW] Cached shared file: ${file.name}`);
         }
       }
     }
@@ -188,8 +187,7 @@ async function handleShareTarget(request) {
     // Redirect to the share target page
     return Response.redirect(redirectUrl.toString(), 303);
     
-  } catch (error) {
-    console.error('[SW] Share target error:', error);
+  } catch {
     // Redirect to home on error
     return Response.redirect('/capture/', 303);
   }
@@ -203,9 +201,8 @@ async function handleCaptureRequest(request) {
   try {
     const response = await fetch(request.clone());
     return response;
-  } catch (error) {
+  } catch {
     // Network failed - queue for later
-    console.log('[SW] Network failed, queuing capture');
     await queueCapture(request);
     return new Response(
       JSON.stringify({ 
@@ -343,10 +340,7 @@ self.addEventListener('sync', (event) => {
 });
 
 async function syncQueuedCaptures() {
-  console.log('[SW] Starting sync of queued captures');
-  
   const queued = await getAllQueued();
-  console.log(`[SW] Found ${queued.length} queued captures`);
   
   for (const capture of queued) {
     try {
@@ -379,7 +373,6 @@ async function syncQueuedCaptures() {
       if (response.ok) {
         // Success - remove from queue
         await deleteQueued(capture.id);
-        console.log(`[SW] Synced capture ${capture.id}`);
         
         // Notify clients
         notifyClients({
@@ -394,11 +387,9 @@ async function syncQueuedCaptures() {
         } else {
           // Too many retries - give up
           await deleteQueued(capture.id);
-          console.log(`[SW] Gave up on capture ${capture.id} after 5 retries`);
         }
       }
-    } catch (error) {
-      console.error(`[SW] Failed to sync capture ${capture.id}:`, error);
+    } catch {
       // Network still down - will retry on next sync
     }
   }

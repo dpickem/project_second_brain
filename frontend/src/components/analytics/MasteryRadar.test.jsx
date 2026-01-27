@@ -29,16 +29,7 @@ vi.mock('recharts', () => ({
   Tooltip: () => <div data-testid="tooltip" />,
 }))
 
-// Mock framer-motion
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, className, ...props }) => (
-      <div className={className} {...props}>
-        {children}
-      </div>
-    ),
-  },
-}))
+// Note: framer-motion is globally mocked in src/test/setup.js
 
 describe('MasteryRadar', () => {
   const mockData = [
@@ -48,10 +39,11 @@ describe('MasteryRadar', () => {
     { topic: 'Node.js', mastery: 50, cardCount: 20 },
   ]
 
-  it('renders with default props', () => {
+  it('renders empty state with default props', () => {
+    // Component shows empty state when no data is provided
     render(<MasteryRadar />)
-    expect(screen.getByTestId('responsive-container')).toBeInTheDocument()
-    expect(screen.getByTestId('radar-chart')).toBeInTheDocument()
+    expect(screen.getByText('No mastery data yet')).toBeInTheDocument()
+    expect(screen.getByText('📊')).toBeInTheDocument()
   })
 
   it('renders radar chart with provided data', () => {
@@ -98,10 +90,10 @@ describe('MasteryRadar', () => {
     expect(container.querySelector('.custom-radar')).toBeInTheDocument()
   })
 
-  it('handles empty data array', () => {
+  it('shows empty state when data array is empty', () => {
+    // Component shows empty state instead of chart when no data
     render(<MasteryRadar data={[]} />)
-    // Should use fallback data
-    expect(screen.getByTestId('radar-chart')).toHaveAttribute('data-length', '3')
+    expect(screen.getByText('No mastery data yet')).toBeInTheDocument()
   })
 
   it('uses data when exactly 3 points provided', () => {

@@ -71,7 +71,6 @@ export function UrlCapture({ onComplete, isOnline }) {
       toast.success(isOnline ? 'URL captured!' : 'Saved offline');
       onComplete();
     } catch (err) {
-      console.error('URL capture failed:', err);
       toast.error(err.message || 'Capture failed');
     } finally {
       setIsSubmitting(false);

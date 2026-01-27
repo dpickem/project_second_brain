@@ -30,21 +30,7 @@ vi.mock('recharts', () => ({
   Cell: ({ fill }) => <div data-testid="cell" data-fill={fill} />,
 }))
 
-// Mock framer-motion
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, className, ...props }) => (
-      <div className={className} {...props}>
-        {children}
-      </div>
-    ),
-    button: ({ children, className, ...props }) => (
-      <button className={className} {...props}>
-        {children}
-      </button>
-    ),
-  },
-}))
+// Note: framer-motion is globally mocked in src/test/setup.js
 
 describe('TopicBreakdown', () => {
   const mockData = [
@@ -132,12 +118,13 @@ describe('TopicBreakdown', () => {
       expect(screen.getByText('Node.js')).toBeInTheDocument()
     })
 
-    it('displays card count for each topic', () => {
+    it('displays item count for each topic', () => {
+      // Default viewMode is 'combined', which shows "items" instead of "cards"
       render(<TopicBreakdown data={mockData} type="list" />)
-      expect(screen.getByText('50 cards')).toBeInTheDocument()
-      expect(screen.getByText('30 cards')).toBeInTheDocument()
-      expect(screen.getByText('25 cards')).toBeInTheDocument()
-      expect(screen.getByText('15 cards')).toBeInTheDocument()
+      expect(screen.getByText('50 items')).toBeInTheDocument()
+      expect(screen.getByText('30 items')).toBeInTheDocument()
+      expect(screen.getByText('25 items')).toBeInTheDocument()
+      expect(screen.getByText('15 items')).toBeInTheDocument()
     })
 
     it('displays mastery percentage for each topic', () => {
@@ -176,14 +163,17 @@ describe('TopicBreakdown', () => {
   })
 
   describe('Empty State', () => {
-    it('handles empty data array for chart', () => {
+    it('shows empty state message for chart when no data', () => {
+      // Component shows empty state instead of chart when data is empty
       render(<TopicBreakdown data={[]} />)
-      expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-length', '0')
+      expect(screen.getByText('No progress data yet')).toBeInTheDocument()
+      expect(screen.getByText('📈')).toBeInTheDocument()
     })
 
-    it('renders nothing in list view with empty data', () => {
-      const { container } = render(<TopicBreakdown data={[]} type="list" />)
-      expect(container.querySelector('.space-y-3').children).toHaveLength(0)
+    it('shows empty state message for list when no data', () => {
+      // Component shows empty state instead of list when data is empty
+      render(<TopicBreakdown data={[]} type="list" />)
+      expect(screen.getByText('No progress data yet')).toBeInTheDocument()
     })
   })
 

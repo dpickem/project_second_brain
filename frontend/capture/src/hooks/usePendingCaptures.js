@@ -13,8 +13,8 @@ export function usePendingCaptures() {
     try {
       const captures = await getPendingCaptures();
       setPending(captures);
-    } catch (err) {
-      console.error('Failed to load pending captures:', err);
+    } catch {
+      // IndexedDB access failed - leave pending empty
     }
   }, []);
 

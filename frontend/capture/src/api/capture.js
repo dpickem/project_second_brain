@@ -31,9 +31,6 @@ function getApiUrl() {
 const API_URL = getApiUrl();
 const CAPTURE_API_KEY = import.meta.env.VITE_CAPTURE_API_KEY || '';
 
-// Log the API URL for debugging
-console.log('Capture API URL:', API_URL);
-
 /**
  * Generate a UUID, with fallback for non-secure contexts (HTTP)
  */
@@ -145,8 +142,8 @@ async function queueOfflineCapture(endpoint, formData, type) {
     try {
       await navigator.serviceWorker.ready;
       await navigator.serviceWorker.registration.sync.register('capture-sync');
-    } catch (e) {
-      console.log('Background sync registration failed:', e);
+    } catch {
+      // Background sync not supported or failed - capture will sync manually
     }
   }
   
@@ -322,7 +319,7 @@ export async function syncPendingCaptures(onProgress) {
       const formData = new FormData();
       for (const [key, value] of Object.entries(capture.data)) {
         if (!value || typeof value !== 'object') {
-          console.warn(`Skipping invalid field: ${key}`);
+          // Skip invalid fields (corrupted data)
           continue;
         }
         if (value.type === 'file') {
@@ -345,11 +342,7 @@ export async function syncPendingCaptures(onProgress) {
       const apiKey = capture.apiKey || CAPTURE_API_KEY;
       if (apiKey) {
         headers['X-API-Key'] = apiKey;
-      } else {
-        console.warn('No API key available for sync - request may fail');
       }
-      
-      console.log(`Syncing capture ${capture.id} to ${capture.endpoint}`);
       
       // Make the API request
       const response = await fetch(`${API_URL}${capture.endpoint}`, {
@@ -374,7 +367,6 @@ export async function syncPendingCaptures(onProgress) {
       await removePendingCapture(capture.id);
       synced++;
       results.push({ id: capture.id, status: 'synced', type: capture.type });
-      console.log(`Synced capture ${capture.id} successfully`);
       
       // Report progress
       if (onProgress) {
@@ -384,13 +376,12 @@ export async function syncPendingCaptures(onProgress) {
       failed++;
       const errorMsg = error.message || 'Unknown error';
       results.push({ id: capture.id, status: 'failed', type: capture.type, error: errorMsg });
-      console.error(`Failed to sync capture ${capture.id}:`, errorMsg);
       
-      // Update retry count
+      // Update retry count (best-effort)
       try {
         await updateCaptureRetryCount(capture.id, (capture.retryCount || 0) + 1);
-      } catch (updateErr) {
-        console.error('Failed to update retry count:', updateErr);
+      } catch {
+        // Ignore retry count update failures
       }
       
       if (onProgress) {

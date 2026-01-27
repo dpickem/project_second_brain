@@ -38,10 +38,7 @@ export function MobileCapture() {
     setSyncResult(null);
     
     try {
-      const result = await syncPendingCaptures((progress) => {
-        // Optional: update progress UI
-        console.log('Sync progress:', progress);
-      });
+      const result = await syncPendingCaptures();
       
       setSyncResult(result);
       refresh(); // Refresh the pending list
@@ -49,7 +46,6 @@ export function MobileCapture() {
       // Clear result after 3 seconds
       setTimeout(() => setSyncResult(null), 3000);
     } catch (error) {
-      console.error('Sync failed:', error);
       setSyncResult({ error: error.message });
     } finally {
       setSyncing(false);

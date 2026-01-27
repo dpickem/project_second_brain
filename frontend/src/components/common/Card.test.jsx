@@ -14,21 +14,7 @@ import {
   StatsCard 
 } from './Card'
 
-// Disable framer-motion for testing
-vi.mock('framer-motion', async () => {
-  const actual = await vi.importActual('framer-motion')
-  return {
-    ...actual,
-    motion: {
-      button: ({ children, className, ...props }) => (
-        <button className={className} {...props}>{children}</button>
-      ),
-      div: ({ children, className, ...props }) => (
-        <div className={className} {...props}>{children}</div>
-      ),
-    },
-  }
-})
+// Note: framer-motion is globally mocked in src/test/setup.js
 
 describe('Card', () => {
   describe('Rendering', () => {

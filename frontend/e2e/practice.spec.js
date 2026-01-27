@@ -162,19 +162,23 @@ test.describe('Practice Session Page', () => {
     })
 
     test('should load and display topics from API', async ({ page }) => {
-      await page.goto('/practice')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       
-      // Wait for topics to load
-      await page.waitForResponse('**/api/knowledge/topics**')
-      
-      // Topics should be visible
+      // Topics should be visible (from mock data)
       await expect(page.getByRole('button', { name: /machine learning/i })).toBeVisible()
       await expect(page.getByRole('button', { name: /programming/i })).toBeVisible()
     })
 
     test('should filter topics by search', async ({ page }) => {
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       
       // Search for "deep"
       const searchInput = page.getByPlaceholder(/search topics/i)
@@ -189,8 +193,11 @@ test.describe('Practice Session Page', () => {
     })
 
     test('should allow sorting topics by mastery', async ({ page }) => {
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       
       // Find the sort dropdown (select element)
       const sortSelect = page.locator('select')
@@ -202,8 +209,11 @@ test.describe('Practice Session Page', () => {
     })
 
     test('should select a topic and show it as selected', async ({ page }) => {
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       
       // Click on Machine Learning topic
       await page.getByRole('button', { name: /machine learning/i }).click()
@@ -217,8 +227,11 @@ test.describe('Practice Session Page', () => {
     })
 
     test('should enable Start button only when topic is selected', async ({ page }) => {
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       
       // Start button should show "Select a Topic" and be effectively disabled
       const startButton = page.getByRole('button', { name: /select a topic/i })
@@ -251,8 +264,11 @@ test.describe('Practice Session Page', () => {
     test('should create session and transition to exercise view', async ({ page }) => {
       await setupCommonRoutes(page)
       
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       
       // Select topic and start
       await page.getByRole('button', { name: /machine learning/i }).click()
@@ -288,8 +304,11 @@ test.describe('Practice Session Page', () => {
         }
       })
       
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       
       // Select topic and start
       await page.getByRole('button', { name: /machine learning/i }).click()
@@ -326,8 +345,11 @@ test.describe('Practice Session Page', () => {
         }
       })
       
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       
       await page.getByRole('button', { name: /machine learning/i }).click()
       await page.getByRole('button', { name: /start practice/i }).click()
@@ -341,8 +363,11 @@ test.describe('Practice Session Page', () => {
     test('should display exercise with prompt and type', async ({ page }) => {
       await setupCommonRoutes(page)
       
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       await page.getByRole('button', { name: /machine learning/i }).click()
       await page.getByRole('button', { name: /start practice/i }).click()
       
@@ -360,8 +385,11 @@ test.describe('Practice Session Page', () => {
     test('should have response input area', async ({ page }) => {
       await setupCommonRoutes(page)
       
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       await page.getByRole('button', { name: /machine learning/i }).click()
       await page.getByRole('button', { name: /start practice/i }).click()
       
@@ -379,8 +407,11 @@ test.describe('Practice Session Page', () => {
     test('should enable submit button when response is entered', async ({ page }) => {
       await setupCommonRoutes(page)
       
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       await page.getByRole('button', { name: /machine learning/i }).click()
       await page.getByRole('button', { name: /start practice/i }).click()
       
@@ -411,8 +442,11 @@ test.describe('Practice Session Page', () => {
         })
       })
       
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       await page.getByRole('button', { name: /machine learning/i }).click()
       await page.getByRole('button', { name: /start practice/i }).click()
       
@@ -434,8 +468,11 @@ test.describe('Practice Session Page', () => {
     test('should allow exiting session with confirmation', async ({ page }) => {
       await setupCommonRoutes(page)
       
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       await page.getByRole('button', { name: /machine learning/i }).click()
       await page.getByRole('button', { name: /start practice/i }).click()
       
@@ -503,8 +540,11 @@ test.describe('Practice Session Page', () => {
         })
       })
       
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       await page.getByRole('button', { name: /machine learning/i }).click()
       await page.getByRole('button', { name: /start practice/i }).click()
       
@@ -526,8 +566,11 @@ test.describe('Practice Session Page', () => {
     test('should have accessible form controls', async ({ page }) => {
       await setupCommonRoutes(page)
       
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       
       // Check for proper labels
       await expect(page.getByText(/topic to practice/i)).toBeVisible()
@@ -542,8 +585,11 @@ test.describe('Practice Session Page', () => {
     test('should support keyboard navigation', async ({ page }) => {
       await setupCommonRoutes(page)
       
-      await page.goto('/practice')
-      await page.waitForResponse('**/api/knowledge/topics**')
+      // Set up response listener BEFORE navigation to avoid race condition
+      await Promise.all([
+        page.waitForResponse('**/api/knowledge/topics**'),
+        page.goto('/practice')
+      ])
       
       // Tab through the page
       await page.keyboard.press('Tab')

@@ -38,8 +38,8 @@ export function RecentCaptures({ pending, onClear }) {
     try {
       await clearPendingCaptures();
       if (onClear) onClear();
-    } catch (err) {
-      console.error('Failed to clear pending captures:', err);
+    } catch {
+      // Clear failed - ignore
     } finally {
       setClearing(false);
     }

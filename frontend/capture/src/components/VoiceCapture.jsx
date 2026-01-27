@@ -30,7 +30,6 @@ export function VoiceCapture({ onComplete, isOnline }) {
     stopRecording,
   } = useMediaRecorder({
     onRecordingComplete: (blob) => {
-      console.log('Recording complete, blob:', blob.size, blob.type);
       setAudioBlob(blob);
       setAudioUrl(URL.createObjectURL(blob));
     },
@@ -122,8 +121,6 @@ export function VoiceCapture({ onComplete, isOnline }) {
         );
       }
       
-      console.log('Uploading voice memo:', file.name, file.size, file.type);
-
       await captureApi.captureVoice({
         file,
         expand: expandTranscript,
@@ -134,7 +131,6 @@ export function VoiceCapture({ onComplete, isOnline }) {
       toast.success(isOnline ? 'Voice memo captured!' : 'Saved offline');
       onComplete();
     } catch (err) {
-      console.error('Voice capture failed:', err);
       toast.error(err.message || 'Capture failed');
     } finally {
       setIsSubmitting(false);

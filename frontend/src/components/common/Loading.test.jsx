@@ -17,16 +17,7 @@ import {
   SkeletonTable,
 } from './Loading'
 
-// Mock framer-motion
-vi.mock('framer-motion', async () => {
-  const actual = await vi.importActual('framer-motion')
-  return {
-    ...actual,
-    motion: {
-      div: ({ children, ...props }) => <div {...props}>{children}</div>,
-    },
-  }
-})
+// Note: framer-motion is globally mocked in src/test/setup.js
 
 describe('Spinner', () => {
   it('should render an SVG spinner', () => {

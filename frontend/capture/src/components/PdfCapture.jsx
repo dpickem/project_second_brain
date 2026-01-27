@@ -71,7 +71,6 @@ export function PdfCapture({ onComplete, isOnline, initialFile = null }) {
       toast.success(isOnline ? 'PDF captured!' : 'Saved offline');
       onComplete();
     } catch (err) {
-      console.error('PDF capture failed:', err);
       toast.error(err.message || 'Capture failed');
     } finally {
       setIsSubmitting(false);
