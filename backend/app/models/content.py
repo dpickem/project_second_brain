@@ -33,7 +33,7 @@ from pydantic import BaseModel, Field
 from app.enums.content import ContentType, AnnotationType, ProcessingStatus
 
 if TYPE_CHECKING:
-    from app.db.models import Content
+    from app.db.models import Content, Annotation as AnnotationRecord
 
 
 class Annotation(BaseModel):
@@ -110,6 +110,32 @@ class Annotation(BaseModel):
                 "context": "In this paper, we propose a new simple network architecture...",
             }
         }
+
+    @classmethod
+    def from_db_record(cls, record: AnnotationRecord) -> Annotation:
+        """
+        Create an Annotation from a database Annotation record.
+
+        Factory method for converting SQLAlchemy models to Pydantic models
+        when loading annotations from the database.
+
+        Args:
+            record: SQLAlchemy Annotation record from the database
+
+        Returns:
+            Annotation instance with data from the database record
+
+        Example:
+            >>> annotation = Annotation.from_db_record(db_annotation)
+        """
+        return cls(
+            id=str(record.id),
+            type=AnnotationType(record.annotation_type.upper()),
+            content=record.text,
+            page_number=record.page_number,
+            context=record.context,
+            confidence=record.ocr_confidence,
+        )
 
 
 class UnifiedContent(BaseModel):

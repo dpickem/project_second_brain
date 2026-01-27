@@ -21,12 +21,17 @@ API Contract:
     This catches frontend/backend mismatches early with clear 422 errors.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Optional, Literal, TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
 from app.models.base import StrictRequest, StrictResponse
+
+if TYPE_CHECKING:
+    from app.db.models_assistant import AssistantConversation, AssistantMessage
 
 
 # =============================================================================
@@ -102,6 +107,30 @@ class MessageInfo(BaseModel):
     content: str
     timestamp: datetime
 
+    @classmethod
+    def from_db_record(cls, record: AssistantMessage) -> MessageInfo:
+        """
+        Create a MessageInfo from a database AssistantMessage record.
+
+        Factory method for converting SQLAlchemy models to Pydantic models
+        when loading messages from the database.
+
+        Args:
+            record: SQLAlchemy AssistantMessage record from the database
+
+        Returns:
+            MessageInfo instance with data from the database record
+
+        Example:
+            >>> message = MessageInfo.from_db_record(db_message)
+        """
+        return cls(
+            id=record.message_uuid,
+            role=record.role.value,  # Convert enum to string
+            content=record.content,
+            timestamp=record.created_at,
+        )
+
 
 class ConversationSummary(BaseModel):
     """
@@ -120,6 +149,31 @@ class ConversationSummary(BaseModel):
     created_at: datetime
     updated_at: datetime
     message_count: int
+
+    @classmethod
+    def from_db_record(cls, record: AssistantConversation) -> ConversationSummary:
+        """
+        Create a ConversationSummary from a database AssistantConversation record.
+
+        Factory method for converting SQLAlchemy models to Pydantic models
+        when loading conversation summaries from the database.
+
+        Args:
+            record: SQLAlchemy AssistantConversation record from the database
+
+        Returns:
+            ConversationSummary instance with data from the database record
+
+        Example:
+            >>> summary = ConversationSummary.from_db_record(db_conversation)
+        """
+        return cls(
+            id=record.conversation_uuid,
+            title=record.title,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+            message_count=len(record.messages) if record.messages else 0,
+        )
 
 
 class ConversationListResponse(BaseModel):
@@ -150,6 +204,35 @@ class ConversationDetail(BaseModel):
     title: str
     created_at: datetime
     messages: list[MessageInfo]
+
+    @classmethod
+    def from_db_record(cls, record: AssistantConversation) -> ConversationDetail:
+        """
+        Create a ConversationDetail from a database AssistantConversation record.
+
+        Factory method for converting SQLAlchemy models to Pydantic models
+        when loading full conversation details from the database.
+
+        Args:
+            record: SQLAlchemy AssistantConversation record from the database
+                   (should have messages relationship loaded)
+
+        Returns:
+            ConversationDetail instance with data from the database record
+
+        Example:
+            >>> detail = ConversationDetail.from_db_record(db_conversation)
+        """
+        messages = [
+            MessageInfo.from_db_record(msg)
+            for msg in (record.messages or [])
+        ]
+        return cls(
+            id=record.conversation_uuid,
+            title=record.title,
+            created_at=record.created_at,
+            messages=messages,
+        )
 
 
 class ConversationUpdateRequest(StrictRequest):

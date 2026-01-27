@@ -18,8 +18,10 @@ API Contract:
     This catches frontend/backend mismatches early with clear 422 errors.
 """
 
+from __future__ import annotations
+
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from pydantic import AwareDatetime, BaseModel, Field
 
@@ -34,6 +36,14 @@ from app.enums.learning import (
     SessionContentMode,
     ContentSourcePreference,
 )
+
+if TYPE_CHECKING:
+    from app.db.models_learning import (
+        SpacedRepCard,
+        Exercise,
+        PracticeSession,
+        ExerciseAttempt,
+    )
 
 
 # ===========================================
@@ -115,6 +125,44 @@ class CardResponse(CardBase):
 
     class Config:
         from_attributes = True
+
+    @classmethod
+    def from_db_record(cls, record: SpacedRepCard) -> CardResponse:
+        """
+        Create a CardResponse from a database SpacedRepCard record.
+
+        Factory method for converting SQLAlchemy models to Pydantic models
+        when loading cards from the database.
+
+        Args:
+            record: SQLAlchemy SpacedRepCard record from the database
+
+        Returns:
+            CardResponse instance with data from the database record
+
+        Example:
+            >>> card = CardResponse.from_db_record(db_card)
+        """
+        return cls(
+            id=record.id,
+            card_type=record.card_type,
+            front=record.front,
+            back=record.back,
+            hints=record.hints or [],
+            tags=record.tags or [],
+            content_id=record.content_id,
+            concept_id=record.concept_id,
+            state=CardState(record.state),
+            stability=record.stability,
+            difficulty=record.difficulty,
+            due_date=record.due_date,
+            last_reviewed=record.last_reviewed,
+            repetitions=record.repetitions,
+            lapses=record.lapses,
+            total_reviews=record.total_reviews,
+            correct_reviews=record.correct_reviews,
+            language=record.language,
+        )
 
 
 class CardReviewRequest(StrictRequest):
@@ -259,6 +307,42 @@ class ExerciseResponse(ExerciseBase):
 
     class Config:
         from_attributes = True
+
+    @classmethod
+    def from_db_record(cls, record: Exercise) -> ExerciseResponse:
+        """
+        Create an ExerciseResponse from a database Exercise record.
+
+        Factory method for converting SQLAlchemy models to Pydantic models
+        when loading exercises from the database. Note: Solution is not
+        included to hide it until after an attempt.
+
+        Args:
+            record: SQLAlchemy Exercise record from the database
+
+        Returns:
+            ExerciseResponse instance with data from the database record
+
+        Example:
+            >>> exercise = ExerciseResponse.from_db_record(db_exercise)
+        """
+        return cls(
+            id=record.id,
+            exercise_uuid=record.exercise_uuid,
+            exercise_type=ExerciseType(record.exercise_type),
+            topic=record.topic,
+            difficulty=ExerciseDifficulty(record.difficulty),
+            prompt=record.prompt,
+            hints=record.hints or [],
+            expected_key_points=record.expected_key_points or [],
+            worked_example=record.worked_example,
+            follow_up_problem=record.follow_up_problem,
+            language=record.language,
+            starter_code=record.starter_code,
+            buggy_code=record.buggy_code,
+            estimated_time_minutes=record.estimated_time_minutes,
+            tags=record.tags or [],
+        )
 
 
 class ExerciseWithSolution(ExerciseResponse):
@@ -498,6 +582,39 @@ class SessionSummary(BaseModel):
     mastery_changes: dict[str, float] = Field(
         default_factory=dict, description="Topic -> mastery delta"
     )
+
+    @classmethod
+    def from_db_record(
+        cls,
+        record: PracticeSession,
+        mastery_changes: dict[str, float] | None = None,
+    ) -> SessionSummary:
+        """
+        Create a SessionSummary from a database PracticeSession record.
+
+        Factory method for converting SQLAlchemy models to Pydantic models
+        when loading session data from the database.
+
+        Args:
+            record: SQLAlchemy PracticeSession record from the database
+            mastery_changes: Optional dict of topic mastery changes
+
+        Returns:
+            SessionSummary instance with data from the database record
+
+        Example:
+            >>> summary = SessionSummary.from_db_record(db_session)
+        """
+        return cls(
+            session_id=record.id,
+            duration_minutes=record.duration_minutes or 0,
+            cards_reviewed=record.total_cards,
+            exercises_completed=record.exercise_count or 0,
+            correct_count=record.correct_count,
+            total_count=record.total_cards + (record.exercise_count or 0),
+            average_score=record.average_score or 0.0,
+            mastery_changes=mastery_changes or {},
+        )
 
 
 # ===========================================

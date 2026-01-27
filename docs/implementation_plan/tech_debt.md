@@ -235,13 +235,30 @@ class SomeModel:
         ...
 ```
 
-**Candidates**:
-- [x] `UnifiedContent.from_db_content(db_content)` - Already implemented
-- [x] `ProcessingRun.from_processing_result(...)` - Already implemented
-- [x] `Concept.from_db_record(concept_record)` - DB record to Pydantic
-- [x] `Connection.from_db_record(connection_record)` - DB record to Pydantic
-- [x] `FollowupTask.from_db_record(followup_record)` - DB record to Pydantic
-- [x] `MasteryQuestion.from_db_record(question_record)` - DB record to Pydantic
+**Completed Factory Methods**:
+
+*Processing models (`app/models/processing.py`)*:
+- [x] `Concept.from_db_record(concept_record)` - ConceptRecord → Concept
+- [x] `Connection.from_db_record(connection_record)` - ConnectionRecord → Connection
+- [x] `FollowupTask.from_db_record(followup_record)` - FollowupRecord → FollowupTask
+- [x] `MasteryQuestion.from_db_record(question_record)` - QuestionRecord → MasteryQuestion
+
+*Content models (`app/models/content.py`)*:
+- [x] `UnifiedContent.from_db_content(db_content)` - Already implemented (Content → UnifiedContent)
+- [x] `Annotation.from_db_record(annotation_record)` - Annotation (DB) → Annotation (Pydantic)
+
+*Learning models (`app/models/learning.py`)*:
+- [x] `CardResponse.from_db_record(card)` - SpacedRepCard → CardResponse
+- [x] `ExerciseResponse.from_db_record(exercise)` - Exercise → ExerciseResponse
+- [x] `SessionSummary.from_db_record(session)` - PracticeSession → SessionSummary
+
+*Assistant models (`app/models/assistant.py`)*:
+- [x] `MessageInfo.from_db_record(message)` - AssistantMessage → MessageInfo
+- [x] `ConversationSummary.from_db_record(conversation)` - AssistantConversation → ConversationSummary
+- [x] `ConversationDetail.from_db_record(conversation)` - AssistantConversation → ConversationDetail
+
+*DB models (`app/db/models_processing.py`)*:
+- [x] `ProcessingRun.from_processing_result(...)` - Already implemented (ProcessingResult → ProcessingRun)
 
 ---
 
@@ -875,9 +892,24 @@ Used `from __future__ import annotations` for cleaner return type hints.
 - Added `FollowupTask.from_db_record(followup_record)` - converts FollowupRecord to FollowupTask
 - Added `MasteryQuestion.from_db_record(question_record)` - converts QuestionRecord to MasteryQuestion
 
+**`backend/app/models/content.py`**:
+- Added `Annotation.from_db_record(annotation_record)` - converts DB Annotation to Pydantic Annotation
+
+**`backend/app/models/learning.py`**:
+- Added `CardResponse.from_db_record(card)` - converts SpacedRepCard to CardResponse
+- Added `ExerciseResponse.from_db_record(exercise)` - converts Exercise to ExerciseResponse
+- Added `SessionSummary.from_db_record(session)` - converts PracticeSession to SessionSummary
+
+**`backend/app/models/assistant.py`**:
+- Added `MessageInfo.from_db_record(message)` - converts AssistantMessage to MessageInfo
+- Added `ConversationSummary.from_db_record(conversation)` - converts AssistantConversation to ConversationSummary
+- Added `ConversationDetail.from_db_record(conversation)` - converts AssistantConversation to ConversationDetail
+
 **Pre-existing factory methods** (already implemented):
 - `UnifiedContent.from_db_content()` in `app/models/content.py`
 - `ProcessingRun.from_processing_result()` in `app/db/models_processing.py`
+
+All files now use `from __future__ import annotations` and `TYPE_CHECKING` imports for clean forward references.
 
 ---
 
