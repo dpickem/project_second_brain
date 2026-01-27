@@ -27,7 +27,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -247,7 +247,7 @@ class VoiceTranscriber(BasePipeline):
         else:
             # Fallback: use transcript as-is with timestamp title
             title = (
-                f"{DEFAULT_TITLE_PREFIX} - {datetime.now().strftime(DATETIME_FORMAT)}"
+                f"{DEFAULT_TITLE_PREFIX} - {datetime.now(timezone.utc).strftime(DATETIME_FORMAT)}"
             )
             content = transcript
 
@@ -395,7 +395,7 @@ class VoiceTranscriber(BasePipeline):
         ):
             self.logger.debug("Note expansion skipped - transcript too short")
             return ExpandedNote(
-                title=f"{DEFAULT_TITLE_PREFIX} - {datetime.now().strftime(DATETIME_FORMAT)}",
+                title=f"{DEFAULT_TITLE_PREFIX} - {datetime.now(timezone.utc).strftime(DATETIME_FORMAT)}",
                 content=transcript,
             )
 
@@ -457,7 +457,7 @@ Respond with JSON containing "title" and "content" fields only."""
 
                 # Validate we got both fields
                 if not title:
-                    title = f"{DEFAULT_TITLE_PREFIX} - {datetime.now().strftime(DATETIME_FORMAT)}"
+                    title = f"{DEFAULT_TITLE_PREFIX} - {datetime.now(timezone.utc).strftime(DATETIME_FORMAT)}"
                 if not content:
                     content = transcript
 
@@ -469,7 +469,7 @@ Respond with JSON containing "title" and "content" fields only."""
             except json.JSONDecodeError as e:
                 self.logger.warning(f"Failed to parse JSON response: {e}")
                 # Fall back to using response as content
-                title = f"{DEFAULT_TITLE_PREFIX} - {datetime.now().strftime(DATETIME_FORMAT)}"
+                title = f"{DEFAULT_TITLE_PREFIX} - {datetime.now(timezone.utc).strftime(DATETIME_FORMAT)}"
                 content = response_text.strip()
 
             self.logger.info(
@@ -487,7 +487,7 @@ Respond with JSON containing "title" and "content" fields only."""
             )
             # Return original transcript on failure - don't lose the content
             return ExpandedNote(
-                title=f"{DEFAULT_TITLE_PREFIX} - {datetime.now().strftime(DATETIME_FORMAT)}",
+                title=f"{DEFAULT_TITLE_PREFIX} - {datetime.now(timezone.utc).strftime(DATETIME_FORMAT)}",
                 content=transcript,
             )
 

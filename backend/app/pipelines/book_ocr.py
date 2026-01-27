@@ -41,7 +41,7 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -429,7 +429,7 @@ class BookOCRPipeline(BasePipeline):
             source_type=ContentType.BOOK,
             title=book_metadata.title,
             authors=book_metadata.authors,
-            created_at=datetime.now(),
+            created_at=datetime.now(timezone.utc),
             full_text=PAGE_SEPARATOR.join(full_text_parts),
             annotations=all_annotations,
             asset_paths=[str(p) for p in image_paths],

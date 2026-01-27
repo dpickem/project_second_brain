@@ -26,7 +26,7 @@ Usage:
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
@@ -272,7 +272,7 @@ async def _run_processing(content_id: str, config_dict: Optional[dict] = None) -
 
                 # Update content status and metadata
                 db_content.status = ProcessingStatus.PROCESSED
-                db_content.processed_at = datetime.utcnow()
+                db_content.processed_at = datetime.now(timezone.utc)
                 db_content.summary = processing_result.summaries.get("standard", "")
                 if processing_result.obsidian_note_path:
                     db_content.vault_path = processing_result.obsidian_note_path

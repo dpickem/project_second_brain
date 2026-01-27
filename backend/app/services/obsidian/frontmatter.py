@@ -9,7 +9,7 @@ Provides utilities for creating and parsing YAML frontmatter in Obsidian notes:
 
 from __future__ import annotations
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Any
 import yaml
 import frontmatter
@@ -66,11 +66,11 @@ class FrontmatterBuilder:
 
     def set_created(self, dt: datetime | None = None) -> FrontmatterBuilder:
         """Set created date."""
-        return self.set_date("created", dt or datetime.now())
+        return self.set_date("created", dt or datetime.now(timezone.utc))
 
     def set_processed(self, dt: datetime | None = None) -> FrontmatterBuilder:
         """Set processed date."""
-        return self.set_date("processed", dt or datetime.now())
+        return self.set_date("processed", dt or datetime.now(timezone.utc))
 
     def set_status(self, status: str) -> FrontmatterBuilder:
         """Set note status."""

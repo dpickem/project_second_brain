@@ -26,7 +26,7 @@ Usage:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import logging
 
@@ -157,7 +157,7 @@ class FolderIndexer:
             "---",
             "type: index",
             f"folder: {folder.name}",
-            f"generated: {datetime.now().strftime('%Y-%m-%d')}",
+            f"generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
             "---",
             "",
             f"# {folder_name}",
@@ -196,7 +196,7 @@ class FolderIndexer:
         content = f"""---
 type: index
 folder: {folder.name}
-generated: {datetime.now().strftime('%Y-%m-%d')}
+generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}
 ---
 
 # {folder_name}

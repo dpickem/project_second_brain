@@ -25,7 +25,7 @@ Usage:
 
 import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 from urllib.parse import urlparse
 
@@ -240,7 +240,7 @@ class WebArticlePipeline(BasePipeline):
         title = await self._extract_title_with_llm(text, url)
 
         # Parse date if available
-        created_at = datetime.now()
+        created_at = datetime.now(timezone.utc)
         if date_str:
             try:
                 created_at = datetime.fromisoformat(date_str)

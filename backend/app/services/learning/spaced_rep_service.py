@@ -129,7 +129,7 @@ class SpacedRepService:
             state=CardStateEnum.NEW.value,
             stability=settings.FSRS_INITIAL_STABILITY,
             difficulty=settings.FSRS_INITIAL_DIFFICULTY,
-            due_date=datetime.utcnow(),
+            due_date=datetime.now(timezone.utc),
             lapses=0,
             scheduled_days=0,
         )

@@ -42,7 +42,7 @@ Usage:
     # Batch sync (not via registry)
     from app.pipelines import RaindropSync
     sync = RaindropSync(access_token="...")
-    items = await sync.sync_collection(since=datetime.now() - timedelta(days=1))
+    items = await sync.sync_collection(since=datetime.now(timezone.utc) - timedelta(days=1))
 """
 
 from typing import Optional

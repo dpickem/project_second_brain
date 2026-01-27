@@ -49,7 +49,7 @@ Usage:
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -507,7 +507,7 @@ async def _update_status_impl(
 
     # Update processed_at if processed
     if status == ContentStatus.PROCESSED.value:
-        db_content.processed_at = datetime.utcnow()
+        db_content.processed_at = datetime.now(timezone.utc)
 
     # Store error in metadata if provided
     if error:

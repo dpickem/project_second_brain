@@ -29,7 +29,7 @@ Usage:
 
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional, TypedDict
 
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
@@ -285,7 +285,7 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
             }
         )
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
 
     # Get standard summary for idea/context
     standard_summary = result.summaries.get(SummaryLevel.STANDARD.value, "")
@@ -498,7 +498,7 @@ async def generate_concept_note(
                 f"Expected: config/templates/{template_name}"
             )
 
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
 
         # Format examples for template (list of dicts with title/content)
         examples = [

@@ -19,7 +19,7 @@ Usage:
     repos = await importer.import_starred_repos(limit=10)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
@@ -224,7 +224,7 @@ class GitHubImporter(BasePipeline):
         analysis = await self._generate_analysis(repo, readme, tree)
 
         # Parse dates
-        created_at = datetime.now()
+        created_at = datetime.now(timezone.utc)
         if repo.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(

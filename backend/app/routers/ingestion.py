@@ -22,7 +22,7 @@ Usage:
          -d '{"since_days": 7}'
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -70,7 +70,7 @@ async def trigger_raindrop_sync(
     Returns:
         Dict with sync status and parameters
     """
-    since = datetime.utcnow() - timedelta(days=request.since_days)
+    since = datetime.now(timezone.utc) - timedelta(days=request.since_days)
 
     background_tasks.add_task(sync_raindrop.delay, since.isoformat(), request.limit)
 

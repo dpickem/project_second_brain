@@ -18,11 +18,11 @@ Usage:
     from app.pipelines import RaindropSync
 
     sync = RaindropSync(access_token="...")
-    items = await sync.sync_collection(since=datetime.now() - timedelta(days=1))
+    items = await sync.sync_collection(since=datetime.now(timezone.utc) - timedelta(days=1))
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 from urllib.parse import urlparse
 
@@ -67,7 +67,7 @@ class RaindropSync(BasePipeline):
 
     Usage:
         sync = RaindropSync(access_token="...")
-        items = await sync.sync_collection(since=datetime.now() - timedelta(days=1))
+        items = await sync.sync_collection(since=datetime.now(timezone.utc) - timedelta(days=1))
     """
 
     # API Configuration
@@ -310,7 +310,7 @@ class RaindropSync(BasePipeline):
         ]
 
         # Parse creation date
-        created_at = datetime.now()
+        created_at = datetime.now(timezone.utc)
         if item.get("created"):
             try:
                 created_at = datetime.fromisoformat(

@@ -27,7 +27,7 @@ Usage:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import func, select
@@ -202,7 +202,7 @@ class CostTracker:
             Dict with total_cost, request_count, and breakdown by model
         """
         if date is None:
-            date = datetime.utcnow()
+            date = datetime.now(timezone.utc)
 
         start_of_day = date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_day = start_of_day + timedelta(days=1)
@@ -292,7 +292,7 @@ class CostTracker:
         Returns:
             Dict with total_cost, request_count, and daily breakdown
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if year is None:
             year = now.year
         if month is None:
@@ -506,7 +506,7 @@ class CostTracker:
         Returns:
             Updated LLMCostSummary record
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if period_type == "daily":
             period_start = now.replace(hour=0, minute=0, second=0, microsecond=0)

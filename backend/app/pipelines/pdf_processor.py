@@ -22,7 +22,7 @@ Usage:
     content = await processor.process(Path("paper.pdf"))
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -249,7 +249,7 @@ class PDFProcessor(BasePipeline):
             source_file_path=str(pdf_path),
             title=title,
             authors=authors,
-            created_at=datetime.now(),
+            created_at=datetime.now(timezone.utc),
             full_text=ocr_result.full_text,
             annotations=annotations,
             raw_file_hash=file_hash,

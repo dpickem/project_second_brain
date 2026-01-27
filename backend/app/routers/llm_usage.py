@@ -13,7 +13,7 @@ Endpoints:
 
 from typing import Optional
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -130,7 +130,7 @@ async def get_daily_usage(
         if date:
             target_date = datetime.strptime(date, "%Y-%m-%d")
         else:
-            target_date = datetime.utcnow()
+            target_date = datetime.now(timezone.utc)
 
         summary = await CostTracker.get_daily_cost(date=target_date, session=db)
         return DailyUsageResponse(**summary)
@@ -211,7 +211,7 @@ async def get_usage_history(
     along with aggregated totals and trend analysis.
     """
     try:
-        end_date = datetime.utcnow()
+        end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=days)
 
         # Query daily aggregates
@@ -287,7 +287,7 @@ async def get_top_consumers(
     the most tokens and generating the most cost.
     """
     try:
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         # Top models by cost
         model_query = await db.execute(

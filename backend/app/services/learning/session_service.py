@@ -834,7 +834,7 @@ class SessionService:
         """Create initial session record in database."""
         session = PracticeSession(
             session_type=request.session_type.value,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             total_cards=0,
             correct_count=0,
             topics_covered=[],
