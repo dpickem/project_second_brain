@@ -10,7 +10,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-002: Missing CONTRIBUTING.md](#td-002-missing-contributingmd)~~
   - ⏭️ ~~[TD-003: Missing CODE_OF_CONDUCT.md](#td-003-missing-code_of_conductmd)~~ (won't do)
   - ✅ ~~[TD-004: CORS wildcard allows all origins](#td-004-cors-wildcard-allows-all-origins)~~
-  - [TD-005: Missing production deployment documentation](#td-005-missing-production-deployment-documentation)
+  - ✅ ~~[TD-005: Missing production deployment documentation](#td-005-missing-production-deployment-documentation)~~
   - [TD-006: README updates for open-source](#td-006-readme-updates-for-open-source)
   - [TD-007: Add CHANGELOG.md and SECURITY.md](#td-007-add-changelogmd-and-securitymd)
 - [Backend Tech Debt](#backend-tech-debt)
@@ -123,17 +123,17 @@ allow_origins=["*"]  # Configure appropriately for production
 
 ---
 
-### TD-005: Missing production deployment documentation
+### ✅ TD-005: Missing production deployment documentation
 **Priority**: P0  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Documentation
 
 **Required Documentation**:
-- [ ] `docs/deployment/production.md` - Production deployment guide
-- [ ] `docs/deployment/security.md` - Security hardening guide
-- [ ] SSL/TLS setup instructions
-- [ ] Reverse proxy (Nginx) configuration examples
-- [ ] Database backup/restore procedures
+- [x] `docs/deployment/production.md` - Production deployment guide
+- [x] `docs/deployment/security.md` - Security hardening guide
+- [x] SSL/TLS setup instructions
+- [x] Reverse proxy (Nginx) configuration examples
+- [x] Database backup/restore procedures
 
 ---
 
@@ -770,7 +770,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-002: Missing CONTRIBUTING.md~~
 - ⏭️ ~~TD-003: Missing CODE_OF_CONDUCT.md~~ (won't do)
 - ✅ ~~TD-004: CORS wildcard allows all origins~~
-- [ ] TD-005: Missing production deployment documentation
+- ✅ ~~TD-005: Missing production deployment documentation~~
 
 ### P1 - High (Should address for clean release)
 - [ ] TD-006: README updates for open-source
@@ -1163,9 +1163,41 @@ CORS_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
 
 ---
 
+### ✅ TD-005: Missing production deployment documentation
+**Completed**: 2026-01-27
+
+Created comprehensive production deployment documentation.
+
+**Files created**:
+
+**`docs/deployment/production.md`** - Production deployment guide covering:
+- Server setup and prerequisites
+- Docker production configuration with `docker-compose.prod.yml` override
+- SSL/TLS setup with Let's Encrypt and Certbot
+- Nginx reverse proxy configuration (rate limiting, security headers, upstream proxying)
+- Environment configuration for production
+- Database backup and restore procedures (PostgreSQL, Neo4j, Obsidian vault)
+- Monitoring and health checks
+- Maintenance procedures (updates, log viewing, cleanup)
+- Troubleshooting common issues
+
+**`docs/deployment/security.md`** - Security hardening guide covering:
+- Pre-production security checklist
+- Network security (firewall, fail2ban, Docker network isolation)
+- Authentication and authorization
+- Secrets management and rotation schedules
+- Database security (PostgreSQL, Redis, Neo4j)
+- Container security (non-root execution, resource limits, image scanning)
+- API security (rate limiting, input validation, CORS, security headers)
+- SSL/TLS best practices (modern ciphers, HSTS, testing)
+- Monitoring and auditing
+- Incident response procedures
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 16 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 17 completed
