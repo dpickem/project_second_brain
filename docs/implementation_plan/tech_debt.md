@@ -14,18 +14,18 @@ This document tracks known technical debt items and improvements for open-source
   - [TD-006: README updates for open-source](#td-006-readme-updates-for-open-source)
   - [TD-007: Add CHANGELOG.md and SECURITY.md](#td-007-add-changelogmd-and-securitymd)
 - [Backend Tech Debt](#backend-tech-debt)
-  - ✅ [TD-008: Use TYPE_CHECKING for type annotation imports](#td-008-use-type_checking-for-type-annotation-imports)
-  - ✅ [TD-009: Complete LLM/OCR/VLM usage tracking](#td-009-complete-llmocrvlm-usage-tracking)
+  - ✅ ~~[TD-008: Use TYPE_CHECKING for type annotation imports](#td-008-use-type_checking-for-type-annotation-imports)~~
+  - ✅ ~~[TD-009: Complete LLM/OCR/VLM usage tracking](#td-009-complete-llmocrvlm-usage-tracking)~~
   - [TD-010: Model factory methods for cross-layer conversions](#td-010-model-factory-methods-for-cross-layer-conversions)
-  - ✅ [TD-011: Clean up imports and move to top of files](#td-011-clean-up-imports-and-move-to-top-of-files)
+  - ✅ ~~[TD-011: Clean up imports and move to top of files](#td-011-clean-up-imports-and-move-to-top-of-files)~~
   - [TD-012: Robust deduplication and cleanup on reprocessing](#td-012-robust-deduplication-and-cleanup-on-reprocessing)
-  - ✅ [TD-013: Eliminate magic numbers](#td-013-eliminate-magic-numbers)
+  - ✅ ~~[TD-013: Eliminate magic numbers](#td-013-eliminate-magic-numbers)~~
   - [TD-014: N+1 query in mastery_service.py](#td-014-n1-query-in-mastery_servicepy)
-  - ✅ [TD-015: Inconsistent datetime usage](#td-015-inconsistent-datetime-usage)
+  - ✅ ~~[TD-015: Inconsistent datetime usage](#td-015-inconsistent-datetime-usage)~~
   - [TD-016: Incomplete TODO implementations](#td-016-incomplete-todo-implementations)
   - [TD-017: Large service files need splitting](#td-017-large-service-files-need-splitting)
   - [TD-018: Inconsistent error handling patterns](#td-018-inconsistent-error-handling-patterns)
-  - ✅ [TD-019: Missing type hints](#td-019-missing-type-hints)
+  - ✅ ~~[TD-019: Missing type hints](#td-019-missing-type-hints)~~
   - [TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)
   - [TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)
 - [Frontend Tech Debt](#frontend-tech-debt)
@@ -708,10 +708,10 @@ DATA_DIR=~/workspace/obsidian/second_brain
 ### P1 - High (Should address for clean release)
 - [ ] TD-006: README updates for open-source
 - [ ] TD-007: Add CHANGELOG.md and SECURITY.md
-- ✅ TD-009: Complete LLM/OCR/VLM usage tracking
+- ✅ ~~TD-009: Complete LLM/OCR/VLM usage tracking~~
 - [ ] TD-012: Robust deduplication and cleanup on reprocessing
 - [ ] TD-014: N+1 query in mastery_service.py
-- ✅ TD-015: Inconsistent datetime usage
+- ✅ ~~TD-015: Inconsistent datetime usage~~
 - [ ] TD-022: Remove console.log statements
 - [ ] TD-023: Hardcoded URLs throughout frontend
 - [ ] TD-025: Missing error boundaries
@@ -721,14 +721,14 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - [ ] TD-034: Docker compose production configuration
 
 ### P2 - Medium (Address when touching related code)
-- ✅ TD-008: Use TYPE_CHECKING for type annotation imports
+- ✅ ~~TD-008: Use TYPE_CHECKING for type annotation imports~~
 - [ ] TD-010: Model factory methods for cross-layer conversions
-- ✅ TD-011: Clean up imports and move to top of files
-- ✅ TD-013: Eliminate magic numbers
+- ✅ ~~TD-011: Clean up imports and move to top of files~~
+- ✅ ~~TD-013: Eliminate magic numbers~~
 - [ ] TD-016: Incomplete TODO implementations
 - [ ] TD-017: Large service files need splitting
 - [ ] TD-018: Inconsistent error handling patterns
-- ✅ TD-019: Missing type hints
+- ✅ ~~TD-019: Missing type hints~~
 - [ ] TD-020: Hardcoded upload directory
 - [ ] TD-021: Review and clean up dependencies
 - [ ] TD-024: Missing prop validation

@@ -6,7 +6,7 @@ Tests for FrontmatterBuilder class and parsing/update functions.
 
 from __future__ import annotations
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from pathlib import Path
 
 import pytest
@@ -122,8 +122,8 @@ class TestFrontmatterBuilder:
         builder.set_created()
         result = builder.build()
         assert "created" in result
-        # Verify it's today's date
-        assert result["created"] == datetime.now().strftime("%Y-%m-%d")
+        # Verify it's today's date (UTC)
+        assert result["created"] == datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     def test_set_processed_with_datetime(self):
         """set_processed() stores formatted date."""
@@ -138,7 +138,7 @@ class TestFrontmatterBuilder:
         builder.set_processed()
         result = builder.build()
         assert "processed" in result
-        assert result["processed"] == datetime.now().strftime("%Y-%m-%d")
+        assert result["processed"] == datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     def test_set_status_valid(self):
         """set_status() stores valid status values."""
