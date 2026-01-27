@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { clsx } from 'clsx'
 import PropTypes from 'prop-types'
-import { PageLoader, Tooltip, CommandPalette } from './components/common'
+import { PageLoader, Tooltip, CommandPalette, PageErrorBoundary } from './components/common'
 import { useSettingsStore } from './stores'
 import { pageTransition } from './utils/animations'
 
@@ -250,25 +250,27 @@ function App() {
         <Navigation />
         
         <main className="flex-1 ml-16">
-          <Suspense fallback={<PageLoader />}>
-            <AnimatePresence mode="wait">
-              <Routes location={location} key={location.pathname}>
-                <Route path="/" element={<AnimatedPage><Dashboard /></AnimatedPage>} />
-                <Route path="/practice" element={<AnimatedPage><PracticeSession /></AnimatedPage>} />
-                <Route path="/practice/:topicId" element={<AnimatedPage><PracticeSession /></AnimatedPage>} />
-                <Route path="/exercises" element={<AnimatedPage><Exercises /></AnimatedPage>} />
-                <Route path="/cards" element={<AnimatedPage><CardCatalogue /></AnimatedPage>} />
-                <Route path="/review" element={<AnimatedPage><ReviewQueue /></AnimatedPage>} />
-                <Route path="/knowledge" element={<AnimatedPage><Knowledge /></AnimatedPage>} />
-                <Route path="/graph" element={<AnimatedPage><KnowledgeGraphPage /></AnimatedPage>} />
-                <Route path="/analytics" element={<AnimatedPage><Analytics /></AnimatedPage>} />
-                <Route path="/analytics/:topicId" element={<AnimatedPage><Analytics /></AnimatedPage>} />
-                <Route path="/assistant" element={<AnimatedPage><Assistant /></AnimatedPage>} />
-                <Route path="/llm-usage" element={<AnimatedPage><LLMUsage /></AnimatedPage>} />
-                <Route path="/settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
-              </Routes>
-            </AnimatePresence>
-          </Suspense>
+          <PageErrorBoundary resetKey={location.pathname}>
+            <Suspense fallback={<PageLoader />}>
+              <AnimatePresence mode="wait">
+                <Routes location={location} key={location.pathname}>
+                  <Route path="/" element={<AnimatedPage><Dashboard /></AnimatedPage>} />
+                  <Route path="/practice" element={<AnimatedPage><PracticeSession /></AnimatedPage>} />
+                  <Route path="/practice/:topicId" element={<AnimatedPage><PracticeSession /></AnimatedPage>} />
+                  <Route path="/exercises" element={<AnimatedPage><Exercises /></AnimatedPage>} />
+                  <Route path="/cards" element={<AnimatedPage><CardCatalogue /></AnimatedPage>} />
+                  <Route path="/review" element={<AnimatedPage><ReviewQueue /></AnimatedPage>} />
+                  <Route path="/knowledge" element={<AnimatedPage><Knowledge /></AnimatedPage>} />
+                  <Route path="/graph" element={<AnimatedPage><KnowledgeGraphPage /></AnimatedPage>} />
+                  <Route path="/analytics" element={<AnimatedPage><Analytics /></AnimatedPage>} />
+                  <Route path="/analytics/:topicId" element={<AnimatedPage><Analytics /></AnimatedPage>} />
+                  <Route path="/assistant" element={<AnimatedPage><Assistant /></AnimatedPage>} />
+                  <Route path="/llm-usage" element={<AnimatedPage><LLMUsage /></AnimatedPage>} />
+                  <Route path="/settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
+                </Routes>
+              </AnimatePresence>
+            </Suspense>
+          </PageErrorBoundary>
         </main>
 
         {/* Command Palette */}

@@ -72,3 +72,6 @@ export {
 
 // CommandPalette
 export { CommandPalette } from './CommandPalette'
+
+// ErrorBoundary
+export { ErrorBoundary, PageErrorBoundary, DefaultErrorFallback } from './ErrorBoundary'

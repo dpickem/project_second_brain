@@ -32,7 +32,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)~~
   - ✅ ~~[TD-023: Hardcoded URLs throughout frontend](#td-023-hardcoded-urls-throughout-frontend)~~
   - ✅ ~~[TD-024: Missing prop validation](#td-024-missing-prop-validation)~~
-  - [TD-025: Missing error boundaries](#td-025-missing-error-boundaries)
+  - ✅ ~~[TD-025: Missing error boundaries](#td-025-missing-error-boundaries)~~
   - [TD-026: Accessibility issues](#td-026-accessibility-issues)
   - [TD-027: Performance - missing memoization](#td-027-performance---missing-memoization)
   - [TD-028: Magic numbers in frontend](#td-028-magic-numbers-in-frontend)
@@ -577,14 +577,14 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
-### TD-025: Missing error boundaries
+### ✅ TD-025: Missing error boundaries
 **Priority**: P1  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Error handling
 
 **Issue**: No `ErrorBoundary` component exists. React errors will crash the entire app.
 
-**Fix**: Implement error boundaries at route/page level.
+**Fix**: Implemented error boundaries at route/page level.
 
 ---
 
@@ -789,7 +789,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-015: Inconsistent datetime usage~~
 - ✅ ~~TD-022: Remove console.log statements~~
 - ✅ ~~TD-023: Hardcoded URLs throughout frontend~~
-- [ ] TD-025: Missing error boundaries
+- ✅ ~~TD-025: Missing error boundaries~~
 - [ ] TD-030: Skipped tests due to missing dependencies
 - [ ] TD-031: Hardcoded path in run_processing.py
 - [ ] TD-032: Prototype code should be moved or removed
@@ -1417,9 +1417,39 @@ Added PropTypes validation to all key frontend components and enabled ESLint enf
 
 ---
 
+### ✅ TD-025: Missing error boundaries
+**Completed**: 2026-01-27
+
+Implemented React error boundaries to catch JavaScript errors and prevent full app crashes.
+
+**Files created**:
+
+**`frontend/src/components/common/ErrorBoundary.jsx`**:
+- `ErrorBoundary` - Generic error boundary with customizable fallback (function or element)
+- `PageErrorBoundary` - Route-aware boundary that auto-resets on navigation via `resetKey` prop
+- `DefaultErrorFallback` - Styled fallback UI with error details (dev only), refresh and retry buttons
+
+**Features**:
+- Catches JavaScript errors anywhere in child component tree
+- Shows user-friendly fallback UI instead of blank screen
+- "Try Again" button to reset and re-render
+- "Refresh Page" button as fallback
+- Error details shown in development mode only
+- Route-aware reset: navigating to a different page clears the error state
+- Optional `onError` callback for error logging/reporting
+
+**`frontend/src/components/common/index.js`**:
+- Added exports for `ErrorBoundary`, `PageErrorBoundary`, `DefaultErrorFallback`
+
+**`frontend/src/App.jsx`**:
+- Wrapped routes with `PageErrorBoundary` using `location.pathname` as `resetKey`
+- Errors in any page component are now caught and displayed gracefully
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 23 completed
+- Total items: 37 (5 P0, 13 P1, 17 P2, 2 P3) — 24 completed
