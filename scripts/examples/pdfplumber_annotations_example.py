@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-Test script for extracting PDF annotations using pdfplumber.
+Example script for extracting PDF annotations using pdfplumber.
 
 This script demonstrates how to extract highlights, underlines, comments,
 and other annotations from PDF files using pdfplumber.
+
+NOTE: This script is kept for reference. For production use, PyMuPDF (fitz)
+is recommended instead - see pymupdf_annotations_example.py.
 
 IMPORTANT FINDINGS ON PDF HIGHLIGHT EXTRACTION
 ==============================================
@@ -39,10 +42,11 @@ RECOMMENDATION
 - pdfplumber works for basic annotation detection but lacks robust text extraction
 
 Usage:
-    python test_pdfplumber_annotations.py <pdf_path>
-    python test_pdfplumber_annotations.py sample_mistral7b.pdf
-    python test_pdfplumber_annotations.py sample.pdf --verbose
-    python test_pdfplumber_annotations.py sample.pdf --dump-raw
+    # From project root:
+    python scripts/examples/pdfplumber_annotations_example.py <pdf_path>
+    python scripts/examples/pdfplumber_annotations_example.py test_data/sample_mistral7b.pdf
+    python scripts/examples/pdfplumber_annotations_example.py sample.pdf --verbose
+    python scripts/examples/pdfplumber_annotations_example.py sample.pdf --dump-raw
 
 Example output:
     Page 1: Found 3 annotations

@@ -4,12 +4,12 @@ Integration Tests for Vault Sync with Neo4j
 Tests the full synchronization flow between the Obsidian vault
 and the Neo4j knowledge graph.
 
-These tests require a running Neo4j instance.
+Note: These tests use mocked Neo4j client and do NOT require a running
+Neo4j instance. The mock_neo4j_client fixture provides all necessary mocks.
 """
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch, AsyncMock, MagicMock
@@ -21,14 +21,8 @@ from app.services.obsidian.sync import VaultSyncService, get_sync_status
 from app.services.obsidian.vault import create_vault_manager, reset_vault_manager
 
 
-# Skip all tests if Neo4j is not available
-pytestmark = [
-    pytest.mark.integration,
-    pytest.mark.skipif(
-        not os.environ.get("NEO4J_URI"),
-        reason="NEO4J_URI not set - Neo4j not available",
-    ),
-]
+# Mark as integration tests (no Neo4j skip - tests use mocked client)
+pytestmark = [pytest.mark.integration]
 
 
 # ============================================================================

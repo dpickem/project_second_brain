@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-Test script for extracting PDF annotations using PyMuPDF (fitz).
+Example script for extracting PDF annotations using PyMuPDF (fitz).
 
 This script uses the pdf_utils module from backend/app/pipelines/utils
 to extract and display PDF annotations.
 
 Usage:
-    python test_pymupdf_annotations.py <pdf_path>
-    python test_pymupdf_annotations.py sample_mistral7b.pdf
-    python test_pymupdf_annotations.py sample.pdf --verbose
-    python test_pymupdf_annotations.py sample.pdf --list-all
+    # From project root:
+    python scripts/examples/pymupdf_annotations_example.py <pdf_path>
+    python scripts/examples/pymupdf_annotations_example.py test_data/sample_mistral7b.pdf
+    python scripts/examples/pymupdf_annotations_example.py test_data/sample_paper_async_tool_use.pdf --verbose
+    python scripts/examples/pymupdf_annotations_example.py document.pdf --list-all
 
 Requirements:
     pip install pymupdf
@@ -21,7 +22,8 @@ from pathlib import Path
 
 # Add backend/app/pipelines/utils to path for direct module import
 # This avoids triggering the full backend initialization chain
-_utils_path = Path(__file__).parent.parent / "backend" / "app" / "pipelines" / "utils"
+_project_root = Path(__file__).parent.parent.parent
+_utils_path = _project_root / "backend" / "app" / "pipelines" / "utils"
 sys.path.insert(0, str(_utils_path))
 
 from pdf_utils import (
@@ -126,9 +128,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python test_pymupdf_annotations.py document.pdf
-    python test_pymupdf_annotations.py document.pdf --output annotations.json
-    python test_pymupdf_annotations.py document.pdf --verbose
+    python scripts/examples/pymupdf_annotations_example.py document.pdf
+    python scripts/examples/pymupdf_annotations_example.py test_data/sample_mistral7b.pdf --output annotations.json
+    python scripts/examples/pymupdf_annotations_example.py document.pdf --verbose
         """,
     )
     parser.add_argument("pdf_path", type=Path, help="Path to the PDF file")

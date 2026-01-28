@@ -47,7 +47,8 @@ Environment Variables (set in .env or environment):
 
     Optional:
     - NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD: For connection discovery
-    - OBSIDIAN_VAULT_PATH: For Obsidian note generation
+    - OBSIDIAN_VAULT_PATH: Path to Obsidian vault (default: ~/obsidian_vault)
+      Note: If set to "/vault" (Docker default), a local default will be used.
     - DEBUG: Enable verbose logging
 
 Example:
@@ -82,11 +83,19 @@ else:
 # Override DEBUG to suppress SQLAlchemy echo (engine uses echo=settings.DEBUG)
 os.environ["DEBUG"] = "false"
 
-# Set local Obsidian vault path (Docker uses /vault mount point)
-# Always override for local script execution - .env may have Docker's /vault path
-os.environ["OBSIDIAN_VAULT_PATH"] = os.path.expanduser(
-    "~/workspace/obsidian/second_brain/obsidian"
-)
+# Set local Obsidian vault path if not already set
+# .env may have Docker's /vault path, so we provide a sensible default for local execution
+# Users should set OBSIDIAN_VAULT_PATH in their environment or .env file
+if not os.environ.get("OBSIDIAN_VAULT_PATH") or os.environ.get(
+    "OBSIDIAN_VAULT_PATH"
+) == "/vault":
+    # Default path - users should override via OBSIDIAN_VAULT_PATH env var
+    default_vault_path = os.path.expanduser("~/obsidian_vault")
+    os.environ["OBSIDIAN_VAULT_PATH"] = default_vault_path
+    print(f"ℹ️  Using default vault path: {default_vault_path}")
+    print(
+        "   Set OBSIDIAN_VAULT_PATH environment variable to use a different location."
+    )
 
 # App imports (after sys.path setup and env loading)
 from sqlalchemy import select, func

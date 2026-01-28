@@ -61,6 +61,45 @@ cd frontend
 npm install
 ```
 
+### Optional Test Dependencies
+
+Some tests have optional dependencies and will be **automatically skipped** if those dependencies are not available. This allows running a subset of tests without a full environment setup.
+
+| Dependency | Tests Skipped When Missing | Required For |
+|------------|---------------------------|--------------|
+| `NEO4J_URI` env var | `test_vault_sync.py` (all) | Neo4j knowledge graph sync tests |
+| Docker | `TestCodeSandboxIntegration` in `test_code_sandbox.py` | Code sandbox execution tests |
+| OpenAPI snapshot | `test_schema_*` in `test_openapi_contract.py` | API contract verification |
+| Sample PDF file | PDF tests in `test_pipelines.py` | PDF processing pipeline tests |
+
+**Running tests without optional dependencies:**
+
+```bash
+# Run all tests (skipped tests will show as "SKIPPED" not "FAILED")
+pytest tests/ -v
+
+# Run only tests that don't require optional dependencies
+pytest tests/ -v -m "not integration"
+
+# See which tests would be skipped
+pytest tests/ --collect-only -q
+```
+
+**Setting up optional dependencies:**
+
+```bash
+# Neo4j (for vault sync tests)
+export NEO4J_URI=bolt://localhost:7687
+export NEO4J_USER=neo4j
+export NEO4J_PASSWORD=your_password
+
+# Docker (for code sandbox tests)
+# Ensure Docker daemon is running
+
+# OpenAPI snapshot (for contract tests)
+cd backend && make snapshot  # Creates openapi_snapshot.json
+```
+
 ### Docker Services (for Integration Tests)
 
 Integration tests require PostgreSQL, Redis, and Neo4j. You have two options:

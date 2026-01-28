@@ -17,6 +17,22 @@ from app.services.learning.code_sandbox import (
 )
 
 
+# Check if Docker is available for integration tests
+def _is_docker_available() -> bool:
+    """Check if Docker daemon is running and accessible."""
+    try:
+        import docker
+
+        client = docker.from_env()
+        client.ping()
+        return True
+    except Exception:
+        return False
+
+
+DOCKER_AVAILABLE = _is_docker_available()
+
+
 class TestExecutionResult:
     """Tests for ExecutionResult dataclass."""
 
@@ -257,23 +273,18 @@ class TestGetCodeSandbox:
         assert sandbox1 is sandbox2
 
 
-@pytest.mark.skipif(
-    not pytest.importorskip("docker", reason="Docker not available"),
-    reason="Docker not available",
-)
+@pytest.mark.skipif(not DOCKER_AVAILABLE, reason="Docker daemon not available")
 class TestCodeSandboxIntegration:
     """Integration tests requiring Docker.
 
-    These tests are skipped if Docker is not available.
+    These tests are skipped if Docker daemon is not running.
+    To run these tests, ensure Docker is installed and running.
     """
 
     @pytest.fixture
     def sandbox(self):
         """Create a real sandbox for integration tests."""
-        sandbox = CodeSandbox(enabled=True, timeout=10)
-        if not sandbox.enabled:
-            pytest.skip("Docker not available")
-        return sandbox
+        return CodeSandbox(enabled=True, timeout=10)
 
     @pytest.mark.asyncio
     async def test_execute_simple_python(self, sandbox):

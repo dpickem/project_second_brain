@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script for Mistral OCR API.
+Example script for Mistral OCR API.
 
 Based on: https://docs.mistral.ai/cookbooks/mistral-ocr-data_extraction
 
@@ -8,10 +8,13 @@ This script demonstrates how to use Mistral's OCR model to extract text
 and structured data from PDF documents.
 
 Usage:
-    python test_mistral_ocr.py <pdf_path>
+    # From project root:
+    python scripts/examples/mistral_ocr_example.py <pdf_path>
+    python scripts/examples/mistral_ocr_example.py test_data/sample_mistral7b.pdf
+    python scripts/examples/mistral_ocr_example.py test_data/sample_paper_async_tool_use.pdf
 
     # Or use the default test PDF:
-    python test_mistral_ocr.py
+    python scripts/examples/mistral_ocr_example.py
 
 Requirements:
     pip install mistralai pydantic
