@@ -28,7 +28,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-019: Missing type hints](#td-019-missing-type-hints)~~
   - ✅ ~~[TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)~~
   - ✅ ~~[TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)~~
-  - [TD-038: Concept deduplication not working](#td-038-concept-deduplication-not-working)
+  - ✅ ~~[TD-038: Concept deduplication not working](#td-038-concept-deduplication-not-working)~~
   - [TD-039: Exercises not synced to Obsidian vault](#td-039-exercises-not-synced-to-obsidian-vault)
   - [TD-040: PDF images not integrated into summaries](#td-040-pdf-images-not-integrated-into-summaries)
 - [Frontend Tech Debt](#frontend-tech-debt)
@@ -517,31 +517,51 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
-### TD-038: Concept deduplication not working
+### ✅ TD-038: Concept deduplication not working
 **Priority**: P1  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Data integrity
 
-**Description**: Concepts are being duplicated badly in the database. For example, "Behavior Cloning (BC)" appears 10+ times as separate concept entries instead of being deduplicated.
+**Description**: Concepts were being duplicated badly in the database. For example, "Behavior Cloning (BC)" appeared 10+ times as separate concept entries instead of being deduplicated.
 
-**Impact**:
-- Cluttered knowledge graph with redundant nodes
-- Misleading analytics (concept counts inflated)
-- User confusion when browsing concepts
-- Wasted storage and processing resources
+**Root Cause**: Neo4j MERGE was matching by exact name, so "Behavior Cloning (BC)", "Behavior Cloning", and "BC" were all treated as different concepts.
 
-**Investigation Needed**:
-- [ ] Check concept extraction pipeline for deduplication logic
-- [ ] Verify if normalization (case, punctuation, aliases) is applied
-- [ ] Check if Neo4j MERGE is being used correctly for concept nodes
-- [ ] Review PostgreSQL concept storage for duplicate detection
+**Fix Implemented**:
 
-**Potential Fixes**:
-- Implement fuzzy matching for concept names during extraction
-- Add concept normalization (lowercase, strip parentheticals for matching)
-- Use semantic similarity to detect near-duplicates
-- Add batch deduplication script for existing data
-- Consider concept aliasing (e.g., "BC" → "Behavior Cloning")
+1. **New concept deduplication module** (`app/services/processing/concept_dedup.py`):
+   - `normalize_concept_name()` - Extracts canonical name and aliases from parentheses
+   - `get_canonical_name()` - Returns the base concept name for storage
+   - `extract_aliases()` - Extracts aliases like "BC" from "Behavior Cloning (BC)"
+   - `deduplicate_concepts()` - Deduplicates within a single extraction
+
+2. **Neo4j changes** (`services/knowledge_graph/queries.py` and `client.py`):
+   - MERGE now uses `canonical_name` (lowercase, no aliases) for matching
+   - `display_name` stores the preferred display format
+   - `aliases` array accumulates all aliases from different sources
+   - Constraint updated to enforce uniqueness on `canonical_name`
+
+3. **Extraction stage integration** (`services/processing/stages/extraction.py`):
+   - Calls `deduplicate_concepts()` before returning results
+   - Handles LLM extracting the same concept multiple times with different names
+
+4. **Batch deduplication helpers** (`services/processing/cleanup.py`):
+   - `deduplicate_neo4j_concepts()` - Merges existing duplicate concept nodes
+   - `migrate_concepts_to_canonical_names()` - Adds canonical_name to old concepts
+
+**Migration for Existing Data**:
+```python
+from app.services.processing.cleanup import (
+    migrate_concepts_to_canonical_names,
+    deduplicate_neo4j_concepts,
+)
+
+# First, add canonical_name to existing concepts
+await migrate_concepts_to_canonical_names(neo4j_client)
+
+# Then deduplicate (dry_run=True to preview changes)
+result = await deduplicate_neo4j_concepts(neo4j_client, dry_run=True)
+# result = await deduplicate_neo4j_concepts(neo4j_client)  # Actually merge
+```
 
 ---
 
@@ -922,7 +942,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-031: Hardcoded path in run_processing.py~~
 - ✅ ~~TD-032: Prototype code should be moved or removed~~
 - [ ] TD-034: Docker compose production configuration
-- [ ] TD-038: Concept deduplication not working
+- ✅ ~~TD-038: Concept deduplication not working~~
 
 ### P2 - Medium (Address when touching related code)
 - ✅ ~~TD-008: Use TYPE_CHECKING for type annotation imports~~
@@ -1793,9 +1813,32 @@ that this is expected behavior, not a bug.
 
 ---
 
+### ✅ TD-038: Concept deduplication not working
+**Completed**: 2026-01-28
+
+Implemented comprehensive concept deduplication to prevent duplicate concepts like "Behavior Cloning (BC)" and "Behavior Cloning" from being stored as separate nodes.
+
+**New Files**:
+- `backend/app/services/processing/concept_dedup.py` - Name normalization and deduplication utilities
+
+**Changes**:
+- `backend/app/services/knowledge_graph/queries.py` - MERGE_CONCEPT_NODE now uses canonical_name
+- `backend/app/services/knowledge_graph/client.py` - create_concept_node uses normalized names, added find_concept_by_canonical_name
+- `backend/app/services/processing/stages/extraction.py` - Calls deduplicate_concepts() on extraction results
+- `backend/app/services/processing/cleanup.py` - Added batch deduplication functions
+
+**Key Functions**:
+- `normalize_concept_name()` - Extracts canonical name and aliases
+- `get_canonical_name()` - Returns base name without aliases
+- `deduplicate_concepts()` - Deduplicates within a single extraction
+- `deduplicate_neo4j_concepts()` - Batch deduplication for existing data
+- `migrate_concepts_to_canonical_names()` - Migration helper for old concepts
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 40 (5 P0, 14 P1, 19 P2, 2 P3) — 31 completed
+- Total items: 40 (5 P0, 14 P1, 19 P2, 2 P3) — 32 completed

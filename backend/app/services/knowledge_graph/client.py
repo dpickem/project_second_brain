@@ -296,8 +296,14 @@ class Neo4jClient:
         """
         Create or merge a Concept node.
 
-        Concepts are merged by name - if a concept with the same name exists,
-        the definition is updated only if the new one is more important (core).
+        Concepts are merged by canonical_name (lowercase, no aliases) to ensure
+        proper deduplication. For example, "Behavior Cloning (BC)" and "Behavior
+        Cloning" will merge to the same node.
+
+        If a concept with the same canonical name exists:
+        - Definition is updated only if the new one is more detailed and "core"
+        - Aliases are accumulated from all sources
+        - Display name is updated to prefer the more complete version
 
         Args:
             concept: The extracted Concept object
@@ -309,16 +315,29 @@ class Neo4jClient:
         """
         await self._ensure_initialized()
 
+        # Import here to avoid circular import
+        from app.services.processing.concept_dedup import (
+            get_canonical_name,
+            extract_aliases,
+        )
+
+        # Normalize concept name for deduplication
+        canonical_name = get_canonical_name(concept.name).lower()
+        display_name = get_canonical_name(concept.name)  # Original case, no aliases
+        aliases = extract_aliases(concept.name)
+
         async with self._async_driver.session(
             database=settings.NEO4J_DATABASE
         ) as session:
             result = await session.run(
                 MERGE_CONCEPT_NODE,
                 id=concept.id,
-                name=concept.name,
+                canonical_name=canonical_name,
+                display_name=display_name,
                 definition=concept.definition,
                 embedding=embedding,
                 importance=concept.importance,
+                aliases=aliases,
                 file_path=file_path,
             )
             record = await result.single()
@@ -385,14 +404,16 @@ class Neo4jClient:
         properties: Optional[dict] = None,
     ) -> bool:
         """
-        Create a relationship between two concepts by name.
+        Create a relationship between two concepts by canonical name.
 
-        Concepts are merged by name in Neo4j, so we link by name rather than ID.
-        This allows linking to concepts that may have been created by other content.
+        Concepts are merged by canonical_name in Neo4j, so we normalize the
+        names before linking. This handles cases like linking "Behavior
+        Cloning (BC)" to "Machine Learning" where the canonical names are
+        used for matching.
 
         Args:
-            source_name: Name of the source concept
-            target_name: Name of the target concept
+            source_name: Name of the source concept (will be normalized)
+            target_name: Name of the target concept (will be normalized)
             relationship_type: Type of relationship (EXTENDS, ENABLES, IS_TYPE_OF, etc.)
             properties: Optional properties dict for the relationship
 
@@ -400,6 +421,13 @@ class Neo4jClient:
             True if relationship was created, False if either concept doesn't exist
         """
         await self._ensure_initialized()
+
+        # Import here to avoid circular import
+        from app.services.processing.concept_dedup import get_canonical_name
+
+        # Normalize concept names for matching
+        source_canonical = get_canonical_name(source_name).lower()
+        target_canonical = get_canonical_name(target_name).lower()
 
         # Sanitize relationship type for Cypher
         rel_type = relationship_type.upper().replace("-", "_").replace(" ", "_")
@@ -410,12 +438,51 @@ class Neo4jClient:
         ) as session:
             result = await session.run(
                 query,
-                source_name=source_name,
-                target_name=target_name,
+                source_canonical=source_canonical,
+                target_canonical=target_canonical,
                 properties=properties or {},
             )
             record = await result.single()
             return record is not None
+
+    async def find_concept_by_canonical_name(
+        self,
+        canonical_name: str,
+    ) -> Optional[dict]:
+        """
+        Find a concept by its canonical (normalized) name.
+
+        This is used for deduplication checks before creating new concepts.
+
+        Args:
+            canonical_name: Lowercase canonical name to search for
+
+        Returns:
+            Dict with concept info if found: {"id": str, "name": str, "definition": str}
+            None if no matching concept exists
+        """
+        await self._ensure_initialized()
+
+        query = """
+        MATCH (c:Concept)
+        WHERE c.canonical_name = $canonical_name
+        RETURN c.id AS id, c.name AS name, c.definition AS definition
+        LIMIT 1
+        """
+
+        async with self._async_driver.session(
+            database=settings.NEO4J_DATABASE
+        ) as session:
+            result = await session.run(query, canonical_name=canonical_name)
+            record = await result.single()
+
+            if record:
+                return {
+                    "id": record["id"],
+                    "name": record["name"],
+                    "definition": record["definition"],
+                }
+            return None
 
     async def get_connected_nodes(
         self,

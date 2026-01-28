@@ -684,9 +684,36 @@ async def generate_concept_note(
         # Render the note
         note_content = template.render(**data)
 
-        # Get concepts folder and write note
+        # Get concepts folder
         concept_folder = vault.get_concept_folder()
-        output_path = await vault.get_unique_path(concept_folder, concept.name)
+
+        # Use canonical concept name (without aliases) for consistent filenames
+        from app.services.processing.concept_dedup import get_canonical_name
+
+        canonical_name = get_canonical_name(concept.name)
+        filename = vault.sanitize_filename(canonical_name)
+        output_path = concept_folder / f"{filename}.md"
+
+        # If concept note already exists, update it (preserving sources list)
+        if output_path.exists():
+            try:
+                existing_content = output_path.read_text(encoding="utf-8")
+                # Extract existing sources from frontmatter if present
+                import re
+
+                sources_match = re.search(
+                    r"^sources:\s*\n((?:\s*-\s*.+\n)+)", existing_content, re.MULTILINE
+                )
+                if sources_match:
+                    existing_sources = re.findall(r"-\s*(.+)", sources_match.group(1))
+                    # Merge sources, avoiding duplicates
+                    all_sources = list(dict.fromkeys(existing_sources + data["sources"]))
+                    data["sources"] = all_sources
+                    # Re-render with updated sources
+                    note_content = template.render(**data)
+            except Exception as e:
+                logger.debug(f"Could not read existing concept note: {e}")
+
         await vault.write_note(output_path, note_content)
 
         # Return relative path from vault root

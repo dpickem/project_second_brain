@@ -32,6 +32,7 @@ from app.enums.processing import ConceptImportance
 from app.models.llm_usage import LLMUsage
 from app.services.llm.client import LLMClient
 from app.config.processing import processing_settings
+from app.services.processing.concept_dedup import deduplicate_concepts
 
 logger = logging.getLogger(__name__)
 
@@ -222,8 +223,12 @@ async def extract_concepts(
                     )
                 )
 
+        # Deduplicate concepts within this extraction
+        # This handles cases where LLM extracts "Behavior Cloning (BC)" and "BC" separately
+        unique_concepts = deduplicate_concepts(concepts)
+
         result = ExtractionResult(
-            concepts=concepts,
+            concepts=unique_concepts,
             key_findings=data.get("key_findings", []),
             methodologies=data.get("methodologies", []),
             tools_mentioned=data.get("tools_mentioned", []),

@@ -276,23 +276,31 @@ RETURN c.id AS id
 """
 
 MERGE_CONCEPT_NODE = """
-MERGE (c:Concept {name: $name})
+MERGE (c:Concept {canonical_name: $canonical_name})
 ON CREATE SET
     c.id = $id,
+    c.name = $display_name,
+    c.canonical_name = $canonical_name,
     c.definition = $definition,
     c.embedding = $embedding,
     c.importance = $importance,
+    c.aliases = $aliases,
     c.file_path = $file_path,
     c.created_at = datetime()
 ON MATCH SET
-    c.definition = CASE WHEN $importance = 'core' 
+    c.name = CASE WHEN $importance = 'core' AND size($display_name) > size(c.name)
+                  THEN $display_name ELSE c.name END,
+    c.definition = CASE WHEN $importance = 'core' AND size($definition) > size(coalesce(c.definition, ''))
                        THEN $definition ELSE c.definition END,
     c.embedding = CASE WHEN $importance = 'core'
                       THEN $embedding ELSE c.embedding END,
     c.file_path = CASE WHEN $file_path IS NOT NULL 
                        THEN $file_path ELSE c.file_path END,
+    c.aliases = CASE WHEN $aliases IS NOT NULL AND size($aliases) > 0
+                     THEN [x IN coalesce(c.aliases, []) + $aliases WHERE x IS NOT NULL | x]
+                     ELSE c.aliases END,
     c.updated_at = datetime()
-RETURN c.id AS id
+RETURN c.id AS id, c.name AS name
 """
 
 
@@ -312,10 +320,10 @@ SET r += $properties
 RETURN type(r) AS rel_type
 """
 
-# Link concepts by name (concepts are merged by name, not ID)
+# Link concepts by canonical name (concepts are merged by canonical_name, not display name)
 LINK_CONCEPTS_BY_NAME = """
-MATCH (source:Concept {{name: $source_name}})
-MATCH (target:Concept {{name: $target_name}})
+MATCH (source:Concept {{canonical_name: $source_canonical}})
+MATCH (target:Concept {{canonical_name: $target_canonical}})
 WHERE source <> target
 MERGE (source)-[r:{rel_type}]->(target)
 SET r += $properties
@@ -377,8 +385,8 @@ FOR (c:Content) REQUIRE c.id IS UNIQUE
 """
 
 CREATE_CONCEPT_NAME_CONSTRAINT = """
-CREATE CONSTRAINT concept_name_unique IF NOT EXISTS
-FOR (c:Concept) REQUIRE c.name IS UNIQUE
+CREATE CONSTRAINT concept_canonical_name_unique IF NOT EXISTS
+FOR (c:Concept) REQUIRE c.canonical_name IS UNIQUE
 """
 
 CREATE_CONTENT_TYPE_INDEX = """
