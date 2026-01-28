@@ -8,6 +8,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { clsx } from 'clsx'
+import { Z_INDEX } from '../../constants'
 
 const positions = {
   top: {
@@ -142,9 +143,9 @@ export function Tooltip({
               animate={positions[side].animate}
               exit={positions[side].exit}
               transition={{ duration: 0.15 }}
-              style={{ top: position.top, left: position.left }}
+              style={{ top: position.top, left: position.left, zIndex: Z_INDEX.TOOLTIP }}
               className={clsx(
-                'fixed z-[9999] px-2 py-1 text-xs font-medium text-white bg-slate-700 rounded shadow-lg',
+                'fixed px-2 py-1 text-xs font-medium text-white bg-slate-700 rounded shadow-lg',
                 'whitespace-nowrap pointer-events-none',
                 tooltipPositionStyles[side],
                 className

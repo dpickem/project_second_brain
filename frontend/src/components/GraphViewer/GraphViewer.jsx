@@ -11,6 +11,13 @@ import ForceGraph2D from 'react-force-graph-2d'
 import * as d3 from 'd3'
 import { useGraphData } from './useGraphData'
 import { GraphLegend } from './GraphLegend'
+import {
+  DEFAULT_GRAPH_WIDTH,
+  DEFAULT_GRAPH_HEIGHT,
+  GRAPH_CHARGE_STRENGTH,
+  GRAPH_CHARGE_DISTANCE_MAX,
+  GRAPH_LINK_DISTANCE,
+} from '../../constants'
 
 // Node colors by type - single unified color scheme
 const NODE_COLORS = {
@@ -66,8 +73,8 @@ export function GraphViewer({
 }) {
   const graphRef = useRef()
   const containerRef = useRef()
-  const dimensionsRef = useRef({ width: 800, height: 600 })
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+  const dimensionsRef = useRef({ width: DEFAULT_GRAPH_WIDTH, height: DEFAULT_GRAPH_HEIGHT })
+  const [dimensions, setDimensions] = useState({ width: DEFAULT_GRAPH_WIDTH, height: DEFAULT_GRAPH_HEIGHT })
   const [selectedNodeId, setSelectedNodeId] = useState(null)
   const dataIdRef = useRef(null) // Track which data we've initialized
   const stableDataRef = useRef(null) // Store stable graph data reference
@@ -162,8 +169,8 @@ export function GraphViewer({
     const fg = graphRef.current
     
     // Configure forces for good spread
-    fg.d3Force('charge')?.strength(-300)?.distanceMax(400)
-    fg.d3Force('link')?.distance(100)
+    fg.d3Force('charge')?.strength(GRAPH_CHARGE_STRENGTH)?.distanceMax(GRAPH_CHARGE_DISTANCE_MAX)
+    fg.d3Force('link')?.distance(GRAPH_LINK_DISTANCE)
     fg.d3Force('center')?.strength(0.03)
     
     // Add collision force to prevent overlap - larger radius for labels

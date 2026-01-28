@@ -377,8 +377,8 @@ describe('Tooltip', () => {
       })
 
       const tooltip = screen.getByRole('tooltip')
-      // Check for z-index class (z-[9999])
-      expect(tooltip.className).toMatch(/z-\[9999\]/)
+      // Check for high z-index in inline style (Z_INDEX.TOOLTIP = 9999)
+      expect(tooltip.style.zIndex).toBe('9999')
     })
   })
 

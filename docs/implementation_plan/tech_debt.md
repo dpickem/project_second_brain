@@ -30,6 +30,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)~~
   - [TD-038: Concept deduplication not working](#td-038-concept-deduplication-not-working)
   - [TD-039: Exercises not synced to Obsidian vault](#td-039-exercises-not-synced-to-obsidian-vault)
+  - [TD-040: PDF images not integrated into summaries](#td-040-pdf-images-not-integrated-into-summaries)
 - [Frontend Tech Debt](#frontend-tech-debt)
   - ✅ ~~[TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)~~
   - ✅ ~~[TD-023: Hardcoded URLs throughout frontend](#td-023-hardcoded-urls-throughout-frontend)~~
@@ -37,7 +38,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-025: Missing error boundaries](#td-025-missing-error-boundaries)~~
   - ✅ ~~[TD-026: Accessibility issues](#td-026-accessibility-issues)~~
   - ✅ ~~[TD-027: Performance - missing memoization](#td-027-performance---missing-memoization)~~
-  - [TD-028: Magic numbers in frontend](#td-028-magic-numbers-in-frontend)
+  - ✅ ~~[TD-028: Magic numbers in frontend](#td-028-magic-numbers-in-frontend)~~
   - [TD-029: Inconsistent state management patterns](#td-029-inconsistent-state-management-patterns)
 - [Tests & Scripts](#tests--scripts)
   - [TD-030: Skipped tests due to missing dependencies](#td-030-skipped-tests-due-to-missing-dependencies)
@@ -572,6 +573,47 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
+### TD-040: PDF images not integrated into summaries
+**Priority**: P2  
+**Status**: Open  
+**Area**: Content processing / UX
+
+**Description**: During PDF/book OCR processing, images are extracted but not utilized in the final output. These images (diagrams, figures, charts, etc.) should be:
+1. Integrated into the detailed summary at appropriate locations
+2. Rendered in Obsidian markdown notes with proper image embeds
+3. Displayed in the web UI when viewing content
+
+**Current State**:
+- OCR pipeline extracts images during PDF processing
+- Images are likely stored but not referenced in summaries
+- Obsidian notes contain text-only summaries
+- Web UI shows text-only content
+
+**Expected Behavior**:
+- Images referenced in context within the detailed summary (e.g., "As shown in Figure 3...")
+- Obsidian notes embed images using `![[image.png]]` or `![alt](path/to/image.png)` syntax
+- Images stored in Obsidian vault's attachments folder
+- Web UI renders images inline with content
+- Image captions/alt text extracted or generated for accessibility
+
+**Implementation Tasks**:
+- [ ] Audit current image extraction in OCR pipeline (`book_ocr.py`, `pdf_processor.py`)
+- [ ] Store extracted images with content association (filename, content_id, position)
+- [ ] Update LLM summary prompts to reference images by position/figure number
+- [ ] Update Obsidian generator to embed images in markdown output
+- [ ] Create image storage location in Obsidian vault (e.g., `attachments/` or alongside notes)
+- [ ] Add image serving endpoint to backend API
+- [ ] Update frontend content viewer to render embedded images
+- [ ] Handle image optimization (resize, compress for web)
+
+**Considerations**:
+- Image file naming convention (content_id + sequence number?)
+- Storage location: local vault vs. dedicated media storage
+- Image format standardization (convert HEIC, etc. to web-friendly formats)
+- LLM context: may need to pass image positions to summary generation
+
+---
+
 ## Frontend Tech Debt
 
 ### ✅ TD-022: Remove console.log statements
@@ -679,20 +721,20 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
-### TD-028: Magic numbers in frontend
+### ✅ TD-028: Magic numbers in frontend
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Code quality
 
-**Locations**:
-- `frontend/src/pages/Dashboard.jsx:57` - `dailyGoal = 20`
-- `frontend/src/pages/Knowledge.jsx:730` - `pageSize = 200`
-- `frontend/src/components/GraphViewer/GraphViewer.jsx:69-70` - `width: 800, height: 600`
-- `frontend/src/components/GraphViewer/GraphViewer.jsx:165-166` - `-300`, `400`, `100`
-- `frontend/src/pages/KnowledgeGraph.jsx:238` - `limit: 200`
-- `frontend/src/components/common/Tooltip.jsx:147` - `z-[9999]`
+**Locations** (all resolved):
+- `frontend/src/pages/Dashboard.jsx` - `dailyGoal` → `DEFAULT_DAILY_GOAL`
+- `frontend/src/pages/Knowledge.jsx` - `pageSize` → `VAULT_PAGE_SIZE`
+- `frontend/src/components/GraphViewer/GraphViewer.jsx` - dimensions → `DEFAULT_GRAPH_WIDTH`, `DEFAULT_GRAPH_HEIGHT`
+- `frontend/src/components/GraphViewer/GraphViewer.jsx` - force params → `GRAPH_CHARGE_STRENGTH`, `GRAPH_CHARGE_DISTANCE_MAX`, `GRAPH_LINK_DISTANCE`
+- `frontend/src/pages/KnowledgeGraph.jsx` - `limit` → `GRAPH_NODE_LIMIT`
+- `frontend/src/components/common/Tooltip.jsx` - `z-[9999]` → `Z_INDEX.TOOLTIP`
 
-**Fix**: Extract to constants or config.
+**Fix Applied**: Created `frontend/src/constants/ui.js` with named constants and z-index scale.
 
 ---
 
@@ -869,11 +911,12 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-024: Missing prop validation~~
 - ✅ ~~TD-026: Accessibility issues~~
 - ✅ ~~TD-027: Performance - missing memoization~~
-- [ ] TD-028: Magic numbers in frontend
+- ✅ ~~TD-028: Magic numbers in frontend~~
 - [ ] TD-033: Incomplete test implementation
 - [ ] TD-035: Environment variable validation
 - [ ] TD-037: Data directory uses tilde expansion
 - [ ] TD-039: Exercises not synced to Obsidian vault
+- [ ] TD-040: PDF images not integrated into summaries
 
 ### P3 - Low (Nice to have)
 - [ ] TD-029: Inconsistent state management patterns
@@ -1578,9 +1621,43 @@ Added React memoization patterns to prevent unnecessary re-renders in frontend c
 
 ---
 
+### ✅ TD-028: Magic numbers in frontend
+**Completed**: 2026-01-27
+
+Extracted magic numbers to named constants in a new `frontend/src/constants/ui.js` file.
+
+**New file created**: `frontend/src/constants/ui.js`
+
+**Constants added**:
+- `DEFAULT_DAILY_GOAL` (20) - Daily review card goal
+- `VAULT_PAGE_SIZE` (200) - Pagination size for vault notes
+- `DEFAULT_GRAPH_WIDTH` (800) - Default graph container width
+- `DEFAULT_GRAPH_HEIGHT` (600) - Default graph container height
+- `GRAPH_NODE_LIMIT` (200) - Maximum nodes to fetch for graph display
+- `GRAPH_CHARGE_STRENGTH` (-300) - D3 force charge strength
+- `GRAPH_CHARGE_DISTANCE_MAX` (400) - D3 force charge max distance
+- `GRAPH_LINK_DISTANCE` (100) - D3 force link distance
+- `Z_INDEX` object with layered values (BASE, DROPDOWN, STICKY, MODAL_BACKDROP, MODAL, TOOLTIP)
+
+**Files updated**:
+- `frontend/src/constants/index.js` - Added export for `ui.js`
+- `frontend/src/pages/Dashboard.jsx` - Uses `DEFAULT_DAILY_GOAL`
+- `frontend/src/pages/Knowledge.jsx` - Uses `VAULT_PAGE_SIZE`
+- `frontend/src/components/GraphViewer/GraphViewer.jsx` - Uses graph dimension and force constants
+- `frontend/src/pages/KnowledgeGraph.jsx` - Uses `GRAPH_NODE_LIMIT`
+- `frontend/src/components/common/Tooltip.jsx` - Uses `Z_INDEX.TOOLTIP`
+
+**Benefits**:
+- Constants are documented with JSDoc comments
+- Single source of truth for configuration values
+- Easier to adjust values across the application
+- Z-index scale prevents arbitrary stacking conflicts
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 39 (5 P0, 14 P1, 18 P2, 2 P3) — 26 completed
+- Total items: 40 (5 P0, 14 P1, 19 P2, 2 P3) — 27 completed

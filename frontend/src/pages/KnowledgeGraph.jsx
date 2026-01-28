@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GraphViewer } from '../components/GraphViewer'
 import { fetchGraphStats, fetchNodeDetails, fetchGraph } from '../api/knowledge'
+import { GRAPH_NODE_LIMIT } from '../constants'
 
 /**
  * Fuzzy search scoring function
@@ -235,7 +236,7 @@ export default function KnowledgeGraphPage() {
   // Fetch graph data for search functionality
   const { data: graphData } = useQuery({
     queryKey: ['graph-data', nodeTypesString],
-    queryFn: () => fetchGraph({ nodeTypes: nodeTypesString, limit: 200 }),
+    queryFn: () => fetchGraph({ nodeTypes: nodeTypesString, limit: GRAPH_NODE_LIMIT }),
     staleTime: 60_000,
     enabled: !!nodeTypesString,
   })

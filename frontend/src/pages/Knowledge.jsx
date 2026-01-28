@@ -43,6 +43,7 @@ import { practiceApi } from '../api/practice'
 import { useUiStore } from '../stores'
 import { useDebounce } from '../hooks/useDebouncedSearch'
 import { fadeInUp, staggerContainer } from '../utils/animations'
+import { VAULT_PAGE_SIZE } from '../constants'
 
 // Section visibility configuration
 const TOGGLEABLE_SECTIONS = {
@@ -740,13 +741,12 @@ export function Knowledge() {
       const allNotes = []
       let page = 1
       let hasMore = true
-      const pageSize = 200 // Fetch in reasonable chunks
       
       while (hasMore) {
         const response = await vaultApi.getNotes({ 
           search: debouncedSearch || undefined, 
           page,
-          pageSize 
+          pageSize: VAULT_PAGE_SIZE 
         })
         allNotes.push(...(response.notes || []))
         hasMore = response.has_more

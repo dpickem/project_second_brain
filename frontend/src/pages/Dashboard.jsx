@@ -22,6 +22,7 @@ import { PageLoader } from '../components/common'
 import { analyticsApi } from '../api/analytics'
 import { reviewApi } from '../api/review'
 import { staggerContainer, fadeInUp } from '../utils/animations'
+import { DEFAULT_DAILY_GOAL } from '../constants'
 
 export function Dashboard() {
   // Fetch dashboard data
@@ -56,7 +57,7 @@ export function Dashboard() {
     due_cards_count: 0,
     cards_reviewed_today: 0,
   }
-  const dailyGoal = 20 // Frontend constant for now
+  const dailyGoal = DEFAULT_DAILY_GOAL
 
   const dueCards = dueCardsData?.cards || []
   const totalDue = dueCardsData?.total_due ?? stats.due_cards_count ?? 0
