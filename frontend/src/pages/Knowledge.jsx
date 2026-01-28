@@ -32,6 +32,7 @@ import {
 } from '@heroicons/react/24/outline'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 import rehypeHighlight from 'rehype-highlight'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
@@ -44,6 +45,72 @@ import { useUiStore, useSettingsStore } from '../stores'
 import { useDebounce } from '../hooks/useDebouncedSearch'
 import { fadeInUp, staggerContainer } from '../utils/animations'
 import { VAULT_PAGE_SIZE } from '../constants'
+
+// Helper to process wiki-links [[title]] in text content
+const processWikiLinks = (text, onLinkClick) => {
+  if (typeof text !== 'string') return text
+  
+  // Match [[link]] or [[link|display text]] patterns
+  const wikiLinkRegex = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g
+  const parts = []
+  let lastIndex = 0
+  let match
+
+  while ((match = wikiLinkRegex.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index))
+    }
+    
+    const linkTarget = match[1] // The actual link target
+    const displayText = match[2] || match[1] // Display text (or same as target)
+    
+    // Create a clickable link that searches for the note
+    parts.push(
+      <Link
+        key={match.index}
+        to={`/knowledge?search=${encodeURIComponent(linkTarget)}`}
+        className="text-indigo-400 hover:text-indigo-300 underline decoration-indigo-400/50 hover:decoration-indigo-300 transition-colors"
+        title={`Open: ${linkTarget}`}
+      >
+        {displayText}
+      </Link>
+    )
+    
+    lastIndex = match.index + match[0].length
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+  
+  return parts.length > 0 ? parts : text
+}
+
+// Recursively process children to find and convert wiki-links
+const processChildrenForWikiLinks = (children) => {
+  if (!children) return children
+  
+  if (typeof children === 'string') {
+    return processWikiLinks(children)
+  }
+  
+  if (Array.isArray(children)) {
+    return children.map((child, index) => {
+      if (typeof child === 'string') {
+        const processed = processWikiLinks(child)
+        // If it's still a string (no wiki-links found), return as-is
+        if (typeof processed === 'string') return processed
+        // Otherwise wrap the array of parts in a fragment
+        return <span key={index}>{processed}</span>
+      }
+      return child
+    })
+  }
+  
+  return children
+}
 
 // Section visibility configuration
 const TOGGLEABLE_SECTIONS = {
@@ -296,6 +363,9 @@ function InlineNoteContent({ notePath, onClose }) {
   }
 
   const isGenerating = generateCardsMutation.isPending || generateExercisesMutation.isPending
+  
+  // Disable generation buttons for exercise content type (to avoid recursive generation)
+  const isExerciseContent = note?.frontmatter?.type === 'exercise'
 
   if (isLoading) {
     return (
@@ -430,27 +500,31 @@ function InlineNoteContent({ notePath, onClose }) {
             </AnimatePresence>
           </div>
           
-          {/* Generation buttons */}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleGenerateCards}
-            loading={generateCardsMutation.isPending}
-            disabled={isGenerating}
-            icon={<SparklesIcon className="w-4 h-4" />}
-          >
-            Generate Cards
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleGenerateExercises}
-            loading={generateExercisesMutation.isPending}
-            disabled={isGenerating}
-            icon={<SparklesIcon className="w-4 h-4" />}
-          >
-            Generate Exercises
-          </Button>
+          {/* Generation buttons - disabled for exercise content to avoid recursive generation */}
+          <span title={isExerciseContent ? 'Cannot generate cards from exercises' : undefined}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleGenerateCards}
+              loading={generateCardsMutation.isPending}
+              disabled={isGenerating || isExerciseContent}
+              icon={<SparklesIcon className="w-4 h-4" />}
+            >
+              Generate Cards
+            </Button>
+          </span>
+          <span title={isExerciseContent ? 'Cannot generate exercises from exercises' : undefined}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleGenerateExercises}
+              loading={generateExercisesMutation.isPending}
+              disabled={isGenerating || isExerciseContent}
+              icon={<SparklesIcon className="w-4 h-4" />}
+            >
+              Generate Exercises
+            </Button>
+          </span>
           <IconButton
             icon={<XMarkIcon className="w-5 h-5" />}
             label="Close"
@@ -503,7 +577,7 @@ function InlineNoteContent({ notePath, onClose }) {
             <article className="prose prose-invert prose-lg max-w-none">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeHighlight]}
+                rehypePlugins={[rehypeRaw, rehypeHighlight]}
                 components={{
                   a: ({ href, children }) => {
                     const isInternal = href?.startsWith('/') || href?.startsWith('#')
@@ -546,6 +620,31 @@ function InlineNoteContent({ notePath, onClose }) {
                     <pre className="bg-slate-800/80 rounded-lg p-4 overflow-x-auto">
                       {children}
                     </pre>
+                  ),
+                  // Support for collapsible sections (details/summary HTML tags)
+                  details: ({ children, ...props }) => (
+                    <details 
+                      className="my-4 p-4 bg-slate-800/50 border border-slate-700 rounded-lg group"
+                      {...props}
+                    >
+                      {children}
+                    </details>
+                  ),
+                  summary: ({ children, ...props }) => (
+                    <summary 
+                      className="cursor-pointer font-medium text-indigo-400 hover:text-indigo-300 transition-colors select-none list-none flex items-center gap-2"
+                      {...props}
+                    >
+                      <ChevronRightIcon className="w-4 h-4 transition-transform group-open:rotate-90" />
+                      {children}
+                    </summary>
+                  ),
+                  // Process wiki-links [[title]] in paragraphs and list items
+                  p: ({ children, ...props }) => (
+                    <p {...props}>{processChildrenForWikiLinks(children)}</p>
+                  ),
+                  li: ({ children, ...props }) => (
+                    <li {...props}>{processChildrenForWikiLinks(children)}</li>
                   ),
                 }}
               >

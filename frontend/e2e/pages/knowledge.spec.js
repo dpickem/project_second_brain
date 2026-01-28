@@ -543,6 +543,197 @@ test.describe('Knowledge Page', () => {
     })
   })
 
+  test.describe('Exercise Content Behavior', () => {
+    const mockExerciseNote = {
+      path: 'exercises/by-topic/ml_test/Self Explain - test_abc123.md',
+      name: 'Self Explain - test_abc123',
+      title: 'Self Explain - ml/test',
+      folder: 'exercises/by-topic/ml_test',
+      content: `---
+type: exercise
+title: "Self Explain - ml/test"
+exercise_type: self_explain
+topic: "ml/test"
+difficulty: foundational
+---
+
+## Exercise: Self Explain - ml/test
+
+**Type**: Self Explain  
+**Difficulty**: Foundational
+
+---
+
+## Prompt
+
+Explain the concept in your own words.
+
+---
+
+## Hints
+
+<details>
+<summary>Click to reveal hints (try without first!)</summary>
+
+1. Think about the key ideas.
+2. Consider the implications.
+
+</details>
+
+---
+
+## Source Material
+
+- [[Test Source Paper]]
+`,
+      frontmatter: {
+        title: 'Self Explain - ml/test',
+        type: 'exercise',
+        exercise_type: 'self_explain',
+        topic: 'ml/test',
+        difficulty: 'foundational',
+      },
+      modified: '2026-01-08T10:00:00Z',
+      size: 512,
+    }
+
+    test.beforeEach(async ({ page }) => {
+      // Override note content endpoint for exercise
+      await page.route('**/api/vault/notes/**/exercises/**', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(mockExerciseNote),
+        })
+      })
+
+      // Mock exercises API to return empty
+      await page.route('**/api/practice/exercises**', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([]),
+        })
+      })
+
+      // Mock cards API to return empty
+      await page.route('**/api/review/cards**', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([]),
+        })
+      })
+    })
+
+    test('should disable Generate Cards button when viewing exercise content', async ({ page }) => {
+      await page.goto('/knowledge?note=exercises/by-topic/ml_test/Self%20Explain%20-%20test_abc123.md')
+      await page.waitForLoadState('networkidle')
+
+      // Wait for note content to load
+      await expect(page.getByRole('heading', { name: /Self Explain/i }).first()).toBeVisible()
+
+      // Find the Generate Cards button and verify it's disabled
+      const generateCardsButton = page.getByRole('button', { name: /Generate Cards/i })
+      await expect(generateCardsButton).toBeVisible()
+      await expect(generateCardsButton).toBeDisabled()
+    })
+
+    test('should disable Generate Exercises button when viewing exercise content', async ({ page }) => {
+      await page.goto('/knowledge?note=exercises/by-topic/ml_test/Self%20Explain%20-%20test_abc123.md')
+      await page.waitForLoadState('networkidle')
+
+      // Wait for note content to load
+      await expect(page.getByRole('heading', { name: /Self Explain/i }).first()).toBeVisible()
+
+      // Find the Generate Exercises button and verify it's disabled
+      const generateExercisesButton = page.getByRole('button', { name: /Generate Exercises/i })
+      await expect(generateExercisesButton).toBeVisible()
+      await expect(generateExercisesButton).toBeDisabled()
+    })
+
+    test('should show tooltip on hover over disabled Generate Cards button', async ({ page }) => {
+      await page.goto('/knowledge?note=exercises/by-topic/ml_test/Self%20Explain%20-%20test_abc123.md')
+      await page.waitForLoadState('networkidle')
+
+      // Wait for note content to load
+      await expect(page.getByRole('heading', { name: /Self Explain/i }).first()).toBeVisible()
+
+      // Find the wrapper span with the tooltip (parent of the button)
+      const generateCardsWrapper = page.locator('span[title="Cannot generate cards from exercises"]')
+      await expect(generateCardsWrapper).toBeVisible()
+
+      // Hover over the wrapper to trigger tooltip
+      await generateCardsWrapper.hover()
+
+      // The title attribute should be present - native tooltips appear after a delay
+      // We verify the attribute exists since native tooltip timing is browser-dependent
+      await expect(generateCardsWrapper).toHaveAttribute('title', 'Cannot generate cards from exercises')
+    })
+
+    test('should show tooltip on hover over disabled Generate Exercises button', async ({ page }) => {
+      await page.goto('/knowledge?note=exercises/by-topic/ml_test/Self%20Explain%20-%20test_abc123.md')
+      await page.waitForLoadState('networkidle')
+
+      // Wait for note content to load
+      await expect(page.getByRole('heading', { name: /Self Explain/i }).first()).toBeVisible()
+
+      // Find the wrapper span with the tooltip (parent of the button)
+      const generateExercisesWrapper = page.locator('span[title="Cannot generate exercises from exercises"]')
+      await expect(generateExercisesWrapper).toBeVisible()
+
+      // Verify the title attribute is present
+      await expect(generateExercisesWrapper).toHaveAttribute('title', 'Cannot generate exercises from exercises')
+    })
+
+    test('should render collapsible hints section', async ({ page }) => {
+      await page.goto('/knowledge?note=exercises/by-topic/ml_test/Self%20Explain%20-%20test_abc123.md')
+      await page.waitForLoadState('networkidle')
+
+      // Wait for note content to load
+      await expect(page.getByRole('heading', { name: /Self Explain/i }).first()).toBeVisible()
+
+      // Details/summary elements should be present
+      const detailsElement = page.locator('details')
+      await expect(detailsElement.first()).toBeVisible()
+
+      // Summary should be clickable
+      const summaryElement = page.locator('summary').first()
+      await expect(summaryElement).toBeVisible()
+      await expect(summaryElement).toContainText('Click to reveal')
+    })
+
+    test('should expand hints when clicking on summary', async ({ page }) => {
+      await page.goto('/knowledge?note=exercises/by-topic/ml_test/Self%20Explain%20-%20test_abc123.md')
+      await page.waitForLoadState('networkidle')
+
+      // Wait for note content to load
+      await expect(page.getByRole('heading', { name: /Self Explain/i }).first()).toBeVisible()
+
+      // Click on summary to expand
+      const summaryElement = page.locator('summary').first()
+      await summaryElement.click()
+
+      // Content inside details should now be visible
+      await expect(page.getByText('Think about the key ideas')).toBeVisible()
+    })
+
+    test('should render wiki-links as clickable links', async ({ page }) => {
+      await page.goto('/knowledge?note=exercises/by-topic/ml_test/Self%20Explain%20-%20test_abc123.md')
+      await page.waitForLoadState('networkidle')
+
+      // Wait for note content to load
+      await expect(page.getByRole('heading', { name: /Self Explain/i }).first()).toBeVisible()
+
+      // Wiki-link should be rendered as a clickable link
+      const sourceLink = page.getByRole('link', { name: 'Test Source Paper' })
+      await expect(sourceLink).toBeVisible()
+      
+      // Should link to knowledge search
+      await expect(sourceLink).toHaveAttribute('href', /\/knowledge\?search=Test%20Source%20Paper/)
+    })
+  })
+
   test.describe('Error Handling', () => {
     test('should handle folder API errors gracefully', async ({ page }) => {
       // Override with error response

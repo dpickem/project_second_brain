@@ -253,6 +253,19 @@ class VaultManager:
         folder = content_registry.get_folder("daily")
         return self.vault_path / (folder or "daily")
 
+    def get_exercise_folder(self) -> Path:
+        """
+        Get the exercises folder path.
+
+        Exercises are practice problems generated for active learning.
+        Defaults to "exercises" if not configured.
+
+        Returns:
+            Absolute Path to the exercises folder
+        """
+        folder = content_registry.get_folder("exercise")
+        return self.vault_path / (folder or "exercises")
+
     def get_template_folder(self) -> Path:
         """
         Get the Obsidian templates folder path.

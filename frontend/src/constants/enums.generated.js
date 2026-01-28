@@ -3,7 +3,7 @@
  * 
  * Generated from Python enums in backend/app/enums/
  * Run: python scripts/generate_enums.py
- * Generated at: 2026-01-15T18:20:49.010336
+ * Generated at: 2026-01-28T11:09:19.091365
  * 
  * This file ensures frontend and backend use the same enum values.
  */

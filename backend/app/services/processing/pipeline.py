@@ -51,7 +51,11 @@ from app.services.processing.stages.connections import discover_connections
 from app.services.processing.stages.followups import generate_followups
 from app.services.processing.stages.questions import generate_mastery_questions
 from app.services.processing.validation import validate_processing_result
-from app.services.processing.output.obsidian_generator import generate_obsidian_note
+from app.services.processing.output.obsidian_generator import (
+    generate_obsidian_note,
+    generate_exercise_notes_for_content,
+    get_best_title,
+)
 from app.services.processing.output.neo4j_generator import create_knowledge_nodes
 from app.services.cost_tracking import CostTracker
 from app.config.processing import processing_settings
@@ -436,6 +440,21 @@ async def process_content(
             logger.info(f"Generated Obsidian note: {result.obsidian_note_path}")
         except Exception as e:
             logger.error(f"Obsidian note generation failed: {e}")
+
+        # Generate Obsidian notes for exercises (if any were created)
+        if generated_exercises:
+            try:
+                # Use the best title (extracted from processing) rather than raw content.title
+                # which may be a UUID if the original file didn't have a proper title
+                best_title = get_best_title(content, result)
+                exercise_notes = await generate_exercise_notes_for_content(
+                    exercises=generated_exercises,
+                    source_content_titles=[best_title],
+                    source_content_ids=[content.id],
+                )
+                logger.info(f"Generated {len(exercise_notes)} exercise notes")
+            except Exception as e:
+                logger.error(f"Exercise note generation failed: {e}")
 
     if (
         config.create_neo4j_nodes

@@ -143,12 +143,11 @@ export const reviewApi = {
    * @returns {Promise<{cards: Array<{id: string, front: string, back: string, due_date: string, is_due: boolean}>, total: number}>} Cards for the topic
    */
   getCardsByTopic: (topicId, { limit = 50, includeNotDue = false } = {}) => 
-    typedApi.GET('/api/review/topic/{topic_id}', { 
+    typedApi.GET('/api/review/cards', { 
       params: { 
-        path: { topic_id: topicId },
-        query: { limit, include_not_due: includeNotDue } 
+        query: { topic: topicId, limit } 
       } 
-    }).then(r => r.data),
+    }).then(r => ({ cards: r.data || [], total: r.data?.length || 0 })),
 
   /**
    * Get comprehensive review statistics

@@ -27,10 +27,12 @@ Usage:
     print(f"Note created at: {path}")
 """
 
+from __future__ import annotations
+
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Optional, TypedDict, Union
 
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
@@ -40,6 +42,10 @@ from app.enums.processing import ConceptImportance, SummaryLevel
 from app.models.content import UnifiedContent
 from app.models.processing import Concept, ProcessingResult
 from app.services.obsidian.vault import get_vault_manager
+
+if TYPE_CHECKING:
+    from app.db.models_learning import Exercise
+    from app.models.learning import ExerciseResponse
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +107,7 @@ UUID_PATTERN = re.compile(
 )
 
 
-def _get_best_title(content: UnifiedContent, result: ProcessingResult) -> str:
+def get_best_title(content: UnifiedContent, result: ProcessingResult) -> str:
     """
     Get the best title to use for the note filename.
 
@@ -418,7 +424,7 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
     standard_summary = result.summaries.get(SummaryLevel.STANDARD.value, "")
 
     # Get the best title (handles UUID titles)
-    best_title = _get_best_title(content, result)
+    best_title = get_best_title(content, result)
 
     # Get source path from metadata if available
     source_path = ""
@@ -552,7 +558,7 @@ async def generate_obsidian_note(
         output_dir = vault.get_source_folder(content_type)
 
         # Get the best title to use for the filename
-        note_title = _get_best_title(content, result)
+        note_title = get_best_title(content, result)
         logger.debug(f"Using title for note: {note_title}")
 
         # Check if content already has an existing obsidian note (from previous processing)
@@ -797,3 +803,159 @@ async def generate_concept_notes_for_content(
         f"Generated {len(created_concepts)} concept notes for '{content.title}'"
     )
     return created_concepts
+
+
+async def generate_exercise_note(
+    exercise: Union[Exercise, ExerciseResponse],
+    source_content_titles: Optional[list[str]] = None,
+    source_content_ids: Optional[list[str]] = None,
+    solution_code: Optional[str] = None,
+    test_cases: Optional[list[dict]] = None,
+) -> Optional[str]:
+    """
+    Generate an Obsidian-compatible markdown note for an exercise.
+
+    Creates a practice exercise note that includes the prompt, hints,
+    expected key points, and solution (hidden by default). Exercises
+    are stored in the exercises folder organized by topic.
+
+    Args:
+        exercise: The Exercise database record or ExerciseResponse with exercise data
+        source_content_titles: Optional list of source content titles for linking
+        source_content_ids: Optional list of source content IDs (for ExerciseResponse)
+        solution_code: Optional solution code (for ExerciseResponse)
+        test_cases: Optional test cases (for ExerciseResponse)
+
+    Returns:
+        Path to created note (relative to vault), or None if failed
+    """
+    try:
+        vault = get_vault_manager()
+        env = _get_template_env()
+
+        template_name = _get_template_name("exercise")
+        try:
+            template = env.get_template(template_name)
+            logger.debug(f"Using template: {template_name}")
+        except TemplateNotFound:
+            raise FileNotFoundError(
+                f"No template found for exercise notes. "
+                f"Expected: config/templates/{template_name}"
+            )
+
+        now = datetime.now(timezone.utc)
+
+        # Get exercise_type as string (handles both ORM model and Pydantic model)
+        exercise_type_str = (
+            exercise.exercise_type.value
+            if hasattr(exercise.exercise_type, "value")
+            else str(exercise.exercise_type)
+        )
+        difficulty_str = (
+            exercise.difficulty.value
+            if hasattr(exercise.difficulty, "value")
+            else str(exercise.difficulty)
+        )
+
+        # Create a title from exercise type and topic
+        exercise_title = f"{exercise_type_str.replace('_', ' ').title()} - {exercise.topic}"
+
+        # Get source_content_ids from various sources
+        exercise_source_ids = source_content_ids or getattr(exercise, "source_content_ids", None) or []
+
+        # Prepare template data - handle both ORM and Pydantic models
+        data = {
+            "title": _escape_yaml_string(exercise_title),
+            "exercise_type": exercise_type_str,
+            "topic": exercise.topic,
+            "difficulty": difficulty_str,
+            "prompt": exercise.prompt,
+            "hints": exercise.hints or [],
+            "expected_key_points": exercise.expected_key_points or [],
+            "worked_example": getattr(exercise, "worked_example", None),
+            "follow_up_problem": getattr(exercise, "follow_up_problem", None),
+            "language": getattr(exercise, "language", None),
+            "starter_code": getattr(exercise, "starter_code", None),
+            "solution_code": solution_code or getattr(exercise, "solution_code", None),
+            "test_cases": test_cases or getattr(exercise, "test_cases", None) or [],
+            "buggy_code": getattr(exercise, "buggy_code", None),
+            # For source linking: titles are used for display, IDs for frontmatter
+            "source_content_titles": source_content_titles or [],
+            "source_content_ids": exercise_source_ids,
+            "estimated_time_minutes": getattr(exercise, "estimated_time_minutes", 10) or 10,
+            "tags": exercise.tags or [],
+            "created_date": now.strftime("%Y-%m-%d"),
+        }
+
+        # Render the note
+        note_content = template.render(**data)
+
+        # Get exercises folder and create topic subfolder
+        exercise_folder = vault.get_exercise_folder()
+        # Sanitize topic for folder name (e.g., "ml/transformers" -> "ml_transformers")
+        topic_folder_name = exercise.topic.replace("/", "_").replace(" ", "_")
+        topic_folder = exercise_folder / "by-topic" / topic_folder_name
+
+        # Create unique filename using exercise UUID
+        filename = f"{vault.sanitize_filename(exercise_title)}_{exercise.exercise_uuid[:8]}"
+        output_path = topic_folder / f"{filename}.md"
+
+        # Write the note
+        await vault.write_note(output_path, note_content)
+
+        # Return relative path from vault root
+        relative_path = output_path.relative_to(vault.vault_path)
+        logger.info(f"Generated exercise note: {output_path}")
+        return str(relative_path)
+
+    except Exception as e:
+        logger.error(f"Failed to generate exercise note for '{exercise.topic}': {e}")
+        return None
+
+
+async def generate_exercise_notes_for_content(
+    exercises: list[Union[Exercise, ExerciseResponse]],
+    source_content_titles: Optional[list[str]] = None,
+    source_content_ids: Optional[list[str]] = None,
+) -> list[dict]:
+    """
+    Generate Obsidian notes for multiple exercises.
+
+    Creates individual markdown notes for each exercise and returns
+    info needed to track them.
+
+    Args:
+        exercises: List of Exercise database records or ExerciseResponse models
+        source_content_titles: Optional titles of source content for linking
+        source_content_ids: Optional content IDs for linking (used with ExerciseResponse)
+
+    Returns:
+        List of dicts with exercise info:
+            - exercise_uuid: Exercise UUID
+            - topic: Exercise topic
+            - file_path: Path to created note (relative to vault)
+    """
+    created_exercises = []
+
+    if not exercises:
+        logger.debug("No exercises to generate notes for")
+        return created_exercises
+
+    for exercise in exercises:
+        file_path = await generate_exercise_note(
+            exercise=exercise,
+            source_content_titles=source_content_titles,
+            source_content_ids=source_content_ids,
+        )
+
+        if file_path:
+            created_exercises.append(
+                {
+                    "exercise_uuid": exercise.exercise_uuid,
+                    "topic": exercise.topic,
+                    "file_path": file_path,
+                }
+            )
+
+    logger.info(f"Generated {len(created_exercises)} exercise notes")
+    return created_exercises

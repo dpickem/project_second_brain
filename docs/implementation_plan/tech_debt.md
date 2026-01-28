@@ -29,7 +29,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-020: Hardcoded upload directory](#td-020-hardcoded-upload-directory)~~
   - ✅ ~~[TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)~~
   - ✅ ~~[TD-038: Concept deduplication not working](#td-038-concept-deduplication-not-working)~~
-  - [TD-039: Exercises not synced to Obsidian vault](#td-039-exercises-not-synced-to-obsidian-vault)
+  - ✅ ~~[TD-039: Exercises not synced to Obsidian vault](#td-039-exercises-not-synced-to-obsidian-vault)~~
   - [TD-040: PDF images not integrated into summaries](#td-040-pdf-images-not-integrated-into-summaries)
 - [Frontend Tech Debt](#frontend-tech-debt)
   - ✅ ~~[TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)~~
@@ -565,31 +565,25 @@ result = await deduplicate_neo4j_concepts(neo4j_client, dry_run=True)
 
 ---
 
-### TD-039: Exercises not synced to Obsidian vault
+### ✅ TD-039: Exercises not synced to Obsidian vault
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Data synchronization
 
 **Description**: Exercises exist only in the PostgreSQL database but are not being written as Obsidian notes. This breaks the "single source of truth" philosophy where all learning content should be accessible in the Obsidian vault.
 
-**Current State**:
-- Cards (spaced repetition) → ❓ (need to verify)
-- Exercises → ❌ Only in SQL, no Obsidian notes
+**Current State** (after fix):
+- Cards (spaced repetition) → ❓ (stored in DB, not synced to vault)
+- Exercises → ✅ Written to Obsidian
 - Concepts → ✅ Written to Obsidian
 - Main content notes → ✅ Written to Obsidian
 
-**Expected Behavior**:
-- Exercises should have corresponding Obsidian notes
-- Notes should include exercise prompt, type, hints, solution
-- Should link back to source content
-- Should be tagged appropriately for discoverability
-
-**Implementation Tasks**:
-- [ ] Create exercise template (`config/templates/exercise.md.j2`)
-- [ ] Add exercise export to `obsidian_generator.py`
-- [ ] Decide on folder structure (e.g., `exercises/` or alongside source content)
-- [ ] Add exercise sync to processing pipeline
-- [ ] Handle exercise updates/deletions
+**Implementation**:
+- [x] Created exercise template (`config/templates/exercise.md.j2`)
+- [x] Added `get_exercise_folder()` to VaultManager
+- [x] Added `generate_exercise_note()` and `generate_exercise_notes_for_content()` to `obsidian_generator.py`
+- [x] Integrated exercise sync into processing pipeline (`pipeline.py`)
+- [x] Folder structure: `exercises/by-topic/{topic}/` (e.g., `exercises/by-topic/ml_transformers/`)
 
 ---
 
@@ -962,7 +956,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-033: Test verifies intentional NotImplementedError~~
 - [ ] TD-035: Environment variable validation
 - [ ] TD-037: Data directory uses tilde expansion
-- [ ] TD-039: Exercises not synced to Obsidian vault
+- ✅ ~~TD-039: Exercises not synced to Obsidian vault~~
 - [ ] TD-040: PDF images not integrated into summaries
 
 ### P3 - Low (Nice to have)
@@ -1836,9 +1830,52 @@ Implemented comprehensive concept deduplication to prevent duplicate concepts li
 
 ---
 
+### ✅ TD-039: Exercises not synced to Obsidian vault
+**Completed**: 2026-01-28
+
+Implemented exercise synchronization to Obsidian vault.
+
+**Changes**:
+
+**1. New template** (`config/templates/exercise.md.j2`):
+- YAML frontmatter with type, topic, difficulty, tags, source content links
+- Exercise prompt section
+- Collapsible hints section (hidden by default)
+- Expected key points section (hidden by default)
+- Worked example section (for worked_example type exercises)
+- Starter code section (for code exercises)
+- Buggy code section (for debug exercises)
+- Collapsible solution section (hidden by default)
+- Test cases section (for code exercises)
+- Links to source content
+
+**2. VaultManager** (`backend/app/services/obsidian/vault.py`):
+- Added `get_exercise_folder()` method for exercise folder resolution
+
+**3. Obsidian Generator** (`backend/app/services/processing/output/obsidian_generator.py`):
+- Added `generate_exercise_note()` function for single exercise note generation
+- Added `generate_exercise_notes_for_content()` function for batch exercise note generation
+- Exercises are stored in `exercises/by-topic/{topic}/` folder structure
+- Filenames include exercise UUID suffix for uniqueness
+
+**4. Processing Pipeline** (`backend/app/services/processing/pipeline.py`):
+- Integrated exercise note generation after exercise creation
+- Exercise notes generated when `create_obsidian_note` is enabled and exercises exist
+
+**Folder Structure**:
+```
+vault/
+└── exercises/
+    └── by-topic/
+        └── ml_transformers/
+            └── Free Recall - ml_transformers_abc12345.md
+```
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 40 (5 P0, 14 P1, 19 P2, 2 P3) — 32 completed
+- Total items: 40 (5 P0, 14 P1, 19 P2, 2 P3) — 33 completed

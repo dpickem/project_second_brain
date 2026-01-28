@@ -1,52 +1,134 @@
 ---
 type: exercise
-topic: "{{ topic | default('') }}"
-difficulty: {{ difficulty | default('intermediate') }}
-exercise_type: {{ exercise_type | default('free-recall') }}
-source_concept: "{{ source_concept | default('') }}"
+title: "{{ title }}"
+exercise_type: {{ exercise_type }}
+topic: "{{ topic }}"
+difficulty: {{ difficulty }}
+estimated_time: {{ estimated_time_minutes }} minutes
 tags: {{ tags | default([], true) | tojson }}
+source_content: {{ source_content_ids | default([], true) | tojson }}
 created: {{ created_date }}
 ---
 
-## Question
-{% if question %}
-{{ question }}
-{% else %}
+## Exercise: {{ title }}
 
-{% endif %}
+**Type**: {{ exercise_type | replace('_', ' ') | title }}  
+**Difficulty**: {{ difficulty | title }}  
+**Estimated Time**: {{ estimated_time_minutes }} minutes
 
-## Expected Answer
-{% if expected_answer %}
-{{ expected_answer }}
-{% else %}
+---
 
-{% endif %}
+## Prompt
+
+{{ prompt }}
+
+{% if hints %}
+---
 
 ## Hints
-{% if hints %}
+
+<details>
+<summary>Click to reveal hints (try without first!)</summary>
+
 {% for hint in hints %}
 {{ loop.index }}. {{ hint }}
 {% endfor %}
-{% else %}
-1. 
-2. 
+
+</details>
 {% endif %}
 
-## Related Concepts
-{% if related_concepts %}
-{% for concept in related_concepts %}
-- [[{{ concept }}]]
+{% if expected_key_points %}
+---
+
+## Key Points to Cover
+
+<details>
+<summary>What a good answer should include</summary>
+
+{% for point in expected_key_points %}
+- {{ point }}
 {% endfor %}
-{% else %}
-- [[Concept]]
+
+</details>
 {% endif %}
+
+{% if worked_example %}
+---
+
+## Worked Example
+
+{{ worked_example }}
+
+{% if follow_up_problem %}
+### Follow-up Problem
+
+{{ follow_up_problem }}
+{% endif %}
+{% endif %}
+
+{% if starter_code %}
+---
+
+## Starter Code
+
+```{{ language | default('python') }}
+{{ starter_code }}
+```
+{% endif %}
+
+{% if buggy_code %}
+---
+
+## Buggy Code (Find and Fix the Bugs)
+
+```{{ language | default('python') }}
+{{ buggy_code }}
+```
+{% endif %}
+
+{% if solution_code %}
+---
+
+## Solution
+
+<details>
+<summary>Click to reveal solution (attempt first!)</summary>
+
+```{{ language | default('python') }}
+{{ solution_code }}
+```
+
+</details>
+{% endif %}
+
+{% if test_cases %}
+---
+
+## Test Cases
+
+<details>
+<summary>Test cases to verify your solution</summary>
+
+{% for test in test_cases %}
+- **Input**: `{{ test.input | default(test.get('args', '')) }}`
+- **Expected**: `{{ test.expected | default(test.get('output', '')) }}`
+{% endfor %}
+
+</details>
+{% endif %}
+
+---
 
 ## Source Material
-{% if sources %}
-{% for source in sources %}
-- [[{{ source }}]]
+
+{% if source_content_titles %}
+{% for title in source_content_titles %}
+- [[{{ title }}]]
+{% endfor %}
+{% elif source_content_ids %}
+{% for content_id in source_content_ids %}
+- [[{{ content_id }}]]
 {% endfor %}
 {% else %}
-- [[Source Note]]
+- Generated exercise
 {% endif %}
-
