@@ -40,7 +40,7 @@ import { Input, Badge, PageLoader, EmptyState, Skeleton, IconButton, TagBadge, B
 import { vaultApi } from '../api/vault'
 import { reviewApi } from '../api/review'
 import { practiceApi } from '../api/practice'
-import { useUiStore } from '../stores'
+import { useUiStore, useSettingsStore } from '../stores'
 import { useDebounce } from '../hooks/useDebouncedSearch'
 import { fadeInUp, staggerContainer } from '../utils/animations'
 import { VAULT_PAGE_SIZE } from '../constants'
@@ -58,20 +58,7 @@ const TOGGLEABLE_SECTIONS = {
   detailedNotes: { label: 'Detailed Notes', heading: '## Detailed Notes', default: true },
 }
 
-// Get default visibility state
-const getDefaultVisibility = () => {
-  const stored = localStorage.getItem('knowledge-section-visibility')
-  if (stored) {
-    try {
-      return JSON.parse(stored)
-    } catch {
-      // Fall through to defaults
-    }
-  }
-  return Object.fromEntries(
-    Object.entries(TOGGLEABLE_SECTIONS).map(([key, config]) => [key, config.default])
-  )
-}
+// Default visibility state is now in useSettingsStore.knowledgeSectionVisibility
 
 // Filter markdown content based on visible sections
 const filterMarkdownSections = (content, visibility) => {
@@ -127,7 +114,11 @@ function getFolderDisplayName(folder) {
 function InlineNoteContent({ notePath, onClose }) {
   const queryClient = useQueryClient()
   const [showSettingsPanel, setShowSettingsPanel] = useState(false)
-  const [sectionVisibility, setSectionVisibility] = useState(getDefaultVisibility)
+  
+  // Use settings store for section visibility (persisted via Zustand)
+  const sectionVisibility = useSettingsStore((s) => s.knowledgeSectionVisibility)
+  const toggleKnowledgeSection = useSettingsStore((s) => s.toggleKnowledgeSection)
+  const setKnowledgeSectionVisibility = useSettingsStore((s) => s.setKnowledgeSectionVisibility)
   
   const { data: note, isLoading, error } = useQuery({
     queryKey: ['note-content', notePath],
@@ -159,22 +150,17 @@ function InlineNoteContent({ notePath, onClose }) {
   const exerciseCount = exercisesData?.length || 0
   const cardCount = cardsData?.cards?.length || cardsData?.total || 0
   
-  // Toggle section visibility
+  // Toggle section visibility (using settings store)
   const toggleSection = (sectionKey) => {
-    setSectionVisibility(prev => {
-      const newState = { ...prev, [sectionKey]: !prev[sectionKey] }
-      localStorage.setItem('knowledge-section-visibility', JSON.stringify(newState))
-      return newState
-    })
+    toggleKnowledgeSection(sectionKey)
   }
   
-  // Toggle all sections
+  // Toggle all sections (using settings store)
   const toggleAllSections = (visible) => {
     const newState = Object.fromEntries(
       Object.keys(TOGGLEABLE_SECTIONS).map(key => [key, visible])
     )
-    setSectionVisibility(newState)
-    localStorage.setItem('knowledge-section-visibility', JSON.stringify(newState))
+    setKnowledgeSectionVisibility(newState)
   }
   
   // Filter content based on visibility

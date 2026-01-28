@@ -35,6 +35,20 @@ export const useSettingsStore = create(
       showHints: true,
       animationsEnabled: true,
       
+      // Knowledge page section visibility
+      // Controls which sections are shown when viewing notes
+      knowledgeSectionVisibility: {
+        summary: true,
+        keyFindings: true,
+        concepts: true,
+        highlights: true,
+        handwrittenNotes: true,
+        masteryQuestions: true,
+        followupTasks: true,
+        connections: true,
+        detailedNotes: true,
+      },
+      
       // =====================
       // Actions
       // =====================
@@ -81,6 +95,18 @@ export const useSettingsStore = create(
         animationsEnabled: !state.animationsEnabled
       })),
       
+      // Knowledge section visibility
+      toggleKnowledgeSection: (sectionKey) => set((state) => ({
+        knowledgeSectionVisibility: {
+          ...state.knowledgeSectionVisibility,
+          [sectionKey]: !state.knowledgeSectionVisibility[sectionKey],
+        },
+      })),
+      
+      setKnowledgeSectionVisibility: (visibility) => set({
+        knowledgeSectionVisibility: visibility,
+      }),
+      
       // Bulk update settings
       updateSettings: (updates) => set((state) => ({
         ...state,
@@ -100,6 +126,17 @@ export const useSettingsStore = create(
         compactMode: false,
         showHints: true,
         animationsEnabled: true,
+        knowledgeSectionVisibility: {
+          summary: true,
+          keyFindings: true,
+          concepts: true,
+          highlights: true,
+          handwrittenNotes: true,
+          masteryQuestions: true,
+          followupTasks: true,
+          connections: true,
+          detailedNotes: true,
+        },
       }),
       
       // =====================
@@ -125,6 +162,7 @@ export const useSettingsStore = create(
         compactMode: state.compactMode,
         showHints: state.showHints,
         animationsEnabled: state.animationsEnabled,
+        knowledgeSectionVisibility: state.knowledgeSectionVisibility,
       }),
     }
   )

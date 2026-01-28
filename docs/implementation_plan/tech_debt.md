@@ -39,7 +39,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-026: Accessibility issues](#td-026-accessibility-issues)~~
   - ✅ ~~[TD-027: Performance - missing memoization](#td-027-performance---missing-memoization)~~
   - ✅ ~~[TD-028: Magic numbers in frontend](#td-028-magic-numbers-in-frontend)~~
-  - [TD-029: Inconsistent state management patterns](#td-029-inconsistent-state-management-patterns)
+  - ✅ ~~[TD-029: Inconsistent state management patterns](#td-029-inconsistent-state-management-patterns)~~
 - [Tests & Scripts](#tests--scripts)
   - [TD-030: Skipped tests due to missing dependencies](#td-030-skipped-tests-due-to-missing-dependencies)
   - [TD-031: Hardcoded path in run_processing.py](#td-031-hardcoded-path-in-run_processingpy)
@@ -738,9 +738,9 @@ Coverage improved from ~84% to ~90% for return type hints.
 
 ---
 
-### TD-029: Inconsistent state management patterns
+### ✅ TD-029: Inconsistent state management patterns
 **Priority**: P3  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Architecture
 
 **Current State**:
@@ -749,7 +749,14 @@ Coverage improved from ~84% to ~90% for return type hints.
 - Local `useState` throughout
 - No clear pattern documentation
 
-**Fix**: Document state management guidelines.
+**Fix**: Document state management guidelines AND apply them consistently.
+
+**Resolution**:
+1. Created `docs/design_docs/11_frontend_state_management.md` with comprehensive guidelines
+2. Fixed `Knowledge.jsx` to use `useSettingsStore` instead of raw localStorage for section visibility
+
+**Note**: `Analytics.jsx` uses local `useState` for `timeRange` and `viewMode` - this is acceptable
+as these are page-specific UI state that doesn't necessarily need to persist across sessions.
 
 ---
 
@@ -919,7 +926,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - [ ] TD-040: PDF images not integrated into summaries
 
 ### P3 - Low (Nice to have)
-- [ ] TD-029: Inconsistent state management patterns
+- ✅ ~~TD-029: Inconsistent state management patterns~~
 - [ ] TD-036: Missing platform-specific setup instructions
 
 ---
@@ -1652,6 +1659,34 @@ Extracted magic numbers to named constants in a new `frontend/src/constants/ui.j
 - Single source of truth for configuration values
 - Easier to adjust values across the application
 - Z-index scale prevents arbitrary stacking conflicts
+
+---
+
+### ✅ TD-029: Inconsistent state management patterns
+**Completed**: 2026-01-27
+
+Documented state management guidelines and applied them consistently across the frontend.
+
+**Files created/modified**:
+
+1. **`docs/design_docs/11_frontend_state_management.md`** - Comprehensive guidelines covering:
+   - Decision tree for choosing between Zustand, React Query, and useState
+   - Documentation for each Zustand store (settings, UI, practice, review)
+   - Store design conventions (structure, naming, selectors)
+   - React Query patterns and query key conventions
+   - Anti-patterns to avoid
+   - Summary cheat sheet
+
+2. **`frontend/src/stores/settingsStore.js`** - Added:
+   - `knowledgeSectionVisibility` state object for note viewer section toggles
+   - `toggleKnowledgeSection(key)` action
+   - `setKnowledgeSectionVisibility(visibility)` action
+   - Persistence via Zustand's `persist` middleware
+
+3. **`frontend/src/pages/Knowledge.jsx`** - Refactored:
+   - Removed raw `localStorage.getItem/setItem` calls
+   - Now uses `useSettingsStore` for section visibility
+   - Follows documented state management patterns
 
 ---
 
