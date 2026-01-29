@@ -799,23 +799,41 @@ function InlineNoteContent({ notePath, onClose }) {
                   ),
                   li: ({ children, ...props }) => {
                     // Check if this list item contains a follow-up task dict
-                    // If so, render without the checkbox
+                    // If so, render without the checkbox and bullet
                     const childArray = Array.isArray(children) ? children : [children]
-                    const hasTaskDict = childArray.some(child => 
-                      typeof child === 'string' && parseFollowupTaskDict(child)
-                    )
                     
-                    if (hasTaskDict) {
-                      // Filter out checkbox input and render task nicely
-                      const filteredChildren = childArray.filter(child => {
-                        // Remove checkbox inputs
-                        if (child?.type === 'input' && child?.props?.type === 'checkbox') {
-                          return false
-                        }
-                        return true
+                    // Recursively check if any child contains a task dict
+                    const containsTaskDict = (items) => {
+                      if (!items) return false
+                      const arr = Array.isArray(items) ? items : [items]
+                      return arr.some(child => {
+                        if (typeof child === 'string' && parseFollowupTaskDict(child)) return true
+                        if (child?.props?.children) return containsTaskDict(child.props.children)
+                        return false
                       })
+                    }
+                    
+                    // Recursively filter out checkbox inputs
+                    const filterCheckboxes = (items) => {
+                      if (!items) return items
+                      const arr = Array.isArray(items) ? items : [items]
+                      return arr.filter(child => {
+                        // Filter out checkbox inputs (can be 'input' string or component)
+                        if (child?.type === 'input' || child?.props?.type === 'checkbox') return false
+                        return true
+                      }).map(child => {
+                        // Recursively filter children
+                        if (child?.props?.children) {
+                          return { ...child, props: { ...child.props, children: filterCheckboxes(child.props.children) } }
+                        }
+                        return child
+                      })
+                    }
+                    
+                    if (containsTaskDict(childArray)) {
+                      const filteredChildren = filterCheckboxes(childArray)
                       return (
-                        <li {...props} className="list-none">
+                        <li {...props} style={{ listStyle: 'none', marginLeft: 0, paddingLeft: 0 }}>
                           {processChildrenForWikiLinks(filteredChildren, sectionVisibility.images)}
                         </li>
                       )
