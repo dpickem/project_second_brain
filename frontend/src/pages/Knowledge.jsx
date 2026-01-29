@@ -145,18 +145,32 @@ const processWikiLinks = (text, onLinkClick, showImages = true) => {
 
 // Helper to detect and parse dict-like task strings from old template format
 // Pattern: {'task': '...', 'task_type': '...', 'priority': '...', 'estimated_time': '...'}
+// Handles both single and double quotes, and task text that contains apostrophes
 const parseFollowupTaskDict = (text) => {
   if (typeof text !== 'string') return null
   
-  // Match Python dict-like pattern for follow-up tasks
-  const dictMatch = text.match(/\{'task':\s*['"]([^'"]+)['"],\s*'task_type':\s*['"]([^'"]+)['"],\s*'priority':\s*['"]([^'"]+)['"],\s*'estimated_time':\s*['"]([^'"]+)['"]\}/)
+  // Check if this looks like a Python dict with task fields
+  if (!text.includes("'task':") || !text.includes("'task_type':")) {
+    return null
+  }
   
-  if (dictMatch) {
+  // Extract each field using specific patterns that handle both quote types
+  // For task field (may contain apostrophes, so Python uses double quotes)
+  let taskMatch = text.match(/'task':\s*"([^"]+)"/) || text.match(/'task':\s*'([^']+)'/)
+  // For task_type
+  let typeMatch = text.match(/'task_type':\s*'([^']+)'/) || text.match(/'task_type':\s*"([^"]+)"/)
+  // For priority
+  let priorityMatch = text.match(/'priority':\s*'([^']+)'/) || text.match(/'priority':\s*"([^"]+)"/)
+  // For estimated_time
+  let timeMatch = text.match(/'estimated_time':\s*'([^']+)'/) || text.match(/'estimated_time':\s*"([^"]+)"/)
+  
+  // All fields must be present
+  if (taskMatch && typeMatch && priorityMatch && timeMatch) {
     return {
-      task: dictMatch[1],
-      taskType: dictMatch[2],
-      priority: dictMatch[3],
-      estimatedTime: dictMatch[4],
+      task: taskMatch[1],
+      taskType: typeMatch[1],
+      priority: priorityMatch[1],
+      estimatedTime: timeMatch[1],
     }
   }
   return null
