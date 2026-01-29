@@ -999,6 +999,177 @@
         }
       }
     },
+    "/api/processing/followups": {
+      "get": {
+        "tags": [
+          "processing"
+        ],
+        "summary": "List Followup Tasks",
+        "description": "List follow-up tasks with optional filtering.\n\nArgs:\n    content_id: Filter by specific content (optional)\n    completed: Filter by completion status (optional)\n    priority: Filter by priority: high, medium, low (optional)\n    task_type: Filter by task type: research, practice, connect, apply, review (optional)\n    limit: Maximum number of tasks to return (default 100)\n    offset: Offset for pagination (default 0)\n\nReturns:\n    FollowupTaskListResponse with list of tasks",
+        "operationId": "list_followup_tasks_api_processing_followups_get",
+        "parameters": [
+          {
+            "name": "content_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Id"
+            }
+          },
+          {
+            "name": "completed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Completed"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Priority"
+            }
+          },
+          {
+            "name": "task_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Task Type"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowupTaskListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/processing/followups/{followup_id}": {
+      "patch": {
+        "tags": [
+          "processing"
+        ],
+        "summary": "Update Followup Task",
+        "description": "Update a follow-up task (e.g., mark as completed).\n\nArgs:\n    followup_id: UUID of the follow-up task\n    request: Update data\n\nReturns:\n    UpdateFollowupResponse with updated task status",
+        "operationId": "update_followup_task_api_processing_followups__followup_id__patch",
+        "parameters": [
+          {
+            "name": "followup_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Followup Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFollowupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateFollowupResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/vault/status": {
       "get": {
         "tags": [
@@ -1445,6 +1616,92 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NoteContent"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vault/assets/{asset_path}": {
+      "get": {
+        "tags": [
+          "vault"
+        ],
+        "summary": "Get Asset",
+        "description": "Serve a static asset (image, PDF, etc.) from the vault.\n\nThis endpoint serves files from the vault's assets folder, which contains\nextracted images from PDFs, uploaded attachments, and other media files.\n\nArgs:\n    asset_path: Relative path to the asset from the assets folder.\n               Example: \"images/abc123/page_1_img_0.png\"\n\nReturns:\n    The file content with appropriate MIME type.\n\nRaises:\n    404: If the asset is not found.\n    403: If the path attempts to escape the assets folder.",
+        "operationId": "get_asset_api_vault_assets__asset_path__get",
+        "parameters": [
+          {
+            "name": "asset_path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Asset Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vault/content/{content_id}/images": {
+      "get": {
+        "tags": [
+          "vault"
+        ],
+        "summary": "Get Content Images",
+        "description": "List all images extracted from a specific content item.\n\nQueries the database first for image metadata. Falls back to filesystem\nscanning for backward compatibility with images extracted before database\ntracking was added.\n\nArgs:\n    content_id: UUID of the content item.\n\nReturns:\n    List of image metadata including paths, descriptions, and dimensions.",
+        "operationId": "get_content_images_api_vault_content__content_id__images_get",
+        "parameters": [
+          {
+            "name": "content_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Content Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Content Images Api Vault Content  Content Id  Images Get"
                 }
               }
             }
@@ -6330,6 +6587,99 @@
         "title": "FollowupTask",
         "description": "Generated follow-up task.\n\nFollow-up tasks transform passive reading into active learning. They help\nusers engage more deeply with content by providing specific, actionable\nnext steps.\n\nAttributes:\n    id: Unique identifier\n    task: Specific, actionable task description\n    task_type: Category (research, practice, connect, apply, review)\n    priority: Importance level (high, medium, low)\n    estimated_time: Time estimate (15min, 30min, 1hr, 2hr+)\n    completed: Whether the task has been completed\n    completed_at: When the task was completed\n    created_at: When the task was created"
       },
+      "FollowupTaskListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "content_id": {
+            "type": "integer",
+            "title": "Content Id"
+          },
+          "content_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Title"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "task_type": {
+            "type": "string",
+            "title": "Task Type"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "estimated_time": {
+            "type": "string",
+            "title": "Estimated Time"
+          },
+          "completed": {
+            "type": "boolean",
+            "title": "Completed"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "content_id",
+          "task",
+          "task_type",
+          "priority",
+          "estimated_time",
+          "completed",
+          "created_at"
+        ],
+        "title": "FollowupTaskListItem",
+        "description": "Follow-up task item for list response."
+      },
+      "FollowupTaskListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/FollowupTaskListItem"
+            },
+            "type": "array",
+            "title": "Tasks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "tasks"
+        ],
+        "title": "FollowupTaskListResponse",
+        "description": "Response for listing follow-up tasks."
+      },
       "GitHubSyncRequest": {
         "properties": {
           "limit": {
@@ -9007,6 +9357,60 @@
         ],
         "title": "TriggerProcessingResponse",
         "description": "Response for processing trigger."
+      },
+      "UpdateFollowupRequest": {
+        "properties": {
+          "completed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "UpdateFollowupRequest",
+        "description": "Request body for updating a follow-up task."
+      },
+      "UpdateFollowupResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "completed": {
+            "type": "boolean",
+            "title": "Completed"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "completed",
+          "message"
+        ],
+        "title": "UpdateFollowupResponse",
+        "description": "Response for updating a follow-up task."
       },
       "UsageHistoryPoint": {
         "properties": {

@@ -386,7 +386,7 @@ The Second Brain web application provides a full-featured interface for knowledg
 └─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
-**Frontend Pages**: Dashboard, Practice Session, Exercises Catalogue, Review Queue, Knowledge Explorer, Knowledge Graph, Analytics, Assistant, Settings
+**Frontend Pages**: Dashboard, Practice Session, Exercises Catalogue, Card Catalogue, Review Queue, Knowledge Explorer, Knowledge Graph, Analytics, Follow-up Tasks, LLM Usage, Learning Assistant, Settings
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -437,50 +437,67 @@ The Second Brain web application provides a full-featured interface for knowledg
 
 ### Screenshots
 
+The application features a modern, dark-themed interface optimized for focused learning and knowledge management.
+
 #### Dashboard
 ![Dashboard](docs/screenshots/dashboard.png)
 
-Your home screen answering "What should I do today?" with stats header (streak, due cards, daily progress), quick action cards, due cards preview, weak spots identification, streak calendar, and quick capture.
+The Dashboard serves as your home screen, answering "What should I do today?" at a glance. It displays a stats header showing your current streak, due review cards, and daily progress toward your learning goals. Quick action cards provide one-click access to practice sessions and review queues. The page also surfaces due cards for immediate review, identifies weak spots requiring attention, shows a streak calendar for motivation, and includes a quick capture input for rapidly saving ideas or URLs.
 
 #### Practice Session
 ![Practice Session](docs/screenshots/practice.png)
 
-Deep learning through structured exercises. Select topics hierarchically with mastery indicators, configure session duration (5-30 min), choose to reuse existing or generate new AI exercises. Exercise types include free recall, self-explanation, worked examples, code debugging, and teach-back prompts with LLM-powered feedback.
+The Practice Session page enables deep learning through structured exercises grounded in cognitive science. You can select topics hierarchically with visual mastery indicators showing your current level, configure session duration (5-30 minutes), and choose whether to reuse existing exercises or generate new AI-powered ones. Exercise types include free recall (retrieve from memory), self-explanation (explain concepts in your own words), worked examples (study solutions before attempting), code debugging, and teach-back prompts—all with immediate LLM-powered feedback on your responses.
 
 #### Exercises Catalogue
 ![Exercises Catalogue](docs/screenshots/exercises.png)
 
-Browse and filter all available exercises with full-text search, type/difficulty filters, topic grouping, and direct practice access.
+The Exercises Catalogue provides a comprehensive browsing interface for all available exercises in the system. You can search exercises with full-text search, filter by exercise type (recall, explain, apply, code) and difficulty level, group by topic, and jump directly into practice mode. Each exercise card shows its type, difficulty, associated topic, and when it was last practiced, helping you identify fresh material or areas needing review.
+
+#### Card Catalogue
+![Card Catalogue](docs/screenshots/cards.png)
+
+The Card Catalogue lets you browse and manage all spaced repetition flashcards in your knowledge base. Cards are organized by topic and state (new, learning, review, mastered), with filters for card type (definition, comparison, application, example, concept). You can search cards, view their front/back content, see scheduling information, and track mastery progress. This page complements the Review Queue by providing a library view of all your cards rather than just those currently due.
 
 #### Review Queue (Spaced Repetition)
 ![Review Queue](docs/screenshots/review.png)
 
-Evidence-based spaced repetition using the FSRS algorithm. Features active recall (type answers before seeing correct response), LLM evaluation of answers, confidence rating (Again/Hard/Good/Easy), and AI-powered card generation.
+The Review Queue implements evidence-based spaced repetition using the FSRS (Free Spaced Repetition Scheduler) algorithm. Cards due for review are presented one at a time with active recall—you type your answer before seeing the correct response, which is more effective than simple recognition. The LLM evaluates your answers for semantic correctness, allowing for variations in wording. You then rate your confidence (Again/Hard/Good/Easy) to adjust scheduling. The page also supports AI-powered card generation from your notes.
 
 #### Knowledge Explorer
 ![Knowledge Explorer](docs/screenshots/knowledge.png)
 
-Unified interface for browsing your knowledge base with tree and list views, real-time search, command palette (`⌘K`), inline markdown rendering with syntax highlighting, and deep linking support.
+The Knowledge Explorer provides a unified interface for browsing your entire knowledge base stored in Obsidian. Toggle between tree view (folder hierarchy) and list view (flat listing), use real-time search to find notes instantly, and access the command palette with `⌘K` for quick navigation. Selected notes render inline with full markdown support including syntax highlighting for code blocks, LaTeX math, and wiki-link navigation. Deep linking support means you can share URLs to specific notes.
 
 #### Knowledge Graph
 ![Knowledge Graph](docs/screenshots/graph.png)
 
-Interactive D3.js force-directed graph visualization of your Neo4j knowledge graph. Different node types (Content, Concepts, Notes) with relationship edges. Click to view details, drag to rearrange, scroll to zoom. Statistics sidebar shows content breakdown.
+The Knowledge Graph offers an interactive D3.js force-directed visualization of your Neo4j knowledge graph. Different node types (Content, Concepts, Notes) are color-coded, with edges representing relationships like RELATES_TO, CITES, EXTENDS, and PREREQUISITE_FOR. Click nodes to view details, drag to rearrange the layout, and scroll to zoom in/out. A statistics sidebar shows content breakdown by type. This visualization helps discover unexpected connections between ideas and identify knowledge clusters.
 
 #### Analytics Dashboard
 ![Analytics Dashboard](docs/screenshots/analytics.png)
 
-Comprehensive learning insights: stats grid (time, streak, mastery), activity charts over configurable periods, topic mastery radar, progress breakdown by topic, weak spots analysis with "Practice Now" buttons, and calculated insights.
+The Analytics Dashboard provides comprehensive insights into your learning journey. The stats grid displays total time invested, current streak, and overall mastery percentage. Activity charts show practice sessions and review activity over configurable time periods (7/30/90 days). A topic mastery radar visualizes your proficiency across different knowledge areas. Progress breakdowns show completion by topic, while weak spots analysis identifies topics with declining retention and provides "Practice Now" buttons for targeted improvement. Calculated insights surface trends and recommendations.
+
+#### Follow-up Tasks
+![Follow-up Tasks](docs/screenshots/tasks.png)
+
+The Follow-up Tasks page displays actionable items generated automatically during content processing. When you ingest a paper, article, or book, the LLM identifies potential follow-up actions: research topics to explore, concepts to practice, connections to make with other notes, and applications to try. Tasks are categorized by type (research, practice, connect, apply, review) and priority (high, medium, low), with estimated time requirements. You can filter, search, and mark tasks complete as you work through them, turning passive reading into active engagement.
+
+#### LLM Usage
+![LLM Usage](docs/screenshots/llm-usage.png)
+
+The LLM Usage page provides a dashboard for monitoring your AI API usage and costs. It displays budget status with visual progress bars, spending trends over time, and breakdowns by model (GPT-4, Claude, Gemini, Mistral) and pipeline (ingestion, processing, exercises, assistant). This transparency helps you understand where AI costs go and optimize your usage. You can set monthly budgets and receive alerts when approaching limits.
 
 #### Learning Assistant
 ![Learning Assistant](docs/screenshots/assistant.png)
 
-AI-powered chat interface for knowledge exploration. Ask natural language questions, get source citations from your vault, configurable LLM model, streaming responses with markdown rendering.
+The Learning Assistant is an AI-powered chat interface for exploring your knowledge base conversationally. Ask natural language questions like "What do I know about attention mechanisms?" or "How does paper X relate to paper Y?" The assistant searches your vault and knowledge graph, synthesizes information, and provides source citations linking back to your notes. You can configure which LLM model to use, and responses stream in real-time with full markdown rendering. This turns your knowledge base into an interactive, queryable resource.
 
 #### Settings
 ![Settings](docs/screenshots/settings.png)
 
-Customize appearance (compact mode, animations), learning preferences (session length, daily goal), keyboard shortcuts (`⌘K` command palette, `⌘1-6` navigation), notifications, and data export.
+The Settings page lets you customize the application to your preferences. Appearance settings include compact mode for denser information display and animation toggles for reduced motion. Learning preferences let you set default session lengths and daily practice goals. Keyboard shortcuts are configurable, with defaults like `⌘K` for command palette and `⌘1-6` for page navigation. You can also manage notification preferences, configure LLM model defaults, and export your data for backup or migration purposes.
 
 ---
 

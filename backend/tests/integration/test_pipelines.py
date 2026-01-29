@@ -69,12 +69,18 @@ def mock_cost_tracker():
 @pytest.fixture(autouse=True)
 def mock_task_session_maker():
     """
-    Mock the task_session_maker to prevent any database connections.
+    Mock the session makers to prevent any database connections.
 
     This is an additional safety net to ensure no database writes.
+
+    IMPORTANT: We patch in app.services.storage (where the functions are used),
+    not in app.db.base (where they're defined). This is because storage.py uses
+    `from app.db.base import task_session_maker`, which creates a local reference
+    that won't be affected by patching the original module.
     """
-    with patch("app.db.base.task_session_maker") as mock_session_maker:
-        # Create a mock session that does nothing
+
+    def create_mock_session():
+        """Create a properly configured mock async session."""
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -82,9 +88,24 @@ def mock_task_session_maker():
         mock_session.flush = AsyncMock()
         mock_session.commit = AsyncMock()
         mock_session.rollback = AsyncMock()
-        mock_session.execute = AsyncMock()
-        mock_session_maker.return_value = mock_session
-        yield mock_session_maker
+        # Mock execute to return empty results (no duplicates found)
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        return mock_session
+
+    def mock_session_maker():
+        """Return a context manager that yields a mock session."""
+        return MagicMock(
+            __aenter__=AsyncMock(return_value=create_mock_session()),
+            __aexit__=AsyncMock(return_value=None),
+        )
+
+    # Patch both session makers where they're used in storage.py
+    with patch(
+        "app.services.storage.task_session_maker", mock_session_maker
+    ), patch("app.services.storage.async_session_maker", mock_session_maker):
+        yield
 
 
 # ============================================================================
