@@ -833,7 +833,7 @@ function InlineNoteContent({ notePath, onClose }) {
                     if (containsTaskDict(childArray)) {
                       const filteredChildren = filterCheckboxes(childArray)
                       return (
-                        <li {...props} style={{ listStyle: 'none', marginLeft: 0, paddingLeft: 0 }}>
+                        <li {...props}>
                           {processChildrenForWikiLinks(filteredChildren, sectionVisibility.images)}
                         </li>
                       )
