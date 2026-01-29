@@ -535,6 +535,204 @@ python scripts/setup_project.py --help-env        # Show env variable reference
 
 **Frontend**: `cd frontend && npm install && npm run dev`
 
+### Platform-Specific Setup
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+**Prerequisites:**
+
+```bash
+# Install Homebrew (if not installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install Python 3.11+
+brew install python@3.11
+
+# Install Docker Desktop
+# Download from: https://www.docker.com/products/docker-desktop/
+# Or via Homebrew:
+brew install --cask docker
+
+# Verify installations
+python3 --version    # Should be 3.11+
+docker --version     # Should show Docker version
+docker compose version
+```
+
+**Notes:**
+- Docker Desktop must be running before `docker compose` commands
+- On Apple Silicon (M1/M2/M3), Docker automatically handles ARM64 architecture
+- The `~` tilde expands correctly on macOS for local development
+
+</details>
+
+<details>
+<summary><strong>Linux (Ubuntu/Debian)</strong></summary>
+
+**Prerequisites:**
+
+```bash
+# Update package list
+sudo apt update
+
+# Install Python 3.11+
+sudo apt install python3.11 python3.11-venv python3-pip
+
+# Install Docker (official method)
+# Remove old versions
+sudo apt remove docker docker-engine docker.io containerd runc
+
+# Install prerequisites
+sudo apt install ca-certificates curl gnupg lsb-release
+
+# Add Docker's official GPG key
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+# Set up repository
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Install Docker
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# Add your user to the docker group (to run without sudo)
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Verify installations
+python3 --version
+docker --version
+docker compose version
+```
+
+**Notes:**
+- Log out and back in for docker group changes to take effect
+- For systemd services, use absolute paths (tilde `~` won't expand)
+- If running in WSL2, see Windows section for additional notes
+
+</details>
+
+<details>
+<summary><strong>Windows (with WSL2)</strong></summary>
+
+**Prerequisites:**
+
+1. **Install WSL2:**
+   ```powershell
+   # Run in PowerShell as Administrator
+   wsl --install
+   # Restart your computer
+   ```
+
+2. **Install Docker Desktop:**
+   - Download from: https://www.docker.com/products/docker-desktop/
+   - During installation, enable "Use WSL 2 based engine"
+   - After installation, open Docker Desktop Settings → Resources → WSL Integration
+   - Enable integration with your WSL distribution
+
+3. **In WSL2 terminal (Ubuntu):**
+   ```bash
+   # Install Python
+   sudo apt update
+   sudo apt install python3.11 python3.11-venv python3-pip
+
+   # Verify Docker (provided by Docker Desktop)
+   docker --version
+   docker compose version
+   ```
+
+**Notes:**
+- Run all commands from within WSL2, not PowerShell
+- Store your project in the WSL filesystem (`/home/user/`) not `/mnt/c/` for better performance
+- Use absolute paths in `.env` file (e.g., `/home/user/data` not `~/data`)
+- Docker Desktop manages the Docker daemon; you don't need to start it manually
+
+</details>
+
+### Verifying Your Setup
+
+After installation, verify everything is working:
+
+```bash
+# Check Python version (should be 3.11+)
+python3 --version
+
+# Check Docker is running
+docker info
+
+# Check Docker Compose
+docker compose version
+
+# Test Docker can run containers
+docker run hello-world
+
+# Verify GPU support (optional, for local LLM inference)
+docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
+```
+
+### Troubleshooting Common Issues
+
+<details>
+<summary><strong>Docker daemon not running</strong></summary>
+
+**macOS/Windows:** Start Docker Desktop application.
+
+**Linux:**
+```bash
+sudo systemctl start docker
+sudo systemctl enable docker  # Start on boot
+```
+
+</details>
+
+<details>
+<summary><strong>Permission denied when running docker</strong></summary>
+
+**Linux:**
+```bash
+sudo usermod -aG docker $USER
+# Log out and back in, or run:
+newgrp docker
+```
+
+</details>
+
+<details>
+<summary><strong>Port already in use</strong></summary>
+
+Check what's using the port:
+```bash
+# macOS/Linux
+lsof -i :8000  # Backend
+lsof -i :3000  # Frontend
+lsof -i :5432  # PostgreSQL
+
+# Stop the process or use different ports in docker-compose.yml
+```
+
+</details>
+
+<details>
+<summary><strong>Database connection refused</strong></summary>
+
+1. Check if containers are running: `docker compose ps`
+2. Check container logs: `docker compose logs postgres`
+3. Verify `.env` file has correct credentials
+4. Wait for healthcheck to pass (can take 30 seconds)
+
+</details>
+
+<details>
+<summary><strong>Neo4j won't start / Out of memory</strong></summary>
+
+Neo4j requires significant memory. Ensure Docker Desktop has at least 4GB RAM allocated:
+- **Docker Desktop:** Settings → Resources → Memory → Set to 4GB+
+- **Linux:** Check available memory with `free -h`
+
+</details>
+
 ### Useful Commands
 
 | Command | Purpose |
