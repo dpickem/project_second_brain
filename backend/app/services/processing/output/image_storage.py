@@ -23,7 +23,6 @@ Usage:
     # Save images from OCR result (saves to disk AND database)
     saved_images = await save_extracted_images(
         content_id="abc123",
-        content_pk=57,  # Database primary key of content
         ocr_result=ocr_result,
     )
 
@@ -103,7 +102,6 @@ class ExtractedImage:
 async def save_extracted_images(
     content_id: str,
     ocr_result: "MistralOCRResult",
-    content_pk: Optional[int] = None,
     optimize: bool = True,
     db: Optional[AsyncSession] = None,
 ) -> list[ExtractedImage]:
@@ -114,12 +112,12 @@ async def save_extracted_images(
     and saves each image with a consistent naming scheme. Also creates
     database records in the images table for proper relational tracking.
 
+    The database primary key (content_pk) is automatically derived from the
+    content_id - callers should never need to know about internal PKs.
+
     Args:
         content_id: UUID of the content these images belong to
         ocr_result: OCR result containing pages with images
-        content_pk: Primary key (integer ID) of the content record in the database.
-            Required for database insertion. If not provided, images are only saved
-            to disk (backwards compatibility).
         optimize: Whether to optimize images (resize, compress). Defaults to True.
         db: Optional database session. If not provided, creates a new session.
 
@@ -128,7 +126,7 @@ async def save_extracted_images(
 
     Example:
         >>> result = await ocr_pdf_document_annotated(pdf_path, include_images=True)
-        >>> images = await save_extracted_images("abc123", result, content_pk=57)
+        >>> images = await save_extracted_images("abc123", result)
         >>> for img in images:
         ...     print(f"Page {img.page_number}: {img.vault_path}")
     """
@@ -158,16 +156,14 @@ async def save_extracted_images(
             f"to {assets_folder}"
         )
 
-        # Save to database - look up content_pk if not provided
-        effective_pk = content_pk
-        if effective_pk is None:
-            effective_pk = await _get_content_pk(content_id, db)
+        # Look up content_pk from content_id for database insertion
+        content_pk = await _get_content_pk(content_id, db)
 
-        if effective_pk is not None:
+        if content_pk is not None:
             await _save_images_to_db(
                 saved_images=saved_images,
                 content_id=content_id,
-                content_pk=effective_pk,
+                content_pk=content_pk,
                 db=db,
             )
         else:
