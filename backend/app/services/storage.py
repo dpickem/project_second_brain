@@ -58,6 +58,7 @@ from fastapi import UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.config import settings
 from app.db.base import async_session_maker, task_session_maker
@@ -603,6 +604,8 @@ async def _update_content_impl(
         existing_metadata.update(metadata)
 
     db_content.metadata_json = existing_metadata
+    # Explicitly mark JSON column as modified (SQLAlchemy doesn't detect mutable changes)
+    flag_modified(db_content, "metadata_json")
 
     # Add new annotations
     if annotations:

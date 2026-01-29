@@ -13,15 +13,21 @@ Provides endpoints for:
 """
 
 import logging
+import mimetypes
 import os
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from sqlalchemy import select
+
 from app.content_types import content_registry
+from app.db.base import async_session_maker
+from app.db.models import Image as DBImage
 from app.services.obsidian.daily import DailyNoteGenerator
 from app.services.obsidian.frontmatter import parse_frontmatter
 from app.services.obsidian.indexer import FolderIndexer
@@ -472,4 +478,179 @@ async def get_note(note_path: str) -> NoteContent:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error reading note {note_path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Asset/Image Serving Endpoints
+# =============================================================================
+
+# Supported image MIME types
+IMAGE_MIME_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+}
+
+
+@router.get("/assets/{asset_path:path}")
+async def get_asset(asset_path: str) -> FileResponse:
+    """Serve a static asset (image, PDF, etc.) from the vault.
+
+    This endpoint serves files from the vault's assets folder, which contains
+    extracted images from PDFs, uploaded attachments, and other media files.
+
+    Args:
+        asset_path: Relative path to the asset from the assets folder.
+                   Example: "images/abc123/page_1_img_0.png"
+
+    Returns:
+        The file content with appropriate MIME type.
+
+    Raises:
+        404: If the asset is not found.
+        403: If the path attempts to escape the assets folder.
+    """
+    try:
+        vault = get_vault_manager()
+        vault_path = vault.vault_path
+
+        # Build full path to asset
+        # asset_path could be "images/content_id/page_1_img_0.png"
+        # or just directly specify from assets root
+        file_path = vault_path / "assets" / asset_path
+
+        # Security: Ensure path is within vault/assets
+        try:
+            file_path.resolve().relative_to((vault_path / "assets").resolve())
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Asset not found")
+
+        if not file_path.is_file():
+            raise HTTPException(status_code=400, detail="Not a file")
+
+        # Determine MIME type
+        suffix = file_path.suffix.lower()
+        media_type = IMAGE_MIME_TYPES.get(suffix)
+        if not media_type:
+            # Fallback to mimetypes module
+            media_type, _ = mimetypes.guess_type(str(file_path))
+            if not media_type:
+                media_type = "application/octet-stream"
+
+        return FileResponse(
+            path=str(file_path),
+            media_type=media_type,
+            filename=file_path.name,
+        )
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error serving asset {asset_path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/content/{content_id}/images")
+async def get_content_images(content_id: str) -> dict[str, Any]:
+    """List all images extracted from a specific content item.
+
+    Queries the database first for image metadata. Falls back to filesystem
+    scanning for backward compatibility with images extracted before database
+    tracking was added.
+
+    Args:
+        content_id: UUID of the content item.
+
+    Returns:
+        List of image metadata including paths, descriptions, and dimensions.
+    """
+    try:
+        # First, try to get images from database
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(DBImage)
+                .where(DBImage.content_uuid == content_id)
+                .order_by(DBImage.page_number, DBImage.image_index)
+            )
+            db_images = result.scalars().all()
+
+        if db_images:
+            # Return images from database
+            images = []
+            for img in db_images:
+                images.append({
+                    "id": img.id,
+                    "filename": img.filename,
+                    "path": img.vault_path,
+                    "url": f"/api/vault/{img.vault_path}",
+                    "page_number": img.page_number,
+                    "image_index": img.image_index,
+                    "width": img.width,
+                    "height": img.height,
+                    "size": img.file_size,
+                    "description": img.description,
+                    "created_at": img.created_at.isoformat() if img.created_at else None,
+                })
+
+            return {
+                "content_id": content_id,
+                "images": images,
+                "total": len(images),
+                "source": "database",
+            }
+
+        # Fallback: scan filesystem (for backward compatibility)
+        vault = get_vault_manager()
+        images_folder = vault.vault_path / "assets" / "images" / content_id
+
+        if not images_folder.exists():
+            return {"content_id": content_id, "images": [], "total": 0}
+
+        images = []
+        for img_file in sorted(images_folder.iterdir()):
+            if img_file.is_file() and img_file.suffix.lower() in IMAGE_MIME_TYPES:
+                stat = img_file.stat()
+                # Parse filename to extract page/index info
+                # Expected format: page_N_img_M.png
+                parts = img_file.stem.split("_")
+                page_number = None
+                image_index = None
+                if len(parts) >= 4 and parts[0] == "page" and parts[2] == "img":
+                    try:
+                        page_number = int(parts[1])
+                        image_index = int(parts[3])
+                    except ValueError:
+                        pass
+
+                images.append({
+                    "filename": img_file.name,
+                    "path": f"assets/images/{content_id}/{img_file.name}",
+                    "url": f"/api/vault/assets/images/{content_id}/{img_file.name}",
+                    "page_number": page_number,
+                    "image_index": image_index,
+                    "size": stat.st_size,
+                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                })
+
+        return {
+            "content_id": content_id,
+            "images": images,
+            "total": len(images),
+            "source": "filesystem",
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error listing images for content {content_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))

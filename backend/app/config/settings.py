@@ -247,6 +247,16 @@ class Settings(BaseSettings):
     PDF_IMAGE_DPI: int = 300
     PDF_MAX_FILE_SIZE_MB: int = 50
 
+    # =========================================================================
+    # IMAGE STORAGE (Extracted PDF/Book Images)
+    # =========================================================================
+    # Image optimization settings for extracted figures
+    IMAGE_MAX_DIMENSION: int = 1200  # Max width/height in pixels for saved images
+    IMAGE_JPEG_QUALITY: int = 85  # Quality for JPEG compression (0-100)
+    IMAGE_PNG_COMPRESSION: int = 6  # PNG compression level (0-9, higher=smaller)
+    IMAGE_DEFAULT_FORMAT: str = "png"  # Output format: "png" or "jpeg"
+    IMAGE_ASSETS_FOLDER: str = "images"  # Folder within vault/assets/ for images
+
     # Voice transcription
     VOICE_EXPAND_NOTES: bool = True
 

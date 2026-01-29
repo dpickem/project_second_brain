@@ -30,7 +30,7 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-021: Review and clean up dependencies](#td-021-review-and-clean-up-dependencies)~~
   - ✅ ~~[TD-038: Concept deduplication not working](#td-038-concept-deduplication-not-working)~~
   - ✅ ~~[TD-039: Exercises not synced to Obsidian vault](#td-039-exercises-not-synced-to-obsidian-vault)~~
-  - [TD-040: PDF images not integrated into summaries](#td-040-pdf-images-not-integrated-into-summaries)
+  - ✅ ~~[TD-040: PDF images not integrated into summaries](#td-040-pdf-images-not-integrated-into-summaries)~~
 - [Frontend Tech Debt](#frontend-tech-debt)
   - ✅ ~~[TD-022: Remove console.log statements](#td-022-remove-consolelog-statements)~~
   - ✅ ~~[TD-023: Hardcoded URLs throughout frontend](#td-023-hardcoded-urls-throughout-frontend)~~
@@ -587,9 +587,9 @@ result = await deduplicate_neo4j_concepts(neo4j_client, dry_run=True)
 
 ---
 
-### TD-040: PDF images not integrated into summaries
+### ✅ TD-040: PDF images not integrated into summaries
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Content processing / UX
 
 **Description**: During PDF/book OCR processing, images are extracted but not utilized in the final output. These images (diagrams, figures, charts, etc.) should be:
@@ -597,34 +597,54 @@ result = await deduplicate_neo4j_concepts(neo4j_client, dry_run=True)
 2. Rendered in Obsidian markdown notes with proper image embeds
 3. Displayed in the web UI when viewing content
 
-**Current State**:
-- OCR pipeline extracts images during PDF processing
-- Images are likely stored but not referenced in summaries
-- Obsidian notes contain text-only summaries
-- Web UI shows text-only content
+**Implementation**:
 
-**Expected Behavior**:
-- Images referenced in context within the detailed summary (e.g., "As shown in Figure 3...")
-- Obsidian notes embed images using `![[image.png]]` or `![alt](path/to/image.png)` syntax
-- Images stored in Obsidian vault's attachments folder
-- Web UI renders images inline with content
-- Image captions/alt text extracted or generated for accessibility
+**1. PDF Processor Changes** (`backend/app/pipelines/pdf_processor.py`):
+- Changed `include_images` default to `True` (was `False`)
+- Added call to `save_extracted_images()` to persist images to vault
+- Store image metadata in `UnifiedContent.metadata["extracted_images"]`
+- Image paths added to `asset_paths` list
 
-**Implementation Tasks**:
-- [ ] Audit current image extraction in OCR pipeline (`book_ocr.py`, `pdf_processor.py`)
-- [ ] Store extracted images with content association (filename, content_id, position)
-- [ ] Update LLM summary prompts to reference images by position/figure number
-- [ ] Update Obsidian generator to embed images in markdown output
-- [ ] Create image storage location in Obsidian vault (e.g., `attachments/` or alongside notes)
-- [ ] Add image serving endpoint to backend API
-- [ ] Update frontend content viewer to render embedded images
-- [ ] Handle image optimization (resize, compress for web)
+**2. New Image Storage Service** (`backend/app/services/processing/output/image_storage.py`):
+- `save_extracted_images()` - Saves base64 images from OCR to vault assets folder
+- `delete_content_images()` - Cleanup function for reprocessing
+- `ExtractedImage` dataclass with path, page, description, dimensions
+- Image optimization: resize to max 1200px, PNG compression
+- Storage location: `vault/assets/images/{content_id}/page_N_img_M.png`
 
-**Considerations**:
-- Image file naming convention (content_id + sequence number?)
-- Storage location: local vault vs. dedicated media storage
-- Image format standardization (convert HEIC, etc. to web-friendly formats)
-- LLM context: may need to pass image positions to summary generation
+**3. Obsidian Integration** (`obsidian_generator.py`, templates):
+- Added `figures` and `has_figures` to `TemplateData`
+- `_prepare_template_data()` extracts figures from content metadata
+- Updated templates with Figures section:
+  - `paper.md.j2` - Shows figures with Obsidian wikilink syntax
+  - `article.md.j2` - Shows figures when available
+  - `book.md.j2` - Shows figures when available
+
+**4. API Endpoints** (`backend/app/routers/vault.py`):
+- `GET /api/vault/assets/{asset_path}` - Serve images/assets from vault
+- `GET /api/vault/content/{content_id}/images` - List images for a content item
+
+**Template Format**:
+```markdown
+## Figures
+
+### Figure 1 (Page 3)
+![[assets/images/abc123/page_3_img_0.png]]
+*Description from OCR annotation*
+```
+
+**Storage Structure**:
+```
+vault/
+└── assets/
+    └── images/
+        └── {content_id}/
+            ├── page_1_img_0.png
+            ├── page_1_img_1.png
+            └── page_3_img_0.png
+```
+
+**Naming Convention**: `page_{N}_img_{M}.png` where N is 1-indexed page number and M is 0-indexed image index on that page.
 
 ---
 
@@ -957,7 +977,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - [ ] TD-035: Environment variable validation
 - [ ] TD-037: Data directory uses tilde expansion
 - ✅ ~~TD-039: Exercises not synced to Obsidian vault~~
-- [ ] TD-040: PDF images not integrated into summaries
+- ✅ ~~TD-040: PDF images not integrated into summaries~~
 
 ### P3 - Low (Nice to have)
 - ✅ ~~TD-029: Inconsistent state management patterns~~
@@ -1873,9 +1893,49 @@ vault/
 
 ---
 
+### ✅ TD-040: PDF images not integrated into summaries
+**Completed**: 2026-01-28
+
+Implemented full image extraction and integration for PDF/book processing.
+
+**Changes**:
+
+**1. PDF Processor** (`backend/app/pipelines/pdf_processor.py`):
+- Changed `include_images` default from `False` to `True`
+- Images are now extracted during OCR and saved to vault
+- Image metadata stored in `UnifiedContent.metadata["extracted_images"]`
+
+**2. New Image Storage Service** (`backend/app/services/processing/output/image_storage.py`):
+- `save_extracted_images()` - Save base64 images to vault assets folder
+- `delete_content_images()` - Cleanup for reprocessing
+- `ExtractedImage` dataclass with vault_path, page_number, description, dimensions
+- Image optimization: resize to 1200px max, PNG compression
+- Storage: `vault/assets/images/{content_id}/page_N_img_M.png`
+
+**3. Obsidian Integration**:
+- Added `figures` and `has_figures` to template data
+- Updated `paper.md.j2`, `article.md.j2`, `book.md.j2` with Figures section
+- Images embedded with Obsidian wikilink syntax: `![[vault_path]]`
+
+**4. API Endpoints** (`backend/app/routers/vault.py`):
+- `GET /api/vault/assets/{path}` - Serve assets (images, PDFs) from vault
+- `GET /api/vault/content/{id}/images` - List images for a content item
+
+**Folder Structure**:
+```
+vault/
+└── assets/
+    └── images/
+        └── {content_id}/
+            ├── page_1_img_0.png
+            └── page_3_img_0.png
+```
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 40 (5 P0, 14 P1, 19 P2, 2 P3) — 33 completed
+- Total items: 40 (5 P0, 14 P1, 19 P2, 2 P3) — 34 completed

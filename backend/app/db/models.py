@@ -141,6 +141,9 @@ class Content(Base):
     cards: Mapped[List["SpacedRepCard"]] = relationship(
         back_populates="content", foreign_keys="SpacedRepCard.source_content_pk"
     )
+    images: Mapped[List["Image"]] = relationship(
+        back_populates="content", cascade="all, delete-orphan"
+    )
 
 
 class Annotation(Base):
@@ -192,6 +195,63 @@ class Annotation(Base):
 
     # Relationships
     content: Mapped["Content"] = relationship(back_populates="annotations")
+
+
+class Image(Base):
+    """
+    Extracted images from content (PDFs, books, etc.).
+
+    Stores metadata for images extracted during content processing,
+    linked to their source content for easy retrieval and display.
+
+    Attributes:
+        id: Primary key, auto-incrementing integer identifier.
+        content_id: Foreign key reference to the parent Content record.
+        content_uuid: UUID string of the parent content (for convenient lookups).
+        filename: Image filename (e.g., "page_1_img_0.png").
+        vault_path: Relative path within the Obsidian vault
+            (e.g., "assets/images/{uuid}/page_1_img_0.png").
+        page_number: Page number in the source document where image was found.
+        image_index: Zero-based index of the image on its page.
+        width: Image width in pixels.
+        height: Image height in pixels.
+        file_size: File size in bytes.
+        description: OCR-extracted or LLM-generated description of the image.
+        created_at: Timestamp when the image record was created.
+        content: Reference to the parent Content object.
+    """
+
+    __tablename__ = "images"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    content_id: Mapped[int] = mapped_column(ForeignKey("content.id", ondelete="CASCADE"))
+
+    # Content UUID for convenient lookups without joins
+    content_uuid: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+
+    # Image file info
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    vault_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+
+    # Location in source document
+    page_number: Mapped[Optional[int]] = mapped_column(Integer)
+    image_index: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Image metadata
+    width: Mapped[Optional[int]] = mapped_column(Integer)
+    height: Mapped[Optional[int]] = mapped_column(Integer)
+    file_size: Mapped[Optional[int]] = mapped_column(Integer)
+
+    # Description (from OCR or LLM)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+
+    # Timestamps (timezone-aware UTC)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
+
+    # Relationships
+    content: Mapped["Content"] = relationship(back_populates="images")
 
 
 class Tag(Base):

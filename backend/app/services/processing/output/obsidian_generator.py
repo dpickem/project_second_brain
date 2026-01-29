@@ -100,6 +100,9 @@ class TemplateData(TypedDict, total=False):
     context: str
     importance: str
     next_steps: list[str]
+    # Extracted images/figures from PDF/Book OCR
+    figures: list[dict[str, Any]]
+    has_figures: bool
 
 # UUID pattern to detect UUID-like titles
 UUID_PATTERN = re.compile(
@@ -350,6 +353,20 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
 
     logger.debug(f"Processing {len(content.annotations)} annotations for '{content.title}'")
     
+    # Extract figures from content metadata (set by PDF processor)
+    figures = []
+    if content.metadata and content.metadata.get("extracted_images"):
+        for img in content.metadata["extracted_images"]:
+            figures.append({
+                "vault_path": img.get("vault_path", ""),
+                "page_number": img.get("page_number", 0),
+                "image_type": img.get("image_type", "figure"),
+                "description": img.get("description", ""),
+                "width": img.get("width", 0),
+                "height": img.get("height", 0),
+            })
+        logger.debug(f"Found {len(figures)} figures in content metadata")
+    
     if content.annotations:
         for a in content.annotations:
             if a.type == AnnotationType.DIGITAL_HIGHLIGHT:
@@ -463,6 +480,9 @@ def _prepare_template_data(content: UnifiedContent, result: ProcessingResult) ->
         "highlights": highlights,
         "handwritten_notes": handwritten_notes,
         "has_handwritten_notes": len(handwritten_notes) > 0,
+        # Figures (extracted images from PDF/Book OCR)
+        "figures": figures,
+        "has_figures": len(figures) > 0,
         # Interactive elements
         "mastery_questions": mastery_questions,
         "tasks": tasks,

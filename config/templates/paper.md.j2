@@ -66,6 +66,19 @@ id: {{ content_id | default('') }}
 > *Context: "surrounding text"*
 {% endif %}
 
+{% if has_figures %}
+## Figures
+
+{% for figure in figures %}
+### Figure {{ loop.index }} (Page {{ figure.page_number }})
+![[{{ figure.vault_path }}]]
+{% if figure.description %}
+*{{ figure.description }}*
+{% endif %}
+
+{% endfor %}
+{% endif %}
+
 ## Mastery Questions
 {% if mastery_questions %}
 {% for question in mastery_questions %}

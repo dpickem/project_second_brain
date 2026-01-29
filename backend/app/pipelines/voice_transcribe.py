@@ -220,14 +220,8 @@ class VoiceTranscriber(BasePipeline):
 
         self.logger.info(f"Transcribing: {audio_path}")
 
-        # Calculate hash for deduplication
+        # Calculate hash for metadata (deduplication is handled at capture layer)
         file_hash = self.calculate_hash(audio_path)
-
-        # Check for duplicate
-        existing = await self.check_duplicate(file_hash)
-        if existing:
-            self.logger.info(f"Duplicate audio detected: {audio_path}")
-            return existing
 
         # Get actual audio duration
         duration_seconds = self._get_audio_duration(audio_path)

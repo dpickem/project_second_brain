@@ -51,6 +51,10 @@ from app.services.llm import (
     build_messages,
 )
 from app.services.cost_tracking import CostTracker
+from app.services.processing.output.image_storage import (
+    save_extracted_images,
+    ExtractedImage,
+)
 
 
 class PDFProcessor(BasePipeline):
@@ -79,7 +83,7 @@ class PDFProcessor(BasePipeline):
         ocr_model: Optional[str] = None,
         text_model: Optional[str] = None,
         max_file_size_mb: int = 50,
-        include_images: bool = False,
+        include_images: bool = True,
         track_costs: bool = True,
     ) -> None:
         """
@@ -89,7 +93,8 @@ class PDFProcessor(BasePipeline):
             ocr_model: OCR model for document processing. Defaults to settings.OCR_MODEL.
             text_model: Text model for content type classification. Defaults to settings.TEXT_MODEL.
             max_file_size_mb: Maximum allowed PDF file size in megabytes. Defaults to 50.
-            include_images: Whether to include extracted images in OCR response. Defaults to False.
+            include_images: Whether to include extracted images in OCR response. Defaults to True.
+                           Images are saved to the vault's assets folder during processing.
             track_costs: Whether to log LLM costs to database. Defaults to True.
         """
         super().__init__()
@@ -130,6 +135,7 @@ class PDFProcessor(BasePipeline):
         Args:
             input_data: PipelineInput containing the path to the PDF file.
             content_id: Optional content ID for cost attribution.
+                       If not provided, uses input_data.content_id.
 
         Returns:
             UnifiedContent: Extracted text and metadata from the PDF.
@@ -139,7 +145,9 @@ class PDFProcessor(BasePipeline):
         """
         if input_data.path is None:
             raise ValueError("PipelineInput.path is required for PDF processing")
-        return await self.process_path(input_data.path, content_id)
+        # Use content_id from input_data if not explicitly provided
+        effective_content_id = content_id or input_data.content_id
+        return await self.process_path(input_data.path, effective_content_id)
 
     async def process_path(
         self,
@@ -173,14 +181,8 @@ class PDFProcessor(BasePipeline):
         # Validate file
         self.validate_file(pdf_path, self.max_file_size_mb)
 
-        # Calculate file hash for deduplication
+        # Calculate file hash for metadata (deduplication is handled at capture layer)
         file_hash = self.calculate_hash(pdf_path)
-
-        # Check for duplicate
-        existing = await self.check_duplicate(file_hash)
-        if existing:
-            self.logger.info(f"Duplicate PDF detected: {pdf_path}")
-            return existing
 
         self.logger.info(f"Processing PDF with OCR: {pdf_path}")
 
@@ -207,6 +209,20 @@ class PDFProcessor(BasePipeline):
         ocr_annotations = self._extract_ocr_annotations(ocr_result)
         pdf_annotations = self._extract_pdf_annotations(pdf_path)
         annotations = ocr_annotations + pdf_annotations
+
+        # Save extracted images to vault if include_images is enabled
+        extracted_images: list[ExtractedImage] = []
+        if self.include_images and content_id:
+            try:
+                extracted_images = await save_extracted_images(
+                    content_id=content_id,
+                    ocr_result=ocr_result,
+                    optimize=True,
+                )
+                if extracted_images:
+                    self.logger.info(f"Saved {len(extracted_images)} images to vault")
+            except Exception as e:
+                self.logger.warning(f"Failed to save extracted images: {e}")
 
         # Classify content type
         content_type = await self._infer_content_type(title, ocr_result.full_text)
@@ -244,6 +260,11 @@ class PDFProcessor(BasePipeline):
             )
             await CostTracker.log_usages_batch(self._usage_records)
 
+        # Build asset paths including extracted images
+        asset_paths = [str(pdf_path)]
+        for img in extracted_images:
+            asset_paths.append(str(img.absolute_path))
+
         return UnifiedContent(
             source_type=content_type,
             source_file_path=str(pdf_path),
@@ -253,7 +274,7 @@ class PDFProcessor(BasePipeline):
             full_text=ocr_result.full_text,
             annotations=annotations,
             raw_file_hash=file_hash,
-            asset_paths=[str(pdf_path)],
+            asset_paths=asset_paths,
             metadata={
                 "ocr_model": self.ocr_model,
                 "page_count": len(ocr_result.pages),
@@ -269,6 +290,8 @@ class PDFProcessor(BasePipeline):
                     "underlines": underline_count,
                     "total": len(annotations),
                 },
+                # Extracted images metadata for template rendering
+                "extracted_images": [img.to_dict() for img in extracted_images],
             },
         )
 

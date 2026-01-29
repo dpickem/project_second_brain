@@ -46,8 +46,6 @@ from pathlib import Path
 from typing import Any, Optional
 import logging
 
-from sqlalchemy import select
-
 from app.enums.pipeline import PipelineContentType
 from app.models.content import UnifiedContent
 from app.pipelines.utils.hash_utils import (
@@ -174,52 +172,6 @@ class BasePipeline(ABC):
             Hex string of the SHA-256 hash
         """
         return _calculate_content_hash(content)
-
-    async def check_duplicate(self, file_hash: str) -> Optional[UnifiedContent]:
-        """
-        Check if content with this hash already exists in the database.
-
-        Queries the Content table for an existing record with matching
-        raw_file_hash in metadata_json. If found, returns the content
-        as UnifiedContent to enable skipping duplicate ingestion.
-
-        Args:
-            file_hash: SHA-256 hash to check
-
-        Returns:
-            Existing UnifiedContent if found, None otherwise
-        """
-        self.logger.debug(f"Checking for duplicate with hash: {file_hash[:16]}...")
-
-        try:
-            # Import here to avoid circular imports at module load time
-            from app.db.base import async_session_maker
-            from app.db.models import Content as DBContent
-            from app.services.storage import load_content
-
-            async with async_session_maker() as session:
-                # Query for content with matching hash in metadata
-                result = await session.execute(
-                    select(DBContent).where(
-                        DBContent.metadata_json["raw_file_hash"].as_string() == file_hash
-                    )
-                )
-                existing = result.scalar_one_or_none()
-
-                if existing:
-                    self.logger.info(
-                        f"Found duplicate content: {existing.content_uuid} "
-                        f"(hash: {file_hash[:16]}...)"
-                    )
-                    # Load and return as UnifiedContent
-                    return await load_content(existing.content_uuid, session)
-
-            return None
-
-        except Exception as e:
-            # Log but don't fail - duplicate checking is best-effort
-            self.logger.warning(f"Error checking for duplicate: {e}")
-            return None
 
     def validate_file(self, file_path: Path, max_size_mb: int = 50) -> bool:
         """

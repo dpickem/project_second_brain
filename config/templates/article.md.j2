@@ -42,6 +42,20 @@ id: {{ content_id | default('') }}
 ## My Notes
 {{ notes | default('') }}
 
+{% if has_figures %}
+## Figures
+
+{% for figure in figures %}
+### Figure {{ loop.index }}{% if figure.page_number %} (Page {{ figure.page_number }}){% endif %}
+
+![[{{ figure.vault_path }}]]
+{% if figure.description %}
+*{{ figure.description }}*
+{% endif %}
+
+{% endfor %}
+{% endif %}
+
 ## Action Items
 {% if action_items %}
 {% for item in action_items %}

@@ -80,6 +80,7 @@ from typing import Any, Optional, TypedDict
 # Third-party imports
 # =============================================================================
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from tenacity import (
     RetryError,
     before_sleep_log,
@@ -308,9 +309,12 @@ async def _run_llm_processing_impl(
     logger.info(f"Starting LLM processing for content {content_id}")
 
     async with task_session_maker() as session:
-        # Load content from database
+        # Load content from database with annotations eagerly loaded
+        # (avoids greenlet error when accessing lazy-loaded relationships)
         result = await session.execute(
-            select(Content).where(Content.content_uuid == content_id)
+            select(Content)
+            .where(Content.content_uuid == content_id)
+            .options(selectinload(Content.annotations))
         )
         db_content = result.scalar_one_or_none()
 

@@ -45,37 +45,87 @@ import { useUiStore, useSettingsStore } from '../stores'
 import { useDebounce } from '../hooks/useDebouncedSearch'
 import { fadeInUp, staggerContainer } from '../utils/animations'
 import { VAULT_PAGE_SIZE } from '../constants'
+import { API_URL } from '../api/client'
 
-// Helper to process wiki-links [[title]] in text content
+// Helper to convert vault-relative image paths to API URLs
+const convertImagePathToApiUrl = (src) => {
+  if (!src) return src
+  
+  // Already an absolute URL
+  if (src.startsWith('http://') || src.startsWith('https://')) {
+    return src
+  }
+  
+  // Already an API URL (relative) - prepend API_URL
+  if (src.startsWith('/api/')) {
+    return `${API_URL}${src}`
+  }
+  
+  // Vault-relative path (e.g., "assets/images/content_id/page_1_img_0.png")
+  if (src.startsWith('assets/')) {
+    return `${API_URL}/api/vault/${src}`
+  }
+  
+  // Handle paths that might have leading slash
+  if (src.startsWith('/assets/')) {
+    return `${API_URL}/api/vault${src}`
+  }
+  
+  // Default: assume it's a vault-relative path
+  return `${API_URL}/api/vault/assets/${src}`
+}
+
+// Helper to process wiki-links [[title]] and image embeds ![[path]] in text content
 const processWikiLinks = (text, onLinkClick) => {
   if (typeof text !== 'string') return text
   
-  // Match [[link]] or [[link|display text]] patterns
-  const wikiLinkRegex = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g
+  // Match ![[image]] for image embeds (must be checked first)
+  // and [[link]] or [[link|display text]] for links
+  const combinedRegex = /!\[\[([^\]]+)\]\]|\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g
   const parts = []
   let lastIndex = 0
   let match
 
-  while ((match = wikiLinkRegex.exec(text)) !== null) {
+  while ((match = combinedRegex.exec(text)) !== null) {
     // Add text before the match
     if (match.index > lastIndex) {
       parts.push(text.slice(lastIndex, match.index))
     }
     
-    const linkTarget = match[1] // The actual link target
-    const displayText = match[2] || match[1] // Display text (or same as target)
-    
-    // Create a clickable link that searches for the note
-    parts.push(
-      <Link
-        key={match.index}
-        to={`/knowledge?search=${encodeURIComponent(linkTarget)}`}
-        className="text-indigo-400 hover:text-indigo-300 underline decoration-indigo-400/50 hover:decoration-indigo-300 transition-colors"
-        title={`Open: ${linkTarget}`}
-      >
-        {displayText}
-      </Link>
-    )
+    if (match[1]) {
+      // Image embed: ![[path]]
+      const imagePath = match[1]
+      const imageUrl = convertImagePathToApiUrl(imagePath)
+      parts.push(
+        <img
+          key={match.index}
+          src={imageUrl}
+          alt={imagePath.split('/').pop() || 'Embedded image'}
+          className="max-w-full h-auto rounded-lg shadow-lg my-4 border border-slate-700"
+          loading="lazy"
+          onError={(e) => {
+            e.target.style.display = 'none'
+            console.warn(`Failed to load image: ${imageUrl}`)
+          }}
+        />
+      )
+    } else {
+      // Wiki-link: [[link]] or [[link|display text]]
+      const linkTarget = match[2] // The actual link target
+      const displayText = match[3] || match[2] // Display text (or same as target)
+      
+      // Create a clickable link that searches for the note
+      parts.push(
+        <Link
+          key={match.index}
+          to={`/knowledge?search=${encodeURIComponent(linkTarget)}`}
+          className="text-indigo-400 hover:text-indigo-300 underline decoration-indigo-400/50 hover:decoration-indigo-300 transition-colors"
+          title={`Open: ${linkTarget}`}
+        >
+          {displayText}
+        </Link>
+      )
+    }
     
     lastIndex = match.index + match[0].length
   }
@@ -639,13 +689,36 @@ function InlineNoteContent({ notePath, onClose }) {
                       {children}
                     </summary>
                   ),
-                  // Process wiki-links [[title]] in paragraphs and list items
+                  // Process wiki-links [[title]] and image embeds ![[path]] in paragraphs and list items
                   p: ({ children, ...props }) => (
                     <p {...props}>{processChildrenForWikiLinks(children)}</p>
                   ),
                   li: ({ children, ...props }) => (
                     <li {...props}>{processChildrenForWikiLinks(children)}</li>
                   ),
+                  // Handle standard markdown images ![alt](src)
+                  img: ({ src, alt, ...props }) => {
+                    const imageUrl = convertImagePathToApiUrl(src)
+                    return (
+                      <img
+                        src={imageUrl}
+                        alt={alt || 'Image'}
+                        className="max-w-full h-auto rounded-lg shadow-lg my-4 border border-slate-700"
+                        loading="lazy"
+                        onError={(e) => {
+                          // Show a placeholder on error
+                          e.target.onerror = null
+                          e.target.src = 'data:image/svg+xml,' + encodeURIComponent(
+                            '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150" viewBox="0 0 200 150">' +
+                            '<rect fill="#1e293b" width="200" height="150"/>' +
+                            '<text fill="#64748b" font-family="sans-serif" font-size="14" x="50%" y="50%" text-anchor="middle" dy=".3em">Image not found</text>' +
+                            '</svg>'
+                          )
+                        }}
+                        {...props}
+                      />
+                    )
+                  },
                 }}
               >
                 {filteredContent}
