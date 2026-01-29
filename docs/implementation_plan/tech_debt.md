@@ -46,10 +46,10 @@ This document tracks known technical debt items and improvements for open-source
   - ✅ ~~[TD-032: Prototype code should be moved or removed](#td-032-prototype-code-should-be-moved-or-removed)~~
   - ✅ ~~[TD-033: Test verifies intentional NotImplementedError](#td-033-test-verifies-intentional-notimplementederror)~~
 - [Documentation & Config](#documentation--config)
-  - [TD-034: Docker compose production configuration](#td-034-docker-compose-production-configuration)
-  - [TD-035: Environment variable validation](#td-035-environment-variable-validation)
-  - [TD-036: Missing platform-specific setup instructions](#td-036-missing-platform-specific-setup-instructions)
-  - [TD-037: Data directory uses tilde expansion](#td-037-data-directory-uses-tilde-expansion)
+  - ✅ ~~[TD-034: Docker compose production configuration](#td-034-docker-compose-production-configuration)~~
+  - ✅ ~~[TD-035: Environment variable validation](#td-035-environment-variable-validation)~~
+  - ✅ ~~[TD-036: Missing platform-specific setup instructions](#td-036-missing-platform-specific-setup-instructions)~~
+  - ✅ ~~[TD-037: Data directory uses tilde expansion](#td-037-data-directory-uses-tilde-expansion)~~
 - [Summary by Priority](#summary-by-priority)
 - [Completed Items](#completed-items)
 - [Notes](#notes)
@@ -876,60 +876,104 @@ The test correctly verifies this design constraint. Updated title from "Incomple
 
 ## Documentation & Config
 
-### TD-034: Docker compose production configuration
+### ✅ TD-034: Docker compose production configuration
 **Priority**: P1  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Deployment
 
-**Issues**:
+**Issues** (resolved):
 - Ports exposed to host (5432, 6379, 7474, 7687) - security risk
 - No production docker-compose override file
 - Missing resource limits (CPU, memory)
 
-**Fix**:
-- Create `docker-compose.prod.yml` with resource limits
-- Document port security implications
-- Add network isolation recommendations
+**Fix Implemented**:
+- Created `docker-compose.prod.yml` as production override file
+- Database ports (5432, 6379, 7474, 7687) NOT exposed in production
+- Added resource limits for all services (CPU, memory)
+- Added restart policies (`unless-stopped`)
+- Production-tuned settings for PostgreSQL, Redis, Neo4j
+- Network isolation diagram in comments
+- Usage instructions for combining with base docker-compose.yml
+
+**Usage**:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
 
 ---
 
-### TD-035: Environment variable validation
+### ✅ TD-035: Environment variable validation
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Configuration
 
 **Issue**: No startup validation for required environment variables.
 
-**Fix**: Add validation at application startup with clear error messages.
+**Fix Implemented**:
+
+Added validation in `backend/app/config/settings.py`:
+- `validate_settings()` function checks for:
+  - Missing database credentials (POSTGRES_PASSWORD, NEO4J_PASSWORD)
+  - Missing LLM API keys (at least one required)
+  - Production security issues (CORS_ORIGINS=*, missing CAPTURE_API_KEY, rate limiting disabled)
+  - Tilde in paths that Docker can't expand
+- `check_settings_on_startup()` logs warnings with actionable guidance
+- Called automatically during application startup in `main.py` lifespan
+
+**Example Warning Output**:
+```
+CONFIGURATION WARNINGS
+=======================================================================
+  1. CORS_ORIGINS is set to '*' (allow all) in production mode. ...
+  2. CAPTURE_API_KEY is not set in production mode. ...
+=======================================================================
+Review .env.example and docs/deployment/production.md for guidance.
+```
 
 ---
 
-### TD-036: Missing platform-specific setup instructions
+### ✅ TD-036: Missing platform-specific setup instructions
 **Priority**: P3  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Documentation
 
-**Missing**:
-- Platform-specific instructions (Windows, Linux, macOS differences)
-- Docker installation verification steps
-- Troubleshooting guide for common setup issues
-- Post-setup verification checklist
+**Fix Implemented**:
+
+Added to `README.md`:
+- **Platform-Specific Setup** section with collapsible details for:
+  - macOS (Homebrew, Docker Desktop, Apple Silicon notes)
+  - Linux (Ubuntu/Debian) (apt packages, Docker official install, user groups)
+  - Windows with WSL2 (WSL setup, Docker Desktop integration, path notes)
+- **Verifying Your Setup** section with commands to verify Python, Docker, Docker Compose
+- **Troubleshooting Common Issues** section with collapsible solutions for:
+  - Docker daemon not running
+  - Permission denied when running docker
+  - Port already in use
+  - Database connection refused
+  - Neo4j out of memory
 
 ---
 
-### TD-037: Data directory uses tilde expansion
+### ✅ TD-037: Data directory uses tilde expansion
 **Priority**: P2  
-**Status**: Open  
+**Status**: ✅ Completed  
 **Area**: Configuration
-
-**Location**: `.env.example`
-```
-DATA_DIR=~/workspace/obsidian/second_brain
-```
 
 **Issue**: `~` may not expand correctly in all environments (Docker, systemd, etc.).
 
-**Fix**: Use absolute paths or document the limitation.
+**Fix Implemented**:
+
+1. **Updated `.env.example`** with comprehensive documentation:
+   - Clear warning about tilde expansion limitations
+   - Listed environments where `~` does NOT work (Docker, systemd, Windows/WSL)
+   - Listed environments where `~` does work (local shell)
+   - Provided recommended absolute path examples for each platform
+   - Changed default example to simpler `~/second_brain_data`
+   - Added production example with absolute path
+
+2. **Startup validation** (in TD-035):
+   - Added warning if DATA_DIR or OBSIDIAN_VAULT_PATH contain `~`
+   - Warning suggests using absolute paths
 
 ---
 
@@ -955,7 +999,7 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-030: Skipped tests due to missing dependencies~~
 - ✅ ~~TD-031: Hardcoded path in run_processing.py~~
 - ✅ ~~TD-032: Prototype code should be moved or removed~~
-- [ ] TD-034: Docker compose production configuration
+- ✅ ~~TD-034: Docker compose production configuration~~
 - ✅ ~~TD-038: Concept deduplication not working~~
 
 ### P2 - Medium (Address when touching related code)
@@ -974,14 +1018,14 @@ DATA_DIR=~/workspace/obsidian/second_brain
 - ✅ ~~TD-027: Performance - missing memoization~~
 - ✅ ~~TD-028: Magic numbers in frontend~~
 - ✅ ~~TD-033: Test verifies intentional NotImplementedError~~
-- [ ] TD-035: Environment variable validation
-- [ ] TD-037: Data directory uses tilde expansion
+- ✅ ~~TD-035: Environment variable validation~~
+- ✅ ~~TD-037: Data directory uses tilde expansion~~
 - ✅ ~~TD-039: Exercises not synced to Obsidian vault~~
 - ✅ ~~TD-040: PDF images not integrated into summaries~~
 
 ### P3 - Low (Nice to have)
 - ✅ ~~TD-029: Inconsistent state management patterns~~
-- [ ] TD-036: Missing platform-specific setup instructions
+- ✅ ~~TD-036: Missing platform-specific setup instructions~~
 
 ---
 
@@ -1961,9 +2005,104 @@ vault/
 
 ---
 
+### ✅ TD-034: Docker compose production configuration
+**Completed**: 2026-01-28
+
+Created production Docker Compose override file with security and resource optimizations.
+
+**New file**: `docker-compose.prod.yml`
+
+**Features**:
+- Database ports NOT exposed to host (5432, 6379, 7474, 7687)
+- Resource limits for all services (CPU, memory)
+- Restart policies (`unless-stopped`)
+- Production-tuned settings:
+  - PostgreSQL: connection limits, buffer sizes, cache settings
+  - Redis: memory limit, eviction policy
+  - Neo4j: JVM heap sizes, page cache
+- Network isolation diagram
+- Usage instructions
+
+**Usage**:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+---
+
+### ✅ TD-035: Environment variable validation
+**Completed**: 2026-01-28
+
+Added startup validation for required environment variables with clear warning messages.
+
+**Changes**:
+
+**`backend/app/config/settings.py`**:
+- Added `validate_settings(s: Settings) -> list[str]` function
+- Added `check_settings_on_startup()` function
+- Validates:
+  - Database credentials (POSTGRES_PASSWORD, NEO4J_PASSWORD)
+  - LLM API keys (at least one required)
+  - Production security (CORS_ORIGINS, CAPTURE_API_KEY, rate limiting)
+  - Path issues (tilde in DATA_DIR, OBSIDIAN_VAULT_PATH)
+
+**`backend/app/main.py`**:
+- Calls `check_settings_on_startup()` during application lifespan startup
+- Warnings logged with actionable guidance
+
+---
+
+### ✅ TD-036: Missing platform-specific setup instructions
+**Completed**: 2026-01-28
+
+Added comprehensive platform-specific setup instructions and troubleshooting guide to README.
+
+**Changes to `README.md`**:
+
+**Platform-Specific Setup** (collapsible sections):
+- macOS: Homebrew, Docker Desktop, Apple Silicon notes
+- Linux (Ubuntu/Debian): apt packages, Docker official install, user groups
+- Windows with WSL2: WSL setup, Docker Desktop integration, path considerations
+
+**Verifying Your Setup**:
+- Commands to verify Python, Docker, Docker Compose installations
+- Test commands for GPU support (optional)
+
+**Troubleshooting Common Issues** (collapsible sections):
+- Docker daemon not running
+- Permission denied when running docker
+- Port already in use
+- Database connection refused
+- Neo4j out of memory
+
+---
+
+### ✅ TD-037: Data directory uses tilde expansion
+**Completed**: 2026-01-28
+
+Documented tilde expansion limitations and updated examples to use absolute paths.
+
+**Changes to `.env.example`**:
+- Added prominent warning about tilde (`~`) expansion limitations
+- Listed environments where tilde does NOT work:
+  - Docker containers
+  - systemd services
+  - Windows/WSL (varies)
+- Listed environments where tilde does work:
+  - Local shell (bash/zsh)
+- Provided recommended absolute path examples for each platform
+- Changed default example to simpler `~/second_brain_data`
+- Added production example with absolute path `/var/lib/second_brain`
+
+**Startup validation** (via TD-035):
+- Warning if DATA_DIR or OBSIDIAN_VAULT_PATH contain `~`
+- Suggests using absolute paths for reliability
+
+---
+
 ## Notes
 
 - When addressing tech debt, update this document and move items to "Completed"
 - Include PR/commit references when closing items
 - P0 items must be resolved before open-source announcement
-- Total items: 40 (5 P0, 14 P1, 19 P2, 2 P3) — 34 completed
+- Total items: 40 (5 P0, 14 P1, 19 P2, 2 P3) — 38 completed
