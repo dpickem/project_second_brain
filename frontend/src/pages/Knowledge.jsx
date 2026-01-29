@@ -797,9 +797,34 @@ function InlineNoteContent({ notePath, onClose }) {
                   p: ({ children, ...props }) => (
                     <p {...props}>{processChildrenForWikiLinks(children, sectionVisibility.images)}</p>
                   ),
-                  li: ({ children, ...props }) => (
-                    <li {...props}>{processChildrenForWikiLinks(children, sectionVisibility.images)}</li>
-                  ),
+                  li: ({ children, ...props }) => {
+                    // Check if this list item contains a follow-up task dict
+                    // If so, render without the checkbox
+                    const childArray = Array.isArray(children) ? children : [children]
+                    const hasTaskDict = childArray.some(child => 
+                      typeof child === 'string' && parseFollowupTaskDict(child)
+                    )
+                    
+                    if (hasTaskDict) {
+                      // Filter out checkbox input and render task nicely
+                      const filteredChildren = childArray.filter(child => {
+                        // Remove checkbox inputs
+                        if (child?.type === 'input' && child?.props?.type === 'checkbox') {
+                          return false
+                        }
+                        return true
+                      })
+                      return (
+                        <li {...props} className="list-none">
+                          {processChildrenForWikiLinks(filteredChildren, sectionVisibility.images)}
+                        </li>
+                      )
+                    }
+                    
+                    return (
+                      <li {...props}>{processChildrenForWikiLinks(children, sectionVisibility.images)}</li>
+                    )
+                  },
                   // Handle standard markdown images ![alt](src)
                   // Respect the images visibility setting
                   img: ({ src, alt, ...props }) => {

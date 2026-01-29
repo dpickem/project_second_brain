@@ -92,10 +92,10 @@ id: {{ content_id | default('') }}
 ## Follow-up Tasks
 {% if tasks %}
 {% for task in tasks %}
-- [ ] **{{ task.task_type | default('TASK') | upper }}** ({{ task.priority | default('medium') | lower }} priority, ~{{ task.estimated_time | default('30min') }}): {{ task.task }}
+- **{{ task.task_type | default('TASK') | upper }}** ({{ task.priority | default('medium') | lower }} priority, ~{{ task.estimated_time | default('30min') }}): {{ task.task }}
 {% endfor %}
 {% else %}
-- [ ] Task #research
+- Task #research
 {% endif %}
 
 ## Connections
