@@ -1894,9 +1894,10 @@ vault/
 ---
 
 ### ✅ TD-040: PDF images not integrated into summaries
-**Completed**: 2026-01-28
+**Completed**: 2026-01-28  
+**Commit**: `50dd761` (feat: Integrate PDF images into summaries and web UI)
 
-Implemented full image extraction and integration for PDF/book processing.
+Implemented full image extraction and integration for PDF/book processing with database tracking and web UI rendering.
 
 **Changes**:
 
@@ -1904,22 +1905,49 @@ Implemented full image extraction and integration for PDF/book processing.
 - Changed `include_images` default from `False` to `True`
 - Images are now extracted during OCR and saved to vault
 - Image metadata stored in `UnifiedContent.metadata["extracted_images"]`
+- Removed redundant duplicate check (now handled at capture layer)
 
 **2. New Image Storage Service** (`backend/app/services/processing/output/image_storage.py`):
-- `save_extracted_images()` - Save base64 images to vault assets folder
-- `delete_content_images()` - Cleanup for reprocessing
+- `save_extracted_images()` - Save base64 images to vault AND database
+- `delete_content_images()` - Cleanup from both DB and disk for reprocessing
 - `ExtractedImage` dataclass with vault_path, page_number, description, dimensions
 - Image optimization: resize to 1200px max, PNG compression
 - Storage: `vault/assets/images/{content_id}/page_N_img_M.png`
+- Auto-lookup of `content_pk` from UUID for database insertion
 
-**3. Obsidian Integration**:
+**3. Database Model** (`backend/app/db/models.py`):
+- New `Image` model with FK to `Content` for proper relational tracking
+- Fields: filename, vault_path, page_number, image_index, width, height, file_size, description
+- Cascade delete when parent content is removed
+- Migration: `016_add_images_table.py`
+
+**4. Settings** (`backend/app/config/settings.py`):
+- `IMAGE_MAX_DIMENSION` (1200px)
+- `IMAGE_JPEG_QUALITY` (85)
+- `IMAGE_PNG_COMPRESSION` (6)
+- `IMAGE_DEFAULT_FORMAT` ("png")
+- `IMAGE_ASSETS_FOLDER` ("images")
+
+**5. Obsidian Integration**:
 - Added `figures` and `has_figures` to template data
 - Updated `paper.md.j2`, `article.md.j2`, `book.md.j2` with Figures section
 - Images embedded with Obsidian wikilink syntax: `![[vault_path]]`
 
-**4. API Endpoints** (`backend/app/routers/vault.py`):
+**6. API Endpoints** (`backend/app/routers/vault.py`):
 - `GET /api/vault/assets/{path}` - Serve assets (images, PDFs) from vault
-- `GET /api/vault/content/{id}/images` - List images for a content item
+- `GET /api/vault/content/{id}/images` - List images from database (fallback to filesystem)
+
+**7. Frontend** (`frontend/src/pages/Knowledge.jsx`):
+- `convertImagePathToApiUrl()` - Convert vault paths to API URLs
+- `processWikiLinks()` - Parse and render `![[image]]` wikilink embeds
+- Custom `img` handler for standard markdown images
+- Proper error handling with placeholder on load failure
+
+**8. Bug Fixes**:
+- Fixed SQLAlchemy JSONB mutation detection with `flag_modified()`
+- Fixed greenlet error by eagerly loading annotations with `selectinload()`
+- Removed redundant `check_duplicate()` from pipelines (caused self-match bug)
+- Deduplication now handled exclusively at capture layer in `save_content()`
 
 **Folder Structure**:
 ```
