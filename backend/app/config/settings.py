@@ -507,6 +507,119 @@ def get_settings() -> Settings:
     return Settings()
 
 
+def validate_settings(s: Settings) -> list[str]:
+    """
+    Validate settings and return a list of warning/error messages.
+
+    This function checks for:
+    - Missing required environment variables
+    - Insecure configurations
+    - Common misconfigurations
+
+    Returns:
+        List of warning messages (empty if all validations pass)
+    """
+    warnings: list[str] = []
+
+    # ---------------------------------------------------------------------------
+    # Required for database connectivity
+    # ---------------------------------------------------------------------------
+    if not s.POSTGRES_PASSWORD:
+        warnings.append(
+            "POSTGRES_PASSWORD is not set. Database connections will fail."
+        )
+
+    if not s.NEO4J_PASSWORD:
+        warnings.append(
+            "NEO4J_PASSWORD is not set. Knowledge graph features will not work."
+        )
+
+    # ---------------------------------------------------------------------------
+    # Required for LLM features (at least one API key needed)
+    # ---------------------------------------------------------------------------
+    has_llm_key = any([
+        s.OPENAI_API_KEY,
+        s.MISTRAL_API_KEY,
+        s.ANTHROPIC_API_KEY,
+        s.GEMINI_API_KEY,
+    ])
+    if not has_llm_key:
+        warnings.append(
+            "No LLM API key configured. Set at least one of: "
+            "OPENAI_API_KEY, MISTRAL_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY. "
+            "LLM features (summarization, exercise generation, etc.) will not work."
+        )
+
+    # ---------------------------------------------------------------------------
+    # Production security warnings
+    # ---------------------------------------------------------------------------
+    if not s.DEBUG:
+        # Production mode checks
+        if s.CORS_ORIGINS == "*":
+            warnings.append(
+                "CORS_ORIGINS is set to '*' (allow all) in production mode. "
+                "For security, set specific origins: CORS_ORIGINS=https://yourdomain.com"
+            )
+
+        if not s.CAPTURE_API_KEY:
+            warnings.append(
+                "CAPTURE_API_KEY is not set in production mode. "
+                "The capture API will be unauthenticated, which is a security risk."
+            )
+
+        if not s.RATE_LIMITING_ENABLED:
+            warnings.append(
+                "RATE_LIMITING_ENABLED is false in production mode. "
+                "Consider enabling rate limiting to prevent abuse."
+            )
+
+    # ---------------------------------------------------------------------------
+    # Path validation
+    # ---------------------------------------------------------------------------
+    # Check for tilde in paths that Docker can't expand
+    if "~" in s.DATA_DIR:
+        warnings.append(
+            f"DATA_DIR contains '~' ({s.DATA_DIR}). "
+            "Tilde expansion may not work in Docker or systemd. "
+            "Consider using an absolute path like /home/user/data."
+        )
+
+    if "~" in s.OBSIDIAN_VAULT_PATH and s.OBSIDIAN_VAULT_PATH != "/vault":
+        warnings.append(
+            f"OBSIDIAN_VAULT_PATH contains '~' ({s.OBSIDIAN_VAULT_PATH}). "
+            "Tilde expansion may not work in Docker. Use /vault for Docker "
+            "or an absolute path for local development."
+        )
+
+    return warnings
+
+
+def check_settings_on_startup() -> None:
+    """
+    Validate settings on application startup and log warnings.
+
+    Call this function during app initialization (e.g., in main.py lifespan).
+    Logs warnings but does not raise exceptions to allow partial functionality.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+    s = get_settings()
+    warnings = validate_settings(s)
+
+    if warnings:
+        logger.warning("=" * 70)
+        logger.warning("CONFIGURATION WARNINGS")
+        logger.warning("=" * 70)
+        for i, warning in enumerate(warnings, 1):
+            logger.warning(f"  {i}. {warning}")
+        logger.warning("=" * 70)
+        logger.warning(
+            "Review .env.example and docs/deployment/production.md for guidance."
+        )
+        logger.warning("=" * 70)
+
+
 settings = get_settings()
 
 

@@ -22,6 +22,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.config.settings import check_settings_on_startup
 from app.routers import (
     health_router,
     capture_router,
@@ -56,6 +57,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan handler for startup/shutdown."""
     # Startup
     logger.info("Starting Second Brain API...")
+
+    # Validate configuration and warn about issues
+    check_settings_on_startup()
 
     # Start scheduler for periodic syncs (lazy import to avoid test failures)
     try:
