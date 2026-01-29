@@ -143,18 +143,99 @@ const processWikiLinks = (text, onLinkClick, showImages = true) => {
   return parts.length > 0 ? parts : text
 }
 
+// Helper to detect and parse dict-like task strings from old template format
+// Pattern: {'task': '...', 'task_type': '...', 'priority': '...', 'estimated_time': '...'}
+const parseFollowupTaskDict = (text) => {
+  if (typeof text !== 'string') return null
+  
+  // Match Python dict-like pattern for follow-up tasks
+  const dictMatch = text.match(/\{'task':\s*['"]([^'"]+)['"],\s*'task_type':\s*['"]([^'"]+)['"],\s*'priority':\s*['"]([^'"]+)['"],\s*'estimated_time':\s*['"]([^'"]+)['"]\}/)
+  
+  if (dictMatch) {
+    return {
+      task: dictMatch[1],
+      taskType: dictMatch[2],
+      priority: dictMatch[3],
+      estimatedTime: dictMatch[4],
+    }
+  }
+  return null
+}
+
+// Render a parsed follow-up task with nice formatting
+const renderFollowupTask = (taskData, key) => {
+  const priorityColors = {
+    HIGH: 'bg-red-500/20 text-red-400 border-red-500/30',
+    MEDIUM: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+    LOW: 'bg-green-500/20 text-green-400 border-green-500/30',
+  }
+  const typeColors = {
+    RESEARCH: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    PRACTICE: 'bg-green-500/20 text-green-400 border-green-500/30',
+    CONNECT: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    APPLY: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    REVIEW: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+  }
+  const timeDisplay = {
+    '15MIN': '15 min',
+    '30MIN': '30 min',
+    '1HR': '1 hour',
+    '2HR_PLUS': '2+ hours',
+  }
+
+  const priorityClass = priorityColors[taskData.priority?.toUpperCase()] || priorityColors.MEDIUM
+  const typeClass = typeColors[taskData.taskType?.toUpperCase()] || 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+  const time = timeDisplay[taskData.estimatedTime?.toUpperCase()] || taskData.estimatedTime
+
+  return (
+    <span key={key} className="block">
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border mr-2 ${typeClass}`}>
+        {taskData.taskType}
+      </span>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border mr-2 ${priorityClass}`}>
+        {taskData.priority}
+      </span>
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-700/50 text-slate-300 mr-2">
+        ~{time}
+      </span>
+      <span className="text-text-primary">{taskData.task}</span>
+    </span>
+  )
+}
+
+// Process text to handle dict-like task strings
+const processFollowupTasks = (text) => {
+  if (typeof text !== 'string') return text
+  
+  const taskData = parseFollowupTaskDict(text)
+  if (taskData) {
+    return renderFollowupTask(taskData, 'task')
+  }
+  return text
+}
+
 // Recursively process children to find and convert wiki-links
 // The showImages parameter controls whether images are rendered or hidden
 const processChildrenForWikiLinks = (children, showImages = true) => {
   if (!children) return children
   
   if (typeof children === 'string') {
+    // First check if it's a dict-like task string
+    const taskData = parseFollowupTaskDict(children)
+    if (taskData) {
+      return renderFollowupTask(taskData, 'task')
+    }
     return processWikiLinks(children, null, showImages)
   }
   
   if (Array.isArray(children)) {
     return children.map((child, index) => {
       if (typeof child === 'string') {
+        // First check if it's a dict-like task string
+        const taskData = parseFollowupTaskDict(child)
+        if (taskData) {
+          return renderFollowupTask(taskData, index)
+        }
         const processed = processWikiLinks(child, null, showImages)
         // If it's still a string (no wiki-links found), return as-is
         if (typeof processed === 'string') return processed
