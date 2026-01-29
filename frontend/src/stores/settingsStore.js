@@ -47,6 +47,7 @@ export const useSettingsStore = create(
         followupTasks: true,
         connections: true,
         detailedNotes: true,
+        images: true,
       },
       
       // =====================
@@ -136,6 +137,7 @@ export const useSettingsStore = create(
           followupTasks: true,
           connections: true,
           detailedNotes: true,
+          images: true,
         },
       }),
       

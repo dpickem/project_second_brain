@@ -26,6 +26,7 @@ const ReviewQueue = lazy(() => import('./pages/ReviewQueue'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const Assistant = lazy(() => import('./pages/Assistant'))
 const LLMUsage = lazy(() => import('./pages/LLMUsage'))
+const Tasks = lazy(() => import('./pages/Tasks'))
 const Settings = lazy(() => import('./pages/Settings'))
 
 // Create a query client
@@ -74,10 +75,11 @@ function Navigation() {
         <NavItem to="/exercises" icon={<ExercisesIcon />} title="Exercises" shortcut="⌘3" />
         <NavItem to="/cards" icon={<CardsIcon />} title="Cards" shortcut="⌘4" />
         <NavItem to="/review" icon={<ReviewIcon />} title="Review" shortcut="⌘5" />
-        <NavItem to="/knowledge" icon={<KnowledgeIcon />} title="Knowledge" shortcut="⌘6" />
-        <NavItem to="/graph" icon={<GraphIcon />} title="Graph" shortcut="⌘7" />
-        <NavItem to="/analytics" icon={<AnalyticsIcon />} title="Analytics" shortcut="⌘8" />
-        <NavItem to="/assistant" icon={<AssistantIcon />} title="Assistant" shortcut="⌘9" />
+        <NavItem to="/tasks" icon={<TasksIcon />} title="Tasks" shortcut="⌘6" />
+        <NavItem to="/knowledge" icon={<KnowledgeIcon />} title="Knowledge" shortcut="⌘7" />
+        <NavItem to="/graph" icon={<GraphIcon />} title="Graph" shortcut="⌘8" />
+        <NavItem to="/analytics" icon={<AnalyticsIcon />} title="Analytics" shortcut="⌘9" />
+        <NavItem to="/assistant" icon={<AssistantIcon />} title="Assistant" />
         <NavItem to="/llm-usage" icon={<CostIcon />} title="LLM Costs" />
       </div>
 
@@ -164,6 +166,14 @@ function ReviewIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+    </svg>
+  )
+}
+
+function TasksIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
     </svg>
   )
 }
@@ -266,6 +276,7 @@ function App() {
                   <Route path="/analytics/:topicId" element={<AnimatedPage><Analytics /></AnimatedPage>} />
                   <Route path="/assistant" element={<AnimatedPage><Assistant /></AnimatedPage>} />
                   <Route path="/llm-usage" element={<AnimatedPage><LLMUsage /></AnimatedPage>} />
+                  <Route path="/tasks" element={<AnimatedPage><Tasks /></AnimatedPage>} />
                   <Route path="/settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
                 </Routes>
               </AnimatePresence>

@@ -30,15 +30,12 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel, Field
 from sqlalchemy import select
-
-from app.models.base import StrictRequest
 from sqlalchemy.orm import selectinload
 
 from app.db.base import async_session_maker
 from app.db.models import Content
-from app.db.models_processing import ProcessingRun
+from app.db.models_processing import ProcessingRun, FollowupRecord
 from app.enums.content import ProcessingStatus
 from app.enums.processing import ProcessingStage, ProcessingRunStatus
 from app.models.content import UnifiedContent
@@ -50,103 +47,25 @@ from app.models.processing import (
     FollowupTask,
     MasteryQuestion,
 )
+from app.models.processing_api import (
+    ProcessingConfigRequest,
+    TriggerProcessingRequest,
+    TriggerProcessingResponse,
+    ProcessingStatusResponse,
+    ProcessingResultResponse,
+    PendingContentItem,
+    PendingContentResponse,
+    FollowupTaskListItem,
+    FollowupTaskListResponse,
+    UpdateFollowupRequest,
+    UpdateFollowupResponse,
+)
 from app.services.processing.pipeline import process_content, PipelineConfig
 from app.services.processing.cleanup import cleanup_before_reprocessing
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/processing", tags=["processing"])
-
-
-# =============================================================================
-# Request/Response Models
-# =============================================================================
-
-
-class ProcessingConfigRequest(StrictRequest):
-    """
-    Configuration options for processing request.
-
-    Note: Uses StrictRequest - unknown fields will be rejected with 422.
-    """
-
-    generate_summaries: bool = True
-    extract_concepts: bool = True
-    assign_tags: bool = True
-    generate_cards: bool = True  # Generate spaced repetition cards
-    generate_exercises: bool = True  # Generate practice exercises
-    discover_connections: bool = True
-    generate_followups: bool = True
-    generate_questions: bool = True
-    create_obsidian_note: bool = True
-    create_neo4j_nodes: bool = True
-    validate_output: bool = True
-
-
-class TriggerProcessingRequest(StrictRequest):
-    """
-    Request body for triggering processing.
-
-    Note: Uses StrictRequest - unknown fields will be rejected with 422.
-    """
-
-    content_id: str = Field(..., description="UUID of content to process")
-    config: Optional[ProcessingConfigRequest] = None
-
-
-class TriggerProcessingResponse(BaseModel):
-    """Response for processing trigger."""
-
-    status: str
-    content_id: str
-    message: str
-
-
-class ProcessingStatusResponse(BaseModel):
-    """Response for processing status check."""
-
-    status: str  # not_processed, pending, processing, completed, failed
-    content_id: str
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    processing_time_seconds: Optional[float] = None
-    estimated_cost_usd: Optional[float] = None
-    error_message: Optional[str] = None
-
-
-class ProcessingResultResponse(BaseModel):
-    """Response with full processing result."""
-
-    content_id: str
-    analysis: ContentAnalysis
-    summaries: dict[str, str]  # level (brief/standard/detailed) -> summary text
-    extraction: ExtractionResult
-    tags: TagAssignment
-    connections: list[Connection]
-    followups: list[FollowupTask]
-    questions: list[MasteryQuestion]
-    obsidian_path: Optional[str] = None
-    neo4j_node_id: Optional[str] = None
-    processing_time_seconds: float
-    estimated_cost_usd: float
-
-
-class PendingContentItem(BaseModel):
-    """A content item pending processing."""
-
-    content_id: str
-    title: str
-    content_type: str
-    status: str
-    source_url: Optional[str] = None
-    created_at: str
-
-
-class PendingContentResponse(BaseModel):
-    """Response with list of pending content items."""
-
-    total: int
-    items: list[PendingContentItem]
 
 
 # =============================================================================
@@ -626,3 +545,144 @@ async def reprocess_content(
 
     request = TriggerProcessingRequest(content_id=content_id, config=config)
     return await trigger_processing(request, background_tasks)
+
+
+# =============================================================================
+# Follow-up Tasks Management Endpoints
+# =============================================================================
+
+
+@router.get("/followups", response_model=FollowupTaskListResponse)
+async def list_followup_tasks(
+    content_id: Optional[int] = None,
+    completed: Optional[bool] = None,
+    priority: Optional[str] = None,
+    task_type: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> FollowupTaskListResponse:
+    """
+    List follow-up tasks with optional filtering.
+
+    Args:
+        content_id: Filter by specific content (optional)
+        completed: Filter by completion status (optional)
+        priority: Filter by priority: high, medium, low (optional)
+        task_type: Filter by task type: research, practice, connect, apply, review (optional)
+        limit: Maximum number of tasks to return (default 100)
+        offset: Offset for pagination (default 0)
+
+    Returns:
+        FollowupTaskListResponse with list of tasks
+    """
+    async with async_session_maker() as session:
+        # Build query with filters
+        query = select(FollowupRecord, Content.title).join(
+            Content, FollowupRecord.content_id == Content.id
+        )
+
+        if content_id is not None:
+            query = query.where(FollowupRecord.content_id == content_id)
+
+        if completed is not None:
+            query = query.where(FollowupRecord.completed == completed)
+
+        if priority is not None:
+            query = query.where(FollowupRecord.priority == priority.lower())
+
+        if task_type is not None:
+            query = query.where(FollowupRecord.task_type == task_type.lower())
+
+        # Order by priority (high first), then creation date
+        query = query.order_by(
+            # Custom priority ordering: high > medium > low
+            FollowupRecord.priority.asc(),  # 'high' < 'low' < 'medium' alphabetically, so asc works
+            FollowupRecord.created_at.desc(),
+        )
+
+        query = query.limit(limit).offset(offset)
+
+        result = await session.execute(query)
+        rows = result.all()
+
+        # Get total count
+        count_query = select(FollowupRecord.id)
+        if content_id is not None:
+            count_query = count_query.where(FollowupRecord.content_id == content_id)
+        if completed is not None:
+            count_query = count_query.where(FollowupRecord.completed == completed)
+        if priority is not None:
+            count_query = count_query.where(FollowupRecord.priority == priority.lower())
+        if task_type is not None:
+            count_query = count_query.where(FollowupRecord.task_type == task_type.lower())
+
+        count_result = await session.execute(count_query)
+        total = len(count_result.all())
+
+        tasks = [
+            FollowupTaskListItem(
+                id=str(followup.id),
+                content_id=followup.content_id,
+                content_title=content_title,
+                task=followup.task,
+                task_type=followup.task_type,
+                priority=followup.priority,
+                estimated_time=followup.estimated_time,
+                completed=followup.completed,
+                completed_at=followup.completed_at.isoformat() if followup.completed_at else None,
+                created_at=followup.created_at.isoformat() if followup.created_at else "",
+            )
+            for followup, content_title in rows
+        ]
+
+        return FollowupTaskListResponse(total=total, tasks=tasks)
+
+
+@router.patch("/followups/{followup_id}", response_model=UpdateFollowupResponse)
+async def update_followup_task(
+    followup_id: str,
+    request: UpdateFollowupRequest,
+) -> UpdateFollowupResponse:
+    """
+    Update a follow-up task (e.g., mark as completed).
+
+    Args:
+        followup_id: UUID of the follow-up task
+        request: Update data
+
+    Returns:
+        UpdateFollowupResponse with updated task status
+    """
+    import uuid as uuid_module
+
+    try:
+        task_uuid = uuid_module.UUID(followup_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid followup_id format")
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(FollowupRecord).where(FollowupRecord.id == task_uuid)
+        )
+        followup = result.scalar_one_or_none()
+
+        if not followup:
+            raise HTTPException(status_code=404, detail="Follow-up task not found")
+
+        # Update fields
+        if request.completed is not None:
+            followup.completed = request.completed
+            if request.completed:
+                followup.completed_at = datetime.now(timezone.utc)
+            else:
+                followup.completed_at = None
+
+        await session.commit()
+        await session.refresh(followup)
+
+        return UpdateFollowupResponse(
+            id=str(followup.id),
+            completed=followup.completed,
+            completed_at=followup.completed_at.isoformat() if followup.completed_at else None,
+            message="Follow-up task updated successfully",
+        )

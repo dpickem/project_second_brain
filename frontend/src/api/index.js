@@ -17,6 +17,7 @@
  * | `reviewApi`   | Spaced repetition flashcard reviews            |
  * | `practiceApi` | Interactive practice sessions                  |
  * | `assistantApi`| AI chat, explanations, recommendations         |
+ * | `followupsApi`| Follow-up task management                      |
  * 
  * ## Usage
  * ```js
@@ -55,3 +56,4 @@ export { reviewApi } from './review'
 export { practiceApi } from './practice'
 export { assistantApi } from './assistant'
 export { llmUsageApi } from './llmUsage'
+export { followupsApi } from './followups'

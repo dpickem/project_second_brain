@@ -76,7 +76,8 @@ const convertImagePathToApiUrl = (src) => {
 }
 
 // Helper to process wiki-links [[title]] and image embeds ![[path]] in text content
-const processWikiLinks = (text, onLinkClick) => {
+// The showImages parameter controls whether images are rendered or hidden
+const processWikiLinks = (text, onLinkClick, showImages = true) => {
   if (typeof text !== 'string') return text
   
   // Match ![[image]] for image embeds (must be checked first)
@@ -94,21 +95,25 @@ const processWikiLinks = (text, onLinkClick) => {
     
     if (match[1]) {
       // Image embed: ![[path]]
-      const imagePath = match[1]
-      const imageUrl = convertImagePathToApiUrl(imagePath)
-      parts.push(
-        <img
-          key={match.index}
-          src={imageUrl}
-          alt={imagePath.split('/').pop() || 'Embedded image'}
-          className="max-w-full h-auto rounded-lg shadow-lg my-4 border border-slate-700"
-          loading="lazy"
-          onError={(e) => {
-            e.target.style.display = 'none'
-            console.warn(`Failed to load image: ${imageUrl}`)
-          }}
-        />
-      )
+      // Only render if showImages is true
+      if (showImages) {
+        const imagePath = match[1]
+        const imageUrl = convertImagePathToApiUrl(imagePath)
+        parts.push(
+          <img
+            key={match.index}
+            src={imageUrl}
+            alt={imagePath.split('/').pop() || 'Embedded image'}
+            className="max-w-full h-auto rounded-lg shadow-lg my-4 border border-slate-700"
+            loading="lazy"
+            onError={(e) => {
+              e.target.style.display = 'none'
+              console.warn(`Failed to load image: ${imageUrl}`)
+            }}
+          />
+        )
+      }
+      // If showImages is false, we skip adding the image (effectively hiding it)
     } else {
       // Wiki-link: [[link]] or [[link|display text]]
       const linkTarget = match[2] // The actual link target
@@ -139,17 +144,18 @@ const processWikiLinks = (text, onLinkClick) => {
 }
 
 // Recursively process children to find and convert wiki-links
-const processChildrenForWikiLinks = (children) => {
+// The showImages parameter controls whether images are rendered or hidden
+const processChildrenForWikiLinks = (children, showImages = true) => {
   if (!children) return children
   
   if (typeof children === 'string') {
-    return processWikiLinks(children)
+    return processWikiLinks(children, null, showImages)
   }
   
   if (Array.isArray(children)) {
     return children.map((child, index) => {
       if (typeof child === 'string') {
-        const processed = processWikiLinks(child)
+        const processed = processWikiLinks(child, null, showImages)
         // If it's still a string (no wiki-links found), return as-is
         if (typeof processed === 'string') return processed
         // Otherwise wrap the array of parts in a fragment
@@ -163,6 +169,7 @@ const processChildrenForWikiLinks = (children) => {
 }
 
 // Section visibility configuration
+// Note: 'images' has heading: null because images are handled specially in the renderer
 const TOGGLEABLE_SECTIONS = {
   summary: { label: 'Summary', heading: '## Summary', default: true },
   keyFindings: { label: 'Key Findings', heading: '## Key Findings', default: true },
@@ -173,6 +180,7 @@ const TOGGLEABLE_SECTIONS = {
   followupTasks: { label: 'Follow-up Tasks', heading: '## Follow-up Tasks', default: true },
   connections: { label: 'Connections', heading: '## Connections', default: true },
   detailedNotes: { label: 'Detailed Notes', heading: '## Detailed Notes', default: true },
+  images: { label: 'Images', heading: null, default: true },
 }
 
 // Default visibility state is now in useSettingsStore.knowledgeSectionVisibility
@@ -690,14 +698,20 @@ function InlineNoteContent({ notePath, onClose }) {
                     </summary>
                   ),
                   // Process wiki-links [[title]] and image embeds ![[path]] in paragraphs and list items
+                  // Pass showImages setting to control image visibility
                   p: ({ children, ...props }) => (
-                    <p {...props}>{processChildrenForWikiLinks(children)}</p>
+                    <p {...props}>{processChildrenForWikiLinks(children, sectionVisibility.images)}</p>
                   ),
                   li: ({ children, ...props }) => (
-                    <li {...props}>{processChildrenForWikiLinks(children)}</li>
+                    <li {...props}>{processChildrenForWikiLinks(children, sectionVisibility.images)}</li>
                   ),
                   // Handle standard markdown images ![alt](src)
+                  // Respect the images visibility setting
                   img: ({ src, alt, ...props }) => {
+                    // If images are hidden, don't render
+                    if (!sectionVisibility.images) {
+                      return null
+                    }
                     const imageUrl = convertImagePathToApiUrl(src)
                     return (
                       <img
