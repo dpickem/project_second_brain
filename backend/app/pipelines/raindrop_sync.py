@@ -41,6 +41,7 @@ from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
 from app.pipelines.web_article import WebArticlePipeline
 from app.services.cost_tracking import CostTracker
 from app.services.llm import get_llm_client, get_default_text_model, build_messages
+from app.services.storage import check_url_exists
 
 
 # =============================================================================
@@ -140,6 +141,26 @@ class RaindropSync(BasePipeline):
         # RaindropSync requires API token and is used for batch sync only
         return False
 
+    async def check_duplicate(
+        self, input_data: PipelineInput, task_context: bool = False
+    ) -> Optional[str]:
+        """
+        Check if an article URL already exists in the database.
+
+        Called before expensive content fetching to avoid duplicate processing.
+
+        Args:
+            input_data: PipelineInput with article URL
+            task_context: If True, use task_session_maker (for Celery tasks)
+
+        Returns:
+            content_id (UUID) if URL already processed, None if new
+        """
+        if input_data.url is None:
+            return None
+
+        return await check_url_exists(input_data.url, task_context=task_context)
+
     async def process(self, input_data: PipelineInput) -> UnifiedContent:
         """
         Not implemented - use sync_collection() instead.
@@ -166,9 +187,13 @@ class RaindropSync(BasePipeline):
         collection_id: Optional[int] = None,
         since: Optional[datetime] = None,
         limit: Optional[int] = None,
+        task_context: bool = False,
     ) -> list[UnifiedContent]:
         """
         Sync raindrops from a collection.
+
+        Uses check_duplicate() to skip articles that already exist in the database,
+        avoiding expensive content fetching and LLM processing on duplicates.
 
         Uses Raindrop.io API endpoint:
         - GET /raindrops/{collectionId} - get raindrops in collection
@@ -184,12 +209,17 @@ class RaindropSync(BasePipeline):
             collection_id: Raindrop collection ID (default: COLLECTION_ALL)
             since: Only sync items created after this date (default: None, sync all)
             limit: Maximum number of items to sync (default: None, no limit)
+            task_context: If True, use task_session_maker for DB queries
+                (required when called from Celery tasks via asyncio.run())
 
         Returns:
             List of UnifiedContent objects with article content and highlights
         """
         if collection_id is None:
             collection_id = self.COLLECTION_ALL
+        
+        # Store task_context for use in _process_with_semaphore
+        self._task_context = task_context
 
         # Reset usage records for this sync run
         self._usage_records = []
@@ -230,13 +260,16 @@ class RaindropSync(BasePipeline):
             if not data.get("items"):
                 break
 
-            # Process items concurrently with semaphore
+            # Process items concurrently with semaphore (includes dedup check)
             tasks = [self._process_with_semaphore(item) for item in data["items"]]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             for result in results:
                 if isinstance(result, UnifiedContent):
                     all_items.append(result)
+                elif result is None:
+                    # Duplicate - already logged in _process_with_semaphore
+                    pass
                 elif isinstance(result, Exception):
                     self.logger.error(f"Failed to process raindrop: {result}")
 
@@ -263,16 +296,33 @@ class RaindropSync(BasePipeline):
         self.logger.info(f"Synced {len(all_items)} items from Raindrop")
         return all_items
 
-    async def _process_with_semaphore(self, item: dict[str, Any]) -> UnifiedContent:
+    async def _process_with_semaphore(
+        self, item: dict[str, Any]
+    ) -> Optional[UnifiedContent]:
         """
-        Process a raindrop with concurrency control.
+        Process a raindrop with concurrency control and dedup check.
+
+        Checks for duplicates before expensive content fetching.
 
         Args:
             item: Raindrop item dict from API response
 
         Returns:
-            UnifiedContent with processed article
+            UnifiedContent with processed article, or None if duplicate
         """
+        url = item.get("link", "")
+
+        # Check for duplicate before expensive processing
+        input_data = PipelineInput(url=url, content_type=PipelineContentType.ARTICLE)
+        task_context = getattr(self, "_task_context", False)
+        existing_id = await self.check_duplicate(input_data, task_context=task_context)
+
+        if existing_id:
+            self.logger.debug(
+                f"Skipping already-imported article: {url} (content_id={existing_id})"
+            )
+            return None
+
         async with self._semaphore:
             return await self._process_raindrop(item)
 

@@ -26,7 +26,7 @@ import httpx
 
 from app.enums.content import ContentType
 from app.models.content import UnifiedContent
-from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
+from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType, DuplicateContentError
 from app.enums.pipeline import PipelineName
 from app.models.llm_usage import LLMUsage
 from app.enums.pipeline import PipelineOperation
@@ -36,6 +36,7 @@ from app.services.llm import (
     build_messages,
 )
 from app.services.cost_tracking import CostTracker
+from app.services.storage import check_url_exists
 
 # Default configuration
 DEFAULT_TIMEOUT = 30.0
@@ -118,10 +119,31 @@ class GitHubImporter(BasePipeline):
 
         return input_data.url.startswith("https://github.com/")
 
+    async def check_duplicate(
+        self, input_data: PipelineInput, task_context: bool = False
+    ) -> Optional[str]:
+        """
+        Check if a GitHub repo URL already exists in the database.
+
+        Called before expensive LLM analysis to avoid duplicate processing costs.
+
+        Args:
+            input_data: PipelineInput with GitHub URL
+            task_context: If True, use task_session_maker (for Celery tasks)
+
+        Returns:
+            content_id (UUID) if repo already imported, None if new
+        """
+        if input_data.url is None:
+            return None
+
+        return await check_url_exists(input_data.url, task_context=task_context)
+
     async def process(
         self,
         input_data: PipelineInput,
         content_id: Optional[str] = None,
+        task_context: bool = False,
     ) -> UnifiedContent:
         """
         Process a GitHub URL from PipelineInput.
@@ -129,26 +151,45 @@ class GitHubImporter(BasePipeline):
         Args:
             input_data: PipelineInput with GitHub URL
             content_id: Optional content ID for cost attribution and tracking
+            task_context: If True, use task_session_maker for DB queries
+                (required when called from Celery tasks via asyncio.run())
 
         Returns:
             UnifiedContent with repo analysis
+
+        Raises:
+            DuplicateContentError: If repo URL already exists in database.
         """
         if input_data.url is None:
             raise ValueError("PipelineInput.url is required for GitHub import")
 
+        # Check for duplicates before expensive LLM analysis
+        existing_id = await self.check_duplicate(input_data, task_context=task_context)
+        if existing_id:
+            raise DuplicateContentError(
+                existing_id, f"GitHub repo already exists: {input_data.url}"
+            )
+
         return await self.import_repo(input_data.url, content_id)
 
     async def import_starred_repos(
-        self, limit: int = DEFAULT_STARRED_REPOS_LIMIT
+        self,
+        limit: int = DEFAULT_STARRED_REPOS_LIMIT,
+        task_context: bool = False,
     ) -> list[UnifiedContent]:
         """
         Import user's starred repositories.
 
+        Uses check_duplicate() to skip repos that already exist in the database,
+        avoiding expensive LLM analysis costs on duplicate content.
+
         Args:
             limit: Maximum number of repos to import
+            task_context: If True, use task_session_maker for DB queries
+                (required when called from Celery tasks via asyncio.run())
 
         Returns:
-            List of UnifiedContent objects
+            List of UnifiedContent objects (only new repos, not duplicates)
         """
         try:
             response = await self.client.get(
@@ -166,8 +207,25 @@ class GitHubImporter(BasePipeline):
 
         repos = response.json()
         results = []
+        skipped_count = 0
 
         for repo in repos:
+            repo_url = repo.get("html_url", "")
+
+            # Use pipeline's check_duplicate method for dedup before LLM call
+            input_data = PipelineInput(
+                url=repo_url, content_type=PipelineContentType.CODE
+            )
+            existing_id = await self.check_duplicate(input_data, task_context=task_context)
+
+            if existing_id:
+                self.logger.debug(
+                    f"Skipping already-imported repo: {repo.get('full_name', 'unknown')} "
+                    f"(content_id={existing_id})"
+                )
+                skipped_count += 1
+                continue
+
             try:
                 content = await self._analyze_repo(repo)
                 results.append(content)
@@ -176,7 +234,7 @@ class GitHubImporter(BasePipeline):
                     f"Failed to analyze {repo.get('full_name', 'unknown')}: {e}"
                 )
 
-        self.logger.info(f"Imported {len(results)} starred repos")
+        self.logger.info(f"Imported {len(results)} starred repos (skipped {skipped_count} existing)")
         return results
 
     async def import_repo(

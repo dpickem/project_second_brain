@@ -49,6 +49,7 @@ from typing import Optional
 
 from app.pipelines.base import (
     BasePipeline,
+    DuplicateContentError,
     PipelineContentType,
     PipelineInput,
     PipelineRegistry,
@@ -63,6 +64,7 @@ from app.pipelines.raindrop_sync import RaindropSync
 __all__ = [
     # Core types
     "BasePipeline",
+    "DuplicateContentError",
     "PipelineContentType",
     "PipelineInput",
     "PipelineRegistry",

@@ -36,10 +36,11 @@ from app.config import settings
 from app.enums.content import ContentType
 from app.models.content import UnifiedContent
 from app.models.llm_usage import LLMUsage
-from app.pipelines.base import BasePipeline, PipelineContentType, PipelineInput
+from app.pipelines.base import BasePipeline, PipelineContentType, PipelineInput, DuplicateContentError
 from app.enums.pipeline import PipelineName, PipelineOperation
 from app.services.cost_tracking import CostTracker
 from app.services.llm import get_llm_client, get_default_text_model, build_messages
+from app.services.storage import check_url_exists
 
 
 # =============================================================================
@@ -208,21 +209,53 @@ class WebArticlePipeline(BasePipeline):
 
         return input_data.url is not None
 
-    async def process(self, input_data: PipelineInput) -> UnifiedContent:
+    async def check_duplicate(
+        self, input_data: PipelineInput, task_context: bool = False
+    ) -> Optional[str]:
+        """
+        Check if an article URL already exists in the database.
+
+        Called before expensive content fetching to avoid duplicate processing.
+
+        Args:
+            input_data: PipelineInput with article URL
+            task_context: If True, use task_session_maker (for Celery tasks)
+
+        Returns:
+            content_id (UUID) if URL already processed, None if new
+        """
+        if input_data.url is None:
+            return None
+
+        return await check_url_exists(input_data.url, task_context=task_context)
+
+    async def process(
+        self, input_data: PipelineInput, task_context: bool = False
+    ) -> UnifiedContent:
         """
         Extract article content from a URL.
 
         Args:
             input_data: PipelineInput with article URL in the url field
+            task_context: If True, use task_session_maker for DB queries
+                (required when called from Celery tasks via asyncio.run())
 
         Returns:
             UnifiedContent with extracted article content and metadata
 
         Raises:
             ValueError: If input_data.url is None
+            DuplicateContentError: If article URL already exists in database.
         """
         if input_data.url is None:
             raise ValueError("PipelineInput.url is required for article processing")
+
+        # Check for duplicates before expensive content extraction
+        existing_id = await self.check_duplicate(input_data, task_context=task_context)
+        if existing_id:
+            raise DuplicateContentError(
+                existing_id, f"Article already exists: {input_data.url}"
+            )
 
         # Reset usage records for this processing run
         self._usage_records = []

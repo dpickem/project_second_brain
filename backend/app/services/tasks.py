@@ -113,7 +113,6 @@ from app.models.content import UnifiedContent
 from app.services.obsidian.sync import VaultSyncService
 from app.services.queue import celery_app
 from app.services.storage import (
-    load_content,
     save_content,
     update_content,
     update_status,
@@ -891,7 +890,11 @@ def _sync_raindrop_impl(since_dt: datetime, limit: Optional[int] = None) -> list
     async def run_sync():
         sync = RaindropSync(access_token=settings.RAINDROP_ACCESS_TOKEN)
         try:
-            items = await sync.sync_collection(since=since_dt, limit=limit)
+            # Pipeline handles dedup internally via check_duplicate()
+            # task_context=True ensures proper DB session for Celery
+            items = await sync.sync_collection(
+                since=since_dt, limit=limit, task_context=True
+            )
             return items
         finally:
             await sync.close()
@@ -941,7 +944,8 @@ def sync_raindrop(
         for item in items:
             try:
                 # Save content to database first
-                await save_content(item)
+                # Use task_context=True because we're in a Celery task with asyncio.run()
+                await save_content(item, task_context=True)
                 saved_count += 1
                 # Then queue for processing
                 ingest_content_low.delay(
@@ -980,7 +984,11 @@ def _sync_github_impl(limit: int) -> list[Any]:
     async def run_sync():
         importer = GitHubImporter(access_token=settings.GITHUB_ACCESS_TOKEN)
         try:
-            items = await importer.import_starred_repos(limit=limit)
+            # Pipeline handles dedup internally via check_duplicate()
+            # task_context=True ensures proper DB session for Celery
+            items = await importer.import_starred_repos(
+                limit=limit, task_context=True
+            )
             return items
         finally:
             await importer.close()
@@ -996,11 +1004,18 @@ def sync_github(limit: int = 50) -> SyncResult:
     Retry behavior is handled by tenacity (3 attempts, exponential backoff 5-20 min).
 
     Args:
-        limit: Maximum number of repos to sync
+        limit: Maximum number of repos to sync (capped at GITHUB_MAX_REPOS from config)
 
     Returns:
         Dictionary with sync results
     """
+    # Cap limit to configured maximum to prevent accidental cost overruns
+    # GitHub API also caps per_page at 100, but we enforce our own limit
+    max_repos = pipeline_settings.GITHUB_MAX_REPOS
+    if limit > max_repos:
+        logger.warning(f"Requested limit {limit} exceeds max {max_repos}, capping")
+        limit = max_repos
+
     logger.info(f"Starting GitHub sync with limit {limit}")
 
     # Check for API token early (skip without retry)
@@ -1023,7 +1038,8 @@ def sync_github(limit: int = 50) -> SyncResult:
         for item in items:
             try:
                 # Save content to database first
-                await save_content(item)
+                # Use task_context=True because we're in a Celery task with asyncio.run()
+                await save_content(item, task_context=True)
                 saved_count += 1
                 # Queue for LLM processing (skip ingestion - already done by GitHubImporter)
                 process_content.delay(

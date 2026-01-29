@@ -53,7 +53,7 @@ from app.models.content import (
     ContentType,
     UnifiedContent,
 )
-from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
+from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType, DuplicateContentError
 from app.pipelines.utils.image_utils import (
     image_to_base64,
     preprocess_for_ocr,
@@ -73,6 +73,7 @@ from app.services.llm import (
     build_messages,
 )
 from app.services.cost_tracking import CostTracker
+from app.services.storage import check_hash_exists
 
 # =============================================================================
 # Constants
@@ -235,11 +236,38 @@ class BookOCRPipeline(BasePipeline):
         # For directories, we'll check files during processing
         return True
 
+    async def check_duplicate(
+        self, input_data: PipelineInput, task_context: bool = False
+    ) -> Optional[str]:
+        """
+        Check if book content already exists in the database by hash.
+
+        For single image files, checks by file hash.
+        For directories, returns None (no simple dedup for multi-file content).
+
+        Args:
+            input_data: PipelineInput with image file or directory path
+            task_context: If True, use task_session_maker (for Celery tasks)
+
+        Returns:
+            content_id (UUID) if file already processed, None if new
+        """
+        if input_data.path is None:
+            return None
+
+        # Only dedup for single files - directories are complex multi-file content
+        if not input_data.path.is_file():
+            return None
+
+        file_hash = self.calculate_hash(input_data.path)
+        return await check_hash_exists(file_hash, task_context=task_context)
+
     async def process(
         self,
         input_data: PipelineInput,
         book_metadata: Optional[BookMetadata] = None,
         content_id: Optional[str] = None,
+        task_context: bool = False,
     ) -> UnifiedContent:
         """
         Process book page photos from PipelineInput.
@@ -249,13 +277,23 @@ class BookOCRPipeline(BasePipeline):
             book_metadata: Optional metadata dict with title, authors, isbn.
                           If not provided, will attempt to infer from page text.
             content_id: Optional content ID for cost attribution in database.
+            task_context: If True, use task_session_maker for DB queries
+                (required when called from Celery tasks via asyncio.run())
 
         Returns:
             UnifiedContent with extracted text, annotations, and metadata.
 
         Raises:
             ValueError: If input_data.path is neither a file nor directory.
+            DuplicateContentError: If content already exists (for single files).
         """
+        # Check for duplicates before expensive OCR processing
+        existing_id = await self.check_duplicate(input_data, task_context=task_context)
+        if existing_id:
+            raise DuplicateContentError(
+                existing_id, f"Book content already exists: {input_data.path}"
+            )
+
         # Extract image paths from input
         if input_data.path.is_file():
             image_paths = [input_data.path]

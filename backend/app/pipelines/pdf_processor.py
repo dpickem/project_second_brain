@@ -32,7 +32,7 @@ from app.models.content import (
     ContentType,
     UnifiedContent,
 )
-from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
+from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType, DuplicateContentError
 from app.enums.pipeline import PipelineName
 from app.models.llm_usage import LLMUsage
 from app.pipelines.utils.mistral_ocr_client import (
@@ -55,6 +55,7 @@ from app.services.processing.output.image_storage import (
     save_extracted_images,
     ExtractedImage,
 )
+from app.services.storage import check_hash_exists
 
 
 class PDFProcessor(BasePipeline):
@@ -124,10 +125,32 @@ class PDFProcessor(BasePipeline):
             return False
         return input_data.path.suffix.lower() == ".pdf"
 
+    async def check_duplicate(
+        self, input_data: PipelineInput, task_context: bool = False
+    ) -> Optional[str]:
+        """
+        Check if a PDF file already exists in the database by hash.
+
+        Called before expensive OCR processing to avoid duplicate costs.
+
+        Args:
+            input_data: PipelineInput with PDF file path
+            task_context: If True, use task_session_maker (for Celery tasks)
+
+        Returns:
+            content_id (UUID) if file already processed, None if new
+        """
+        if input_data.path is None:
+            return None
+
+        file_hash = self.calculate_hash(input_data.path)
+        return await check_hash_exists(file_hash, task_context=task_context)
+
     async def process(
         self,
         input_data: PipelineInput,
         content_id: Optional[str] = None,
+        task_context: bool = False,
     ) -> UnifiedContent:
         """
         Process a PDF file from PipelineInput.
@@ -136,15 +159,26 @@ class PDFProcessor(BasePipeline):
             input_data: PipelineInput containing the path to the PDF file.
             content_id: Optional content ID for cost attribution.
                        If not provided, uses input_data.content_id.
+            task_context: If True, use task_session_maker for DB queries
+                (required when called from Celery tasks via asyncio.run())
 
         Returns:
             UnifiedContent: Extracted text and metadata from the PDF.
 
         Raises:
             ValueError: If input_data.path is None.
+            DuplicateContentError: If PDF already exists in database.
         """
         if input_data.path is None:
             raise ValueError("PipelineInput.path is required for PDF processing")
+
+        # Check for duplicates before expensive OCR processing
+        existing_id = await self.check_duplicate(input_data, task_context=task_context)
+        if existing_id:
+            raise DuplicateContentError(
+                existing_id, f"PDF already exists: {input_data.path}"
+            )
+
         # Use content_id from input_data if not explicitly provided
         effective_content_id = content_id or input_data.content_id
         return await self.process_path(input_data.path, effective_content_id)

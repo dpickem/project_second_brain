@@ -42,7 +42,7 @@ from app.models.content import (
     ContentType,
     UnifiedContent,
 )
-from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType
+from app.pipelines.base import BasePipeline, PipelineInput, PipelineContentType, DuplicateContentError
 from app.enums.pipeline import PipelineName, PipelineOperation
 from app.models.llm_usage import (
     LLMUsage,
@@ -52,6 +52,7 @@ from app.models.llm_usage import (
 from app.enums.pipeline import PipelineOperation
 from app.services.llm import get_llm_client, build_messages
 from app.services.cost_tracking import CostTracker
+from app.services.storage import check_hash_exists
 
 logger = logging.getLogger(__name__)
 
@@ -170,11 +171,33 @@ class VoiceTranscriber(BasePipeline):
 
         return input_data.path.suffix.lower() in self.SUPPORTED_FORMATS
 
+    async def check_duplicate(
+        self, input_data: PipelineInput, task_context: bool = False
+    ) -> Optional[str]:
+        """
+        Check if an audio file already exists in the database by hash.
+
+        Called before expensive transcription to avoid duplicate costs.
+
+        Args:
+            input_data: PipelineInput with audio file path
+            task_context: If True, use task_session_maker (for Celery tasks)
+
+        Returns:
+            content_id (UUID) if file already processed, None if new
+        """
+        if input_data.path is None:
+            return None
+
+        file_hash = self.calculate_hash(input_data.path)
+        return await check_hash_exists(file_hash, task_context=task_context)
+
     async def process(
         self,
         input_data: PipelineInput,
         expand: Optional[bool] = None,
         content_id: Optional[str] = None,
+        task_context: bool = False,
     ) -> UnifiedContent:
         """
         Transcribe audio file from PipelineInput.
@@ -183,12 +206,24 @@ class VoiceTranscriber(BasePipeline):
             input_data: PipelineInput with path to audio file
             expand: Override default expand_notes setting
             content_id: Optional content ID for cost attribution
+            task_context: If True, use task_session_maker for DB queries
+                (required when called from Celery tasks via asyncio.run())
 
         Returns:
             UnifiedContent with transcription
+
+        Raises:
+            DuplicateContentError: If audio file already exists in database.
         """
         if input_data.path is None:
             raise ValueError("PipelineInput.path is required for voice transcription")
+
+        # Check for duplicates before expensive transcription
+        existing_id = await self.check_duplicate(input_data, task_context=task_context)
+        if existing_id:
+            raise DuplicateContentError(
+                existing_id, f"Audio file already exists: {input_data.path}"
+            )
 
         return await self.process_path(input_data.path, expand, content_id)
 

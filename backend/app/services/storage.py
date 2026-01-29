@@ -130,6 +130,7 @@ async def save_upload(file: UploadFile, directory: str = "uploads") -> Path:
 async def save_content(
     content: UnifiedContent,
     db: Optional[AsyncSession] = None,
+    task_context: bool = False,
 ) -> str:
     """
     Save UnifiedContent to PostgreSQL.
@@ -137,13 +138,17 @@ async def save_content(
     Args:
         content: UnifiedContent object to save. Must have content.id (UUID) set.
         db: Optional database session (creates new if not provided)
+        task_context: If True, use task_session_maker (safe for Celery tasks with
+            new event loops). If False, use async_session_maker (FastAPI routes).
+            IMPORTANT: Set to True when calling from Celery tasks via asyncio.run().
 
     Returns:
         content_id (UUID string) - the logical identifier for subsequent lookups.
         Note: The database integer PK is stored in content.metadata["db_id"].
     """
     if db is None:
-        async with async_session_maker() as db:
+        session_maker = task_session_maker if task_context else async_session_maker
+        async with session_maker() as db:
             return await _save_content_impl(content, db)
     return await _save_content_impl(content, db)
 
@@ -693,3 +698,111 @@ async def _get_pending_impl(limit: int, db: AsyncSession) -> list[UnifiedContent
             items.append(content)
 
     return items
+
+
+async def get_existing_urls_by_type(
+    content_type: str,
+    db: Optional[AsyncSession] = None,
+    task_context: bool = False,
+) -> set[str]:
+    """
+    Get all source URLs for a given content type.
+
+    Used for batch deduplication before expensive LLM operations - allows pipelines
+    to skip content that has already been imported.
+
+    Args:
+        content_type: Content type to filter by (e.g., "CODE", "ARTICLE")
+        db: Optional database session
+        task_context: If True, use task_session_maker (safe for Celery tasks with
+            new event loops). If False, use async_session_maker (FastAPI routes).
+
+    Returns:
+        Set of source URLs for the given content type
+    """
+    async def _get_urls(session: AsyncSession) -> set[str]:
+        result = await session.execute(
+            select(DBContent.source_url)
+            .where(DBContent.content_type == content_type)
+            .where(DBContent.source_url.is_not(None))
+        )
+        return {row[0] for row in result.fetchall() if row[0]}
+
+    if db is not None:
+        return await _get_urls(db)
+
+    session_maker = task_session_maker if task_context else async_session_maker
+    async with session_maker() as session:
+        return await _get_urls(session)
+
+
+async def check_url_exists(
+    url: str,
+    db: Optional[AsyncSession] = None,
+    task_context: bool = False,
+) -> Optional[str]:
+    """
+    Check if content with the given URL already exists.
+
+    Used by pipelines to check for duplicates before expensive processing.
+
+    Args:
+        url: Source URL to check
+        db: Optional database session
+        task_context: If True, use task_session_maker (safe for Celery tasks).
+
+    Returns:
+        content_uuid if URL exists, None otherwise
+    """
+    async def _check(session: AsyncSession) -> Optional[str]:
+        result = await session.execute(
+            select(DBContent.content_uuid)
+            .where(DBContent.source_url == url)
+            .limit(1)
+        )
+        row = result.scalar_one_or_none()
+        return row if row else None
+
+    if db is not None:
+        return await _check(db)
+
+    session_maker = task_session_maker if task_context else async_session_maker
+    async with session_maker() as session:
+        return await _check(session)
+
+
+async def check_hash_exists(
+    file_hash: str,
+    db: Optional[AsyncSession] = None,
+    task_context: bool = False,
+) -> Optional[str]:
+    """
+    Check if content with the given file hash already exists.
+
+    Used by file-based pipelines to check for duplicates before expensive processing.
+
+    Args:
+        file_hash: SHA-256 hash of the file
+        db: Optional database session
+        task_context: If True, use task_session_maker (safe for Celery tasks).
+
+    Returns:
+        content_uuid if hash exists, None otherwise
+    """
+    async def _check(session: AsyncSession) -> Optional[str]:
+        result = await session.execute(
+            select(DBContent.content_uuid)
+            .where(
+                DBContent.metadata_json["raw_file_hash"].as_string() == file_hash
+            )
+            .limit(1)
+        )
+        row = result.scalar_one_or_none()
+        return row if row else None
+
+    if db is not None:
+        return await _check(db)
+
+    session_maker = task_session_maker if task_context else async_session_maker
+    async with session_maker() as session:
+        return await _check(session)

@@ -54,6 +54,24 @@ from app.pipelines.utils.hash_utils import (
 )
 
 
+class DuplicateContentError(Exception):
+    """
+    Raised when content already exists in the database.
+
+    Allows callers to handle duplicates explicitly rather than
+    silently re-processing content.
+
+    Attributes:
+        content_id: UUID of the existing content in the database
+        message: Human-readable description
+    """
+
+    def __init__(self, content_id: str, message: str = "Content already exists"):
+        self.content_id = content_id
+        self.message = message
+        super().__init__(f"{message} (content_id={content_id})")
+
+
 @dataclass
 class PipelineInput:
     """
@@ -148,6 +166,38 @@ class BasePipeline(ABC):
             True if this pipeline can process the input
         """
         pass
+
+    async def check_duplicate(
+        self, input_data: PipelineInput, task_context: bool = False
+    ) -> Optional[str]:
+        """
+        Check if content already exists in the database before processing.
+
+        This method should be called BEFORE expensive operations (LLM calls, OCR, etc.)
+        to avoid wasting resources on duplicate content.
+
+        Implementations should check for duplicates using the most appropriate key:
+        - URL-based pipelines (GitHub, Raindrop): Check by source_url
+        - File-based pipelines (PDF, Book): Check by file hash
+        - Text-based pipelines: Check by content hash
+
+        Args:
+            input_data: PipelineInput to check for duplicates
+            task_context: If True, use task_session_maker (for Celery tasks).
+                If False, use async_session_maker (for FastAPI routes).
+
+        Returns:
+            content_id (UUID string) if duplicate exists, None if content is new
+
+        Example:
+            # In a pipeline that processes URLs:
+            async def check_duplicate(self, input_data, task_context=False):
+                if input_data.url:
+                    return await check_url_exists(input_data.url, task_context)
+                return None
+        """
+        # Default: no dedup check (pipelines should override)
+        return None
 
     def calculate_hash(self, file_path: Path) -> str:
         """
