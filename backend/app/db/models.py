@@ -40,7 +40,7 @@ def _utc_now() -> datetime:
 
 
 if TYPE_CHECKING:
-    from app.db.models_learning import SpacedRepCard
+    from app.db.models_learning import SpacedRepCard, ExerciseContent
 
 
 class ContentStatus(enum.Enum):
@@ -142,6 +142,11 @@ class Content(Base):
         back_populates="content", foreign_keys="SpacedRepCard.source_content_pk"
     )
     images: Mapped[List["Image"]] = relationship(
+        back_populates="content", cascade="all, delete-orphan"
+    )
+    # Many-to-many relationship with Exercise via junction table
+    # Enables: "What exercises were generated from this content?"
+    exercise_links: Mapped[List["ExerciseContent"]] = relationship(
         back_populates="content", cascade="all, delete-orphan"
     )
 

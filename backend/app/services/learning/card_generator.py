@@ -127,11 +127,34 @@ class CardGeneratorService:
         self.db = db
         self.llm_client = llm_client or get_llm_client()
 
+    async def _get_existing_concepts_for_content(
+        self, source_content_pk: int
+    ) -> set[str]:
+        """
+        Get the set of concept names that already have cards for this content.
+
+        Used for deduplication: skip generating cards for concepts that already
+        have cards from this content.
+
+        Args:
+            source_content_pk: Database primary key of the source content
+
+        Returns:
+            Set of concept names (lowercase) that have existing cards
+        """
+        result = await self.db.execute(
+            select(SpacedRepCard.source_concept)
+            .where(SpacedRepCard.source_content_pk == source_content_pk)
+            .where(SpacedRepCard.source_concept.isnot(None))
+        )
+        return {row[0].lower() for row in result.fetchall() if row[0]}
+
     async def generate_from_concepts(
         self,
         extraction: ExtractionResult,
         content_id: str,
         tags: list[str],
+        skip_existing: bool = True,
     ) -> tuple[list[SpacedRepCard], list[LLMUsage]]:
         """
         Generate cards from extracted concepts during content ingestion.
@@ -143,10 +166,14 @@ class CardGeneratorService:
         - Misconception cards: "True or False" style (up to CARD_MAX_MISCONCEPTIONS_PER_CONCEPT)
         - Properties card: "What are the key characteristics of X?" if >= CARD_MIN_PROPERTIES_FOR_CARD
 
+        Deduplication: By default, skips concepts that already have cards for this content.
+        This prevents duplicate card generation on re-processing.
+
         Args:
             extraction: Extraction result containing concepts from content processing
             content_id: UUID of source content for linking cards
             tags: Topic tags to apply to all generated cards
+            skip_existing: If True (default), skip concepts that already have cards
 
         Returns:
             Tuple of (persisted SpacedRepCard instances, LLM usages - empty for this method)
@@ -163,7 +190,24 @@ class CardGeneratorService:
         )
         source_content_pk = result.scalar_one_or_none()
 
+        # Get existing concepts to skip (deduplication)
+        existing_concepts: set[str] = set()
+        if skip_existing and source_content_pk:
+            existing_concepts = await self._get_existing_concepts_for_content(
+                source_content_pk
+            )
+            if existing_concepts:
+                logger.info(
+                    f"Skipping {len(existing_concepts)} concepts that already have cards"
+                )
+
+        skipped_count = 0
         for concept in extraction.concepts:
+            # Deduplication: skip if cards already exist for this concept
+            concept_key = concept.name.lower()
+            if concept_key in existing_concepts:
+                skipped_count += 1
+                continue
             # Skip concepts without definitions
             if not concept.definition:
                 continue
@@ -172,6 +216,7 @@ class CardGeneratorService:
             definition_card = SpacedRepCard(
                 content_id=content_id,
                 source_content_pk=source_content_pk,
+                source_concept=concept.name,  # Lineage tracking
                 card_type="definition",
                 front=f"What is {concept.name}?",
                 back=concept.definition,
@@ -189,6 +234,7 @@ class CardGeneratorService:
                 importance_card = SpacedRepCard(
                     content_id=content_id,
                     source_content_pk=source_content_pk,
+                    source_concept=concept.name,  # Lineage tracking
                     card_type="application",
                     front=f"Why is understanding {concept.name} important?",
                     back=concept.why_it_matters,
@@ -215,6 +261,7 @@ class CardGeneratorService:
                     example_card = SpacedRepCard(
                         content_id=content_id,
                         source_content_pk=source_content_pk,
+                        source_concept=concept.name,  # Lineage tracking
                         card_type="example",
                         front=f"Give an example of {concept.name}.",
                         back=(
@@ -248,6 +295,7 @@ class CardGeneratorService:
                     misconception_card = SpacedRepCard(
                         content_id=content_id,
                         source_content_pk=source_content_pk,
+                        source_concept=concept.name,  # Lineage tracking
                         card_type="misconception",
                         front=f"True or False: {wrong}",
                         back=f"FALSE. {correct}",
@@ -265,6 +313,7 @@ class CardGeneratorService:
                 properties_card = SpacedRepCard(
                     content_id=content_id,
                     source_content_pk=source_content_pk,
+                    source_concept=concept.name,  # Lineage tracking
                     card_type="definition",
                     front=f"What are the key characteristics of {concept.name}?",
                     back="\n".join(f"• {p}" for p in concept.properties),
@@ -288,6 +337,11 @@ class CardGeneratorService:
 
             logger.info(
                 f"Generated {len(cards)} cards from {len(extraction.concepts)} concepts"
+                f" (skipped {skipped_count} existing)"
+            )
+        elif skipped_count > 0:
+            logger.info(
+                f"Skipped all {skipped_count} concepts - cards already exist for this content"
             )
 
         return cards, usages
