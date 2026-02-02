@@ -21,6 +21,7 @@ from app.enums.processing import ContentDomain, ContentComplexity, ContentLength
 from app.models.llm_usage import LLMUsage
 from app.services.llm.client import LLMClient
 from app.config.processing import processing_settings
+from app.pipelines.utils.text_utils import unwrap_llm_single_object_response
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,9 @@ async def analyze_content(
             json_mode=True,
             content_id=content.id,
         )
+
+        # Handle case where LLM returns a list with one item instead of a dict
+        data = unwrap_llm_single_object_response(data)
 
         # Validate and normalize values against enums
         content_type = data.get("content_type", content.source_type.value)

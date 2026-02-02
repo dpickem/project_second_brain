@@ -5,10 +5,15 @@ Provides functions for text cleaning, JSON extraction, and text manipulation
 used across ingestion pipelines.
 
 Usage:
-    from app.pipelines.utils.text_utils import clean_text, extract_json_from_response
+    from app.pipelines.utils.text_utils import (
+        clean_text,
+        extract_json_from_response,
+        normalize_llm_json_response,
+    )
 
     text = clean_text(raw_text)
     data = extract_json_from_response(llm_response)
+    data = normalize_llm_json_response(data, "concepts")  # Ensure dict structure
     chunks = split_into_chunks(long_text, chunk_size=1000, chunk_overlap=100)
 """
 
@@ -23,6 +28,74 @@ from langchain_text_splitters import (
     MarkdownTextSplitter,
     TokenTextSplitter,
 )
+
+
+def normalize_llm_json_response(data: Any, expected_key: str) -> dict:
+    """
+    Normalize an LLM JSON response to ensure it's a dict with expected structure.
+
+    Use this for responses that should have a list under a specific key,
+    like {"concepts": [...]} or {"questions": [...]}.
+
+    Sometimes LLMs return a list directly instead of a dict with the expected key.
+    This function handles that case by wrapping the list in a dict.
+
+    Examples:
+        # If LLM returns: [{"name": "foo"}, {"name": "bar"}]
+        # And expected_key is "concepts"
+        # Returns: {"concepts": [{"name": "foo"}, {"name": "bar"}]}
+
+        # If LLM returns: {"concepts": [...]}
+        # Returns as-is: {"concepts": [...]}
+
+    Args:
+        data: Parsed JSON from LLM (could be dict or list)
+        expected_key: The key that should contain the list (e.g., "concepts", "questions")
+
+    Returns:
+        Normalized dict with the expected key
+    """
+    if isinstance(data, dict):
+        return data
+    elif isinstance(data, list):
+        # Wrap the list in a dict with the expected key
+        return {expected_key: data}
+    else:
+        # Return empty dict for unexpected types
+        return {}
+
+
+def unwrap_llm_single_object_response(data: Any) -> dict:
+    """
+    Unwrap an LLM JSON response that should be a single object.
+
+    Use this for responses that should be a flat dict with multiple keys,
+    like {"content_type": "...", "domain": "...", "complexity": "..."}.
+
+    Sometimes LLMs wrap the object in a list: [{"content_type": "...", ...}]
+    This function handles that case by extracting the first item.
+
+    Examples:
+        # If LLM returns: [{"content_type": "paper", "domain": "ml"}]
+        # Returns: {"content_type": "paper", "domain": "ml"}
+
+        # If LLM returns: {"content_type": "paper", "domain": "ml"}
+        # Returns as-is: {"content_type": "paper", "domain": "ml"}
+
+    Args:
+        data: Parsed JSON from LLM (could be dict or list with one dict)
+
+    Returns:
+        The dict object (unwrapped from list if necessary)
+    """
+    if isinstance(data, dict):
+        return data
+    elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+        # Unwrap the first item from the list
+        return data[0]
+    else:
+        # Return empty dict for unexpected types
+        return {}
 
 
 def clean_text(text: str) -> str:

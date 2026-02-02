@@ -33,6 +33,7 @@ from app.models.llm_usage import LLMUsage
 from app.services.llm.client import LLMClient
 from app.config.processing import processing_settings
 from app.services.processing.concept_dedup import deduplicate_concepts
+from app.pipelines.utils.text_utils import normalize_llm_json_response
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +161,9 @@ async def extract_concepts(
             json_mode=True,
             content_id=content.id,
         )
+
+        # Normalize response in case LLM returned a list instead of dict
+        data = normalize_llm_json_response(data, "concepts")
 
         # Parse concepts
         concepts = []
