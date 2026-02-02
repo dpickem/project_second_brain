@@ -199,6 +199,8 @@ class SpacedRepCard(Base):
         Metadata:
         tags: Topic tags for filtering.
         concept_id: Related Neo4j concept ID.
+        source_concept: Name of the concept this card was generated from.
+            Used for deduplication during content processing.
 
         Relationships:
         content: Source Content this card was generated from.
@@ -216,6 +218,10 @@ class SpacedRepCard(Base):
     source_content_pk: Mapped[Optional[int]] = mapped_column(
         ForeignKey("content.id"), index=True
     )
+
+    # Lineage tracking: which concept generated this card
+    # Used for deduplication: avoid re-generating cards for same concept
+    source_concept: Mapped[Optional[str]] = mapped_column(String(255), index=True)
 
     # Card content
     card_type: Mapped[str] = mapped_column(String(50))
@@ -454,6 +460,10 @@ class Exercise(Base):
     estimated_time_minutes: Mapped[int] = mapped_column(Integer, default=10)
     tags: Mapped[Optional[list]] = mapped_column(ARRAY(String))
 
+    # Lineage tracking: which concept generated this exercise
+    # Used for deduplication: avoid re-generating exercises for same concept
+    source_concept: Mapped[Optional[str]] = mapped_column(String(255), index=True)
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utc_now
@@ -466,6 +476,52 @@ class Exercise(Base):
     attempts: Mapped[List["ExerciseAttempt"]] = relationship(
         back_populates="exercise", cascade="all, delete-orphan"
     )
+    # Many-to-many relationship with Content via junction table
+    content_links: Mapped[List["ExerciseContent"]] = relationship(
+        back_populates="exercise", cascade="all, delete-orphan"
+    )
+
+
+class ExerciseContent(Base):
+    """
+    Junction table for Exercise <-> Content many-to-many relationship.
+
+    Tracks which content items an exercise was generated from.
+    This enables:
+    - Efficient reverse lookups: "What exercises came from this content?"
+    - Proper FK relationships instead of UUID arrays
+    - Deduplication during content processing
+
+    Attributes:
+        id: Primary key, auto-incrementing integer identifier.
+        exercise_id: Foreign key to the Exercise.
+        content_id: Foreign key to the Content (database PK).
+        content_uuid: UUID string of the content for convenience.
+        created_at: Timestamp when the link was created.
+        exercise: Reference to the Exercise.
+        content: Reference to the Content.
+    """
+
+    __tablename__ = "exercise_content"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    content_id: Mapped[int] = mapped_column(
+        ForeignKey("content.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # Store UUID for convenient lookups without joining to content table
+    content_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now
+    )
+
+    # Relationships
+    exercise: Mapped["Exercise"] = relationship(back_populates="content_links")
+    content: Mapped["Content"] = relationship(back_populates="exercise_links")
 
 
 class ExerciseAttempt(Base):
