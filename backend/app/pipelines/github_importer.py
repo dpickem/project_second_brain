@@ -43,14 +43,14 @@ DEFAULT_TIMEOUT = 30.0
 DEFAULT_STARRED_REPOS_LIMIT = 50
 
 # File tree limits
-MAX_TREE_FILES = 100  # Max files to fetch from GitHub tree API
-TREE_DISPLAY_LIMIT = 50  # Files shown in LLM context
+MAX_TREE_FILES = 200  # Max files to fetch from GitHub tree API
+TREE_DISPLAY_LIMIT = 150  # Files shown in LLM context (more context = better analysis)
 
 # README truncation limit
-README_TRUNCATE_LIMIT = 8000  # Chars for LLM context
+README_TRUNCATE_LIMIT = 30000  # Chars for LLM context (Gemini supports large contexts)
 
 # LLM parameters
-LLM_MAX_TOKENS = 2000
+LLM_MAX_TOKENS = 6000  # Allow detailed analysis output
 LLM_TEMPERATURE = 0.3
 
 
@@ -380,16 +380,56 @@ class GitHubImporter(BasePipeline):
         # Build context for LLM analysis
         context = self._build_analysis_context(repo, readme, tree)
 
-        prompt = """Analyze this GitHub repository and provide a structured summary for learning purposes.
+        prompt = """Analyze this GitHub repository comprehensively. Provide a detailed, thorough analysis that captures the full technical substance of the project.
 
-Include the following sections:
-1. **Purpose**: What problem does this project solve? Who is it for?
-2. **Architecture Overview**: Key design patterns, architecture decisions, and code organization
-3. **Tech Stack**: Main technologies, frameworks, and notable dependencies
-4. **Key Learnings**: What can be learned from this project? Best practices demonstrated?
-5. **Notable Features**: Interesting or innovative features worth studying
+## Required Sections
 
-Keep the analysis concise but informative. Focus on aspects that would be valuable for a developer studying this codebase."""
+### 1. Purpose & Problem Domain
+- What specific problem does this project solve?
+- Who is the target audience (developers, end-users, enterprises, etc.)?
+- What pain points does it address?
+- How does it compare to alternatives (if known from the README)?
+
+### 2. Architecture & Design
+- What is the overall architecture pattern (monolith, microservices, serverless, etc.)?
+- How is the codebase organized? Describe the main directories and their purposes.
+- What are the key abstractions and interfaces?
+- What design patterns are used (Factory, Observer, Strategy, etc.)?
+- How does data flow through the system?
+- What are the main entry points?
+
+### 3. Technical Implementation
+- What are the core algorithms or techniques used?
+- How is state managed?
+- What concurrency/async patterns are employed?
+- How is error handling structured?
+- What testing approaches are used?
+- How is configuration managed?
+
+### 4. Tech Stack & Dependencies
+- List all major technologies, frameworks, and libraries
+- Why might these specific choices have been made?
+- What versions or compatibility requirements exist?
+- Are there any notable or unusual dependencies?
+
+### 5. Code Quality & Practices
+- What coding standards/conventions are followed?
+- How is the code documented?
+- What CI/CD practices are visible?
+- How is the project structured for maintainability?
+
+### 6. Key Learnings & Takeaways
+- What techniques or patterns are worth learning from this codebase?
+- What best practices does it demonstrate?
+- What architectural decisions are particularly interesting or innovative?
+- What would you study more closely if diving deeper?
+
+### 7. Potential Use Cases
+- How might someone use or integrate this project?
+- What extensions or modifications might be valuable?
+- What similar projects could learn from this approach?
+
+Be thorough and specific. Include concrete examples from the file structure and README. The goal is to create notes detailed enough to serve as a comprehensive technical reference."""
 
         system_prompt = f"You are a senior software engineer analyzing a GitHub repository.\n\nRepository Information:\n{context}"
         client = get_llm_client()
