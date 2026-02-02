@@ -135,16 +135,19 @@ These challenges can be addressed independently, but solving extraction *in serv
 │  Queries: "What do I know about X?", "What connects A to B?"                 │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       LEARNING ASSISTANT (LLM Agent)                         │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  • Conversational knowledge retrieval                                        │
-│  • Guided learning sessions                                                  │
-│  • Adaptive exercise generation                                              │
-│  • Progress tracking & weak-spot identification                              │
-│  • Connection suggestions ("Have you considered how X relates to Y?")        │
-└─────────────────────────────────────────────────────────────────────────────┘
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+┌──────────────────────────────────┐  ┌──────────────────────────────────────┐
+│     LEARNING SYSTEM (FSRS)       │  │       AI ASSISTANT (LLM Agent)       │
+├──────────────────────────────────┤  ├──────────────────────────────────────┤
+│  • Spaced repetition scheduling  │  │  • Natural language chat interface   │
+│  • Flashcard management          │  │  • RAG over vault & knowledge graph  │
+│  • Mastery tracking              │  │  • Streaming responses with citations│
+│  • Practice session orchestration│  │  • Context-aware follow-up questions │
+│  • Weak-spot identification      │  │  • Configurable LLM model selection  │
+└──────────────────────────────────┘  │  • Conversation history & sessions   │
+                                      │  • Source linking to original notes  │
+                                      └──────────────────────────────────────┘
 ```
 
 ---
@@ -349,6 +352,123 @@ This system is grounded in research on human memory and learning. Key insights:
 
 ## 🛠️ Technical Stack
 
+<table>
+  <tr>
+    <td align="center" width="96">
+      <a href="https://www.python.org/">
+        <img src="https://skillicons.dev/icons?i=python" width="48" height="48" alt="Python" />
+      </a>
+      <br>Python 3.11+
+    </td>
+    <td align="center" width="96">
+      <a href="https://fastapi.tiangolo.com/">
+        <img src="https://skillicons.dev/icons?i=fastapi" width="48" height="48" alt="FastAPI" />
+      </a>
+      <br>FastAPI
+    </td>
+    <td align="center" width="96">
+      <a href="https://react.dev/">
+        <img src="https://skillicons.dev/icons?i=react" width="48" height="48" alt="React" />
+      </a>
+      <br>React 18
+    </td>
+    <td align="center" width="96">
+      <a href="https://vitejs.dev/">
+        <img src="https://skillicons.dev/icons?i=vite" width="48" height="48" alt="Vite" />
+      </a>
+      <br>Vite
+    </td>
+    <td align="center" width="96">
+      <a href="https://tailwindcss.com/">
+        <img src="https://skillicons.dev/icons?i=tailwind" width="48" height="48" alt="TailwindCSS" />
+      </a>
+      <br>TailwindCSS
+    </td>
+    <td align="center" width="96">
+      <a href="https://www.postgresql.org/">
+        <img src="https://skillicons.dev/icons?i=postgres" width="48" height="48" alt="PostgreSQL" />
+      </a>
+      <br>PostgreSQL
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="96">
+      <a href="https://neo4j.com/">
+        <img src="https://cdn.simpleicons.org/neo4j/4581C3" width="48" height="48" alt="Neo4j" />
+      </a>
+      <br>Neo4j
+    </td>
+    <td align="center" width="96">
+      <a href="https://redis.io/">
+        <img src="https://skillicons.dev/icons?i=redis" width="48" height="48" alt="Redis" />
+      </a>
+      <br>Redis
+    </td>
+    <td align="center" width="96">
+      <a href="https://www.docker.com/">
+        <img src="https://skillicons.dev/icons?i=docker" width="48" height="48" alt="Docker" />
+      </a>
+      <br>Docker
+    </td>
+    <td align="center" width="96">
+      <a href="https://obsidian.md/">
+        <img src="https://cdn.simpleicons.org/obsidian/7C3AED" width="48" height="48" alt="Obsidian" />
+      </a>
+      <br>Obsidian
+    </td>
+    <td align="center" width="96">
+      <a href="https://www.litellm.ai/">
+        <img src="https://avatars.githubusercontent.com/u/139385568" width="48" height="48" alt="LiteLLM" style="border-radius: 8px;" />
+      </a>
+      <br>LiteLLM
+    </td>
+    <td align="center" width="96">
+      <a href="https://docs.celeryq.dev/">
+        <img src="https://cdn.simpleicons.org/celery/37814A" width="48" height="48" alt="Celery" />
+      </a>
+      <br>Celery
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="96">
+      <a href="https://mistral.ai/">
+        <img src="https://avatars.githubusercontent.com/u/132372032" width="48" height="48" alt="Mistral" style="border-radius: 8px;" />
+      </a>
+      <br>Mistral OCR
+    </td>
+    <td align="center" width="96">
+      <a href="https://deepmind.google/technologies/gemini/">
+        <img src="https://cdn.simpleicons.org/googlegemini/8E75B2" width="48" height="48" alt="Gemini" />
+      </a>
+      <br>Gemini
+    </td>
+    <td align="center" width="96">
+      <a href="https://www.anthropic.com/">
+        <img src="https://cdn.simpleicons.org/anthropic/D97757" width="48" height="48" alt="Anthropic" />
+      </a>
+      <br>Anthropic
+    </td>
+    <td align="center" width="96">
+      <a href="https://openai.com/">
+        <img src="https://avatars.githubusercontent.com/u/14957082" width="48" height="48" alt="OpenAI" style="border-radius: 8px;" />
+      </a>
+      <br>OpenAI
+    </td>
+    <td align="center" width="96">
+      <a href="https://raindrop.io/">
+        <img src="docs/image/raindrop.png" width="48" height="48" alt="Raindrop" />
+      </a>
+      <br>Raindrop.io
+    </td>
+    <td align="center" width="96">
+      <a href="https://github.com/">
+        <img src="https://skillicons.dev/icons?i=github" width="48" height="48" alt="GitHub" />
+      </a>
+      <br>GitHub API
+    </td>
+  </tr>
+</table>
+
 ### Core Technologies
 
 | Component | Technology | Rationale |
@@ -359,6 +479,7 @@ This system is grounded in research on human memory and learning. Key insights:
 | **Graph Database** | Neo4j | Native graph storage, Cypher queries |
 | **Relational DB** | PostgreSQL | Learning records, user data |
 | **Cache** | Redis | Session state, rate limiting |
+| **Task Queue** | Celery | Async background job processing |
 | **LLM Backbone** | [LiteLLM](https://www.litellm.ai/) ([GitHub](https://github.com/BerriAI/litellm)) | Unified interface to 100+ LLMs (OpenAI, Anthropic, Gemini, Mistral) |
 | **Vision/OCR** | Mistral OCR (default for PDFs), Gemini 3 Flash | Document processing, handwriting recognition |
 
