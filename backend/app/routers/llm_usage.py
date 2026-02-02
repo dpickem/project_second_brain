@@ -102,6 +102,26 @@ class UsageHistoryResponse(BaseModel):
     trend_direction: str = Field(description="up, down, or stable")
 
 
+class MonthlyHistoryPoint(BaseModel):
+    """Single month in monthly history."""
+    year: int
+    month: int
+    month_label: str = Field(description="Month label (e.g., 'Jan 2026')")
+    cost_usd: float
+    request_count: int
+    tokens: int
+
+
+class MonthlyHistoryResponse(BaseModel):
+    """Monthly aggregated usage data response."""
+    period_months: int
+    total_cost_usd: float
+    total_requests: int
+    total_tokens: int
+    monthly_data: list[MonthlyHistoryPoint]
+    avg_monthly_cost: float
+
+
 class TopConsumersResponse(BaseModel):
     """Top consumers of LLM resources."""
     by_model: list[ModelBreakdown]
@@ -258,6 +278,78 @@ async def get_usage_history(
         daily_data=daily_data,
         avg_daily_cost=avg_daily_cost,
         trend_direction=trend,
+    )
+
+
+@router.get("/monthly-history", response_model=MonthlyHistoryResponse)
+@handle_endpoint_errors("Get monthly history")
+async def get_monthly_history(
+    months: int = Query(12, ge=1, le=24, description="Number of months of history"),
+    db: AsyncSession = Depends(get_db),
+) -> MonthlyHistoryResponse:
+    """
+    Get historical LLM usage data aggregated by month.
+
+    Returns monthly usage data for the specified period,
+    along with aggregated totals.
+    """
+    from calendar import month_abbr
+
+    end_date = datetime.now(timezone.utc)
+    # Calculate start date (go back 'months' months)
+    start_year = end_date.year
+    start_month = end_date.month - months + 1
+    while start_month <= 0:
+        start_month += 12
+        start_year -= 1
+    start_date = datetime(start_year, start_month, 1, tzinfo=timezone.utc)
+
+    # Query monthly aggregates
+    monthly_query = await db.execute(
+        select(
+            func.extract("year", LLMUsageLog.created_at).label("year"),
+            func.extract("month", LLMUsageLog.created_at).label("month"),
+            func.sum(LLMUsageLog.cost_usd).label("cost"),
+            func.count(LLMUsageLog.id).label("count"),
+            func.sum(LLMUsageLog.total_tokens).label("tokens"),
+        )
+        .where(LLMUsageLog.created_at >= start_date)
+        .group_by(
+            func.extract("year", LLMUsageLog.created_at),
+            func.extract("month", LLMUsageLog.created_at),
+        )
+        .order_by(
+            func.extract("year", LLMUsageLog.created_at),
+            func.extract("month", LLMUsageLog.created_at),
+        )
+    )
+
+    monthly_data = [
+        MonthlyHistoryPoint(
+            year=int(row.year),
+            month=int(row.month),
+            month_label=f"{month_abbr[int(row.month)]} {int(row.year)}",
+            cost_usd=row.cost or 0,
+            request_count=row.count or 0,
+            tokens=row.tokens or 0,
+        )
+        for row in monthly_query
+    ]
+
+    # Calculate totals
+    total_cost = sum(d.cost_usd for d in monthly_data)
+    total_requests = sum(d.request_count for d in monthly_data)
+    total_tokens = sum(d.tokens for d in monthly_data)
+    num_months = len(monthly_data) if monthly_data else 1
+    avg_monthly_cost = total_cost / num_months
+
+    return MonthlyHistoryResponse(
+        period_months=months,
+        total_cost_usd=total_cost,
+        total_requests=total_requests,
+        total_tokens=total_tokens,
+        monthly_data=monthly_data,
+        avg_monthly_cost=avg_monthly_cost,
     )
 
 

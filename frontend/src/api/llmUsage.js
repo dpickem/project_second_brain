@@ -105,6 +105,22 @@ export const llmUsageApi = {
    */
   getTopConsumers: ({ days = 30, limit = 10 } = {}) => 
     apiClient.get('/api/llm-usage/top-consumers', { params: { days, limit } }).then(r => r.data),
+
+  /**
+   * Get monthly aggregated usage history
+   * @param {Object} [options] - Query options
+   * @param {number} [options.months=12] - Number of months of history (1-24)
+   * @returns {Promise<{
+   *   period_months: number,
+   *   total_cost_usd: number,
+   *   total_requests: number,
+   *   total_tokens: number,
+   *   monthly_data: Array<{year: number, month: number, month_label: string, cost_usd: number, request_count: number, tokens: number}>,
+   *   avg_monthly_cost: number
+   * }>} Monthly aggregated usage data
+   */
+  getMonthlyHistory: ({ months = 12 } = {}) => 
+    apiClient.get('/api/llm-usage/monthly-history', { params: { months } }).then(r => r.data),
 }
 
 export default llmUsageApi

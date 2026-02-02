@@ -238,6 +238,11 @@ export function LLMUsage() {
     queryFn: () => llmUsageApi.getTopConsumers({ days: historyDays }),
   })
 
+  const { data: monthlyHistoryData, isLoading: monthlyHistoryLoading } = useQuery({
+    queryKey: ['llm-usage', 'monthly-history'],
+    queryFn: () => llmUsageApi.getMonthlyHistory({ months: 12 }),
+  })
+
   const isInitialLoading = budgetLoading || dailyLoading || monthlyLoading
 
   if (isInitialLoading) {
@@ -497,6 +502,67 @@ export function LLMUsage() {
             </Card>
           </motion.div>
         </div>
+
+        {/* Monthly Breakdown */}
+        {monthlyHistoryData?.monthly_data && monthlyHistoryData.monthly_data.length > 0 && (
+          <motion.div variants={fadeInUp}>
+            <Card>
+              <h2 className="text-xl font-semibold text-text-primary font-heading mb-4">
+                📆 Monthly Breakdown
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-text-muted text-left border-b border-border-primary">
+                      <th className="pb-2 font-medium">Month</th>
+                      <th className="pb-2 font-medium text-right">Cost</th>
+                      <th className="pb-2 font-medium text-right">Requests</th>
+                      <th className="pb-2 font-medium text-right">Tokens</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...monthlyHistoryData.monthly_data].reverse().map((month) => (
+                      <tr key={`${month.year}-${month.month}`} className="border-b border-border-primary/50">
+                        <td className="py-2 text-text-primary">{month.month_label}</td>
+                        <td className="py-2 text-right text-indigo-400">
+                          {formatCurrency(month.cost_usd, 2)}
+                        </td>
+                        <td className="py-2 text-right text-text-secondary">
+                          {formatNumber(month.request_count)}
+                        </td>
+                        <td className="py-2 text-right text-emerald-400">
+                          {formatNumber(month.tokens)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-border-primary font-medium">
+                      <td className="py-2 text-text-primary">Total</td>
+                      <td className="py-2 text-right text-indigo-400">
+                        {formatCurrency(monthlyHistoryData.total_cost_usd, 2)}
+                      </td>
+                      <td className="py-2 text-right text-text-secondary">
+                        {formatNumber(monthlyHistoryData.total_requests)}
+                      </td>
+                      <td className="py-2 text-right text-emerald-400">
+                        {formatNumber(monthlyHistoryData.total_tokens)}
+                      </td>
+                    </tr>
+                    <tr className="text-text-muted text-xs">
+                      <td className="pt-1">Avg/month</td>
+                      <td className="pt-1 text-right">
+                        {formatCurrency(monthlyHistoryData.avg_monthly_cost, 2)}
+                      </td>
+                      <td></td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </Card>
+          </motion.div>
+        )}
 
         {/* Daily Breakdown (from monthly data) */}
         {monthlyData?.by_day && monthlyData.by_day.length > 0 && (
