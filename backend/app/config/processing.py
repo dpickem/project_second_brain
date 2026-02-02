@@ -81,14 +81,16 @@ class ProcessingSettings(BaseSettings):
     ANALYSIS_MAX_TOKENS: int = 500
 
     # Content truncation per summary level (characters)
-    SUMMARY_TRUNCATE_BRIEF: int = 10000
-    SUMMARY_TRUNCATE_STANDARD: int = 25000
-    SUMMARY_TRUNCATE_DETAILED: int = 40000
+    # Note: Gemini models support 1M+ context, so we can afford larger inputs
+    SUMMARY_TRUNCATE_BRIEF: int = 15000
+    SUMMARY_TRUNCATE_STANDARD: int = 50000
+    SUMMARY_TRUNCATE_DETAILED: int = 100000
 
     # Max tokens for summary generation per level
-    SUMMARY_MAX_TOKENS_BRIEF: int = 200
-    SUMMARY_MAX_TOKENS_STANDARD: int = 800
-    SUMMARY_MAX_TOKENS_DETAILED: int = 2000
+    # Increased significantly for richer, more detailed summaries
+    SUMMARY_MAX_TOKENS_BRIEF: int = 300
+    SUMMARY_MAX_TOKENS_STANDARD: int = 1500
+    SUMMARY_MAX_TOKENS_DETAILED: int = 6000
     SUMMARY_TEMPERATURE: float = 0.3
 
     # Annotation formatting limits
@@ -134,6 +136,11 @@ class ProcessingSettings(BaseSettings):
 
     # Multiplier for initial candidate retrieval (gets more, filters later)
     CONNECTION_CANDIDATE_MULTIPLIER: int = 2
+
+    # Batch size for connection evaluation (candidates per LLM call)
+    # Higher = fewer API calls but larger context; lower = more calls but better quality
+    # Recommended: 5-8 for good balance of efficiency and quality
+    CONNECTION_BATCH_SIZE: int = 5
 
     # Max chars of summary for embedding generation
     CONNECTION_EMBEDDING_TRUNCATE: int = 2000

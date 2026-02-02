@@ -159,9 +159,28 @@ def make_question_response(questions: list = None) -> dict:
 
 
 def make_connection_response(
+    has_connection: bool = True,
+    strength: float = 0.8,
+    candidate_id: str = "other-1",
+) -> dict:
+    """Create a standard batch connection evaluation response dict."""
+    return {
+        "evaluations": [
+            {
+                "candidate_id": candidate_id,
+                "has_connection": has_connection,
+                "relationship_type": RelationshipType.EXTENDS,
+                "strength": strength,
+                "explanation": "Related content",
+            }
+        ]
+    }
+
+
+def make_individual_connection_response(
     has_connection: bool = True, strength: float = 0.8
 ) -> dict:
-    """Create a standard connection evaluation response dict."""
+    """Create a standard individual connection evaluation response dict."""
     return {
         "has_connection": has_connection,
         "relationship_type": RelationshipType.EXTENDS,
@@ -796,7 +815,7 @@ class TestConnectionDiscovery:
     ):
         """Test various connection evaluation scenarios."""
         mock_llm_client.complete.return_value = (
-            make_connection_response(has_connection, strength),
+            make_individual_connection_response(has_connection, strength),
             sample_usage,
         )
 

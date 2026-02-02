@@ -544,21 +544,25 @@ class TestStageCoordination:
             ("Detailed summary.", mock_llm_usage),
             (make_extraction_response(), mock_llm_usage),
             (make_tagging_response(meta_tags=["quality/deep-dive"]), mock_llm_usage),
+            # Batch connection evaluation - one call for all candidates
             (
                 {
-                    "has_connection": True,
-                    "relationship_type": RelationshipType.EXTENDS,
-                    "strength": 0.85,
-                    "explanation": "BERT builds on transformers",
-                },
-                mock_llm_usage,
-            ),
-            (
-                {
-                    "has_connection": True,
-                    "relationship_type": RelationshipType.EXTENDS,
-                    "strength": 0.75,
-                    "explanation": "GPT uses transformers",
+                    "evaluations": [
+                        {
+                            "candidate_id": "existing-content-1",
+                            "has_connection": True,
+                            "relationship_type": RelationshipType.EXTENDS,
+                            "strength": 0.85,
+                            "explanation": "BERT builds on transformers",
+                        },
+                        {
+                            "candidate_id": "existing-content-2",
+                            "has_connection": True,
+                            "relationship_type": RelationshipType.EXTENDS,
+                            "strength": 0.75,
+                            "explanation": "GPT uses transformers",
+                        },
+                    ]
                 },
                 mock_llm_usage,
             ),
