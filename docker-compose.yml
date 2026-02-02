@@ -81,7 +81,7 @@ x-common-env: &common-env
   NEO4J_USER: neo4j
   NEO4J_PASSWORD: ${NEO4J_PASSWORD}
   # ----- Paths -----
-  OBSIDIAN_VAULT_PATH: /vault
+  # OBSIDIAN_VAULT_PATH is derived from DATA_DIR/obsidian (see settings.py)
   UPLOAD_DIR: /uploads
   DATA_DIR: /data
   # ----- API Authentication -----
@@ -113,7 +113,8 @@ x-common-env: &common-env
   DEBUG: ${DEBUG:-false}
 
 x-shared-volumes: &shared-volumes
-  - ${DATA_DIR:?DATA_DIR is required}/obsidian:/vault:rw
+  # OBSIDIAN_VAULT_PATH = DATA_DIR/obsidian (derived in settings.py)
+  - ${DATA_DIR:?DATA_DIR is required}/obsidian:/data/obsidian:rw
   - ${DATA_DIR:?DATA_DIR is required}/uploads:/uploads:rw
   - ./config:/config:ro  # App configuration (content types, templates, taxonomy)
 

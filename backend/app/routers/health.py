@@ -91,7 +91,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str,
 
     # Check Obsidian vault
     try:
-        vault_path = Path(settings.OBSIDIAN_VAULT_PATH)
+        vault_path = settings.OBSIDIAN_VAULT_PATH
         if vault_path.exists() and vault_path.is_dir():
             # Get vault stats if available
             try:

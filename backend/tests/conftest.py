@@ -79,7 +79,8 @@ def setup_test_environment() -> Generator[None, None, None]:
         "NEO4J_USER": os.environ.get("NEO4J_USER", "neo4j"),
         "NEO4J_PASSWORD": os.environ.get("NEO4J_PASSWORD", "testpass"),
         "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", "test-api-key"),
-        "OBSIDIAN_VAULT_PATH": os.environ.get("OBSIDIAN_VAULT_PATH", "/tmp/test_vault"),
+        # DATA_DIR is used to derive OBSIDIAN_VAULT_PATH (DATA_DIR/obsidian)
+        "DATA_DIR": os.environ.get("DATA_DIR", "/tmp/test_data"),
         "DEBUG": "true",
     }
     os.environ.update(test_env)

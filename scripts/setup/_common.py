@@ -6,9 +6,11 @@ functions used by all setup scripts.
 
 CONFIGURATION SOURCES (in priority order):
     1. Command-line arguments (--data-dir, --vault-path)
-    2. Environment variables (DATA_DIR, OBSIDIAN_VAULT_PATH)
+    2. Environment variable: DATA_DIR
     3. Backend settings (backend/app/config/settings.py)
     4. YAML config (config/default.yaml)
+
+Note: OBSIDIAN_VAULT_PATH is always derived as DATA_DIR/obsidian.
 
 For secrets and deployment config, see .env.example
 """
@@ -76,22 +78,14 @@ def _get_settings_vault_path() -> Optional[Path]:
     """
     Try to get OBSIDIAN_VAULT_PATH from backend settings.
 
-    Returns None if:
-    - Backend settings are not available
-    - Path is the Docker default "/vault" (skip for local scripts)
-    - Path doesn't exist on the filesystem
+    OBSIDIAN_VAULT_PATH is now always derived from DATA_DIR/obsidian.
+    Returns None if backend settings are not available.
     """
     try:
         from app.config.settings import settings
 
-        if settings.OBSIDIAN_VAULT_PATH:
-            # Skip Docker default path for local scripts
-            if settings.OBSIDIAN_VAULT_PATH == "/vault":
-                return None
-            path = Path(settings.OBSIDIAN_VAULT_PATH).expanduser().resolve()
-            # Only return if path exists (user explicitly configured it)
-            if path.exists():
-                return path
+        # OBSIDIAN_VAULT_PATH is a computed property: DATA_DIR/obsidian
+        return settings.OBSIDIAN_VAULT_PATH
     except ImportError:
         pass
     return None
@@ -136,19 +130,17 @@ def get_vault_path(
     """
     Get the Obsidian vault path.
 
+    The vault path is always DATA_DIR/obsidian (derived, not configurable separately).
+
     Priority:
-    1. --vault-path argument
-    2. OBSIDIAN_VAULT_PATH env var
-    3. Backend settings (settings.OBSIDIAN_VAULT_PATH)
-    4. DATA_DIR / data.subdirs.obsidian from config
+    1. --vault-path argument (for testing/override only)
+    2. Backend settings (settings.OBSIDIAN_VAULT_PATH = DATA_DIR/obsidian)
+    3. DATA_DIR / data.subdirs.obsidian from config
     """
     if args_vault_path:
         return Path(args_vault_path).expanduser().resolve()
 
-    if os.environ.get("OBSIDIAN_VAULT_PATH"):
-        return Path(os.environ["OBSIDIAN_VAULT_PATH"]).expanduser().resolve()
-
-    # Try backend settings
+    # Try backend settings (OBSIDIAN_VAULT_PATH is derived from DATA_DIR/obsidian)
     settings_path = _get_settings_vault_path()
     if settings_path:
         return settings_path

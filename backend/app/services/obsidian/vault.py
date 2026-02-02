@@ -112,8 +112,8 @@ class VaultManager:
         Initialize the vault manager.
 
         Args:
-            vault_path: Path to Obsidian vault. If None, uses settings.OBSIDIAN_VAULT_PATH.
-                       Supports ~ expansion for home directory.
+            vault_path: Path to Obsidian vault. If None, uses settings.OBSIDIAN_VAULT_PATH
+                       (derived from DATA_DIR). Supports ~ expansion for home directory.
 
         Raises:
             ValueError: If the vault path doesn't exist or isn't a directory

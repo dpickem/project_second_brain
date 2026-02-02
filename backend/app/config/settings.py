@@ -139,13 +139,14 @@ class Settings(BaseSettings):
     # =========================================================================
     # OBSIDIAN VAULT
     # =========================================================================
-    # Path to Obsidian vault. In Docker, use /vault (mounted volume).
-    OBSIDIAN_VAULT_PATH: str = "/vault"
+    # The Obsidian vault path is derived from DATA_DIR.
+    # Vault is located at DATA_DIR/obsidian
+    # In Docker, DATA_DIR is mounted to /data, so vault_path = /data/obsidian
 
     @property
-    def OBSIDIAN_VAULT_PATH_OBJ(self) -> Path:
-        """OBSIDIAN_VAULT_PATH as Path object."""
-        return Path(self.OBSIDIAN_VAULT_PATH).expanduser().resolve()
+    def OBSIDIAN_VAULT_PATH(self) -> Path:
+        """Obsidian vault path, derived from DATA_DIR/obsidian."""
+        return self.DATA_DIR_PATH / "obsidian"
 
     # =========================================================================
     # VAULT SYNC & WATCHER (Phase 4)
@@ -577,18 +578,12 @@ def validate_settings(s: Settings) -> list[str]:
     # Path validation
     # ---------------------------------------------------------------------------
     # Check for tilde in paths that Docker can't expand
+    # Note: OBSIDIAN_VAULT_PATH is derived from DATA_DIR, so only check DATA_DIR
     if "~" in s.DATA_DIR:
         warnings.append(
             f"DATA_DIR contains '~' ({s.DATA_DIR}). "
             "Tilde expansion may not work in Docker or systemd. "
             "Consider using an absolute path like /home/user/data."
-        )
-
-    if "~" in s.OBSIDIAN_VAULT_PATH and s.OBSIDIAN_VAULT_PATH != "/vault":
-        warnings.append(
-            f"OBSIDIAN_VAULT_PATH contains '~' ({s.OBSIDIAN_VAULT_PATH}). "
-            "Tilde expansion may not work in Docker. Use /vault for Docker "
-            "or an absolute path for local development."
         )
 
     return warnings

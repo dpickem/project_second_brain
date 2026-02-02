@@ -10,6 +10,7 @@ These tests verify:
 """
 
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -91,16 +92,17 @@ class TestSettings:
             assert test_settings.POSTGRES_PORT == 9999
             assert test_settings.REDIS_URL == "redis://custom-redis:6380/5"
 
-    def test_obsidian_vault_path(self) -> None:
-        """OBSIDIAN_VAULT_PATH should be configurable."""
+    def test_obsidian_vault_path_derived_from_data_dir(self) -> None:
+        """OBSIDIAN_VAULT_PATH should be derived from DATA_DIR/obsidian."""
         test_settings = Settings(
-            OBSIDIAN_VAULT_PATH="/custom/vault/path",
+            DATA_DIR="/custom/data/path",
             POSTGRES_PASSWORD="test",
             NEO4J_PASSWORD="test",
             OPENAI_API_KEY="test",
         )
 
-        assert test_settings.OBSIDIAN_VAULT_PATH == "/custom/vault/path"
+        # Vault path should be DATA_DIR/obsidian (returns Path object)
+        assert test_settings.OBSIDIAN_VAULT_PATH == Path("/custom/data/path/obsidian")
 
 
 class TestYamlConfigLoading:
