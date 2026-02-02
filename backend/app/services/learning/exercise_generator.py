@@ -69,9 +69,11 @@ import random
 import uuid
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models_learning import Exercise
+from app.db.models import Content
+from app.db.models_learning import Exercise, ExerciseContent
 from app.enums.learning import ExerciseType, ExerciseDifficulty
 from app.enums.pipeline import PipelineOperation
 from app.models.learning import (
@@ -372,6 +374,57 @@ class ExerciseGenerator:
         self.llm = llm_client
         self.db = db
         self.model = model or get_default_text_model()
+
+    async def _get_existing_concepts_for_content(
+        self, content_uuid: str
+    ) -> set[str]:
+        """
+        Get the set of concept names that already have exercises for this content.
+
+        Used for deduplication: skip generating exercises for concepts that already
+        have exercises from this content.
+
+        Args:
+            content_uuid: UUID of the source content
+
+        Returns:
+            Set of concept names (lowercase) that have existing exercises
+        """
+        # Query via the junction table for exercises linked to this content
+        result = await self.db.execute(
+            select(Exercise.source_concept)
+            .join(ExerciseContent, Exercise.id == ExerciseContent.exercise_id)
+            .where(ExerciseContent.content_uuid == content_uuid)
+            .where(Exercise.source_concept.isnot(None))
+        )
+        return {row[0].lower() for row in result.fetchall() if row[0]}
+
+    async def _link_exercise_to_content(
+        self, exercise_id: int, content_uuid: str
+    ) -> None:
+        """
+        Create a link between an exercise and its source content.
+
+        Creates an entry in the exercise_content junction table.
+
+        Args:
+            exercise_id: Database ID of the exercise
+            content_uuid: UUID of the source content
+        """
+        # Look up the content's database PK
+        result = await self.db.execute(
+            select(Content.id).where(Content.content_uuid == content_uuid)
+        )
+        content_pk = result.scalar_one_or_none()
+
+        if content_pk:
+            link = ExerciseContent(
+                exercise_id=exercise_id,
+                content_id=content_pk,
+                content_uuid=content_uuid,
+            )
+            self.db.add(link)
+            # Note: caller should commit
 
     async def generate_exercise(
         self,
