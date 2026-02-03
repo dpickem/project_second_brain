@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Raindrop.io cloud logo - three overlapping circles -->
+  <!-- Back circle (darkest blue) -->
+  <circle cx="32" cy="28" r="14" fill="#2D9CDB"/>
+  <!-- Middle circle (medium blue) -->
+  <circle cx="20" cy="30" r="13" fill="#56CCF2"/>
+  <!-- Front circle (lightest blue/cyan) -->
+  <circle cx="14" cy="22" r="11" fill="#6FCFEB"/>
+</svg>

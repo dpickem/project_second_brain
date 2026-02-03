@@ -364,6 +364,35 @@ class Settings(BaseSettings):
     CARD_CONTEXT_MIN_KEYWORD_LENGTH: int = 3  # Skip short keywords
 
     # =========================================================================
+    # EXERCISE GENERATION SETTINGS
+    # =========================================================================
+    # Generation limits
+    EXERCISE_MAX_FROM_CONCEPTS: int = 3  # Max exercises from extracted concepts
+    EXERCISE_MAX_FROM_CONTENT: int = 2  # Max exercises from full content summary
+    EXERCISE_DEFAULT_ESTIMATED_TIME: int = 10  # Default time in minutes if not specified
+
+    # Context building limits
+    EXERCISE_CONTEXT_MAX_EXAMPLES: int = 3  # Max examples to include in context
+    EXERCISE_CONTEXT_MAX_PROPERTIES: int = 5  # Max properties to include in context
+    EXERCISE_CONTEXT_MAX_SUMMARY_LENGTH: int = 2000  # Max chars for content summary
+    EXERCISE_TOPIC_NAME_MAX_LENGTH: int = 50  # Max chars for generated topic names
+
+    # LLM settings
+    EXERCISE_LLM_TEMPERATURE: float = 0.7  # Temperature for exercise generation
+    EXERCISE_LLM_CLASSIFY_TEMPERATURE: float = 0.0  # Temperature for topic classification
+
+    # Default mastery levels for generation
+    EXERCISE_DEFAULT_MASTERY_LEVEL: float = 0.5  # Default mastery when not specified
+    EXERCISE_NOVICE_MASTERY_LEVEL: float = 0.3  # Mastery level for newly ingested content
+    EXERCISE_INTERMEDIATE_MASTERY_LEVEL: float = 0.5  # Mastery for content-based exercises
+
+    # Default programming language for code exercises
+    EXERCISE_DEFAULT_CODE_LANGUAGE: str = "python"
+
+    # Lineage marker for content-based exercises (not concept-based)
+    EXERCISE_CONTENT_SOURCE_MARKER: str = "__CONTENT__"
+
+    # =========================================================================
     # SESSION / PRACTICE SETTINGS
     # =========================================================================
     # Time allocation ratios for practice sessions (must sum to 1.0)

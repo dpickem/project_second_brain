@@ -25,6 +25,9 @@ from app.models.learning import (
     AttemptConfidenceUpdate,
     AttemptEvaluationResponse,
     AttemptSubmitRequest,
+    ContentExerciseGenerateRequest,
+    ContentExerciseGenerateResponse,
+    ContentExerciseStatus,
     ExerciseGenerateRequest,
     ExerciseResponse,
     SessionCreateRequest,
@@ -34,6 +37,7 @@ from app.models.learning import (
 from app.services.cost_tracking import CostTracker
 from app.services.learning import (
     ExerciseGenerator,
+    LineageService,
     MasteryService,
     ResponseEvaluator,
     SessionService,
@@ -41,6 +45,7 @@ from app.services.learning import (
     get_code_sandbox,
 )
 from app.services.llm.client import get_llm_client
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/practice", tags=["practice"])
@@ -79,6 +84,13 @@ async def get_mastery_service(
 ) -> MasteryService:
     """Get mastery service."""
     return MasteryService(db)
+
+
+async def get_lineage_service(
+    db: AsyncSession = Depends(get_db),
+) -> LineageService:
+    """Get lineage service for content-exercise relationship queries."""
+    return LineageService(db)
 
 
 async def get_session_service(
@@ -240,6 +252,184 @@ async def get_exercise(
         buggy_code=exercise.buggy_code,
         estimated_time_minutes=exercise.estimated_time_minutes or 10,
         tags=exercise.tags or [],
+    )
+
+
+# ===========================================
+# Content-based Exercise Endpoints
+# ===========================================
+
+
+@router.get(
+    "/content/{content_uuid}/exercises",
+    response_model=ContentExerciseStatus,
+)
+@handle_endpoint_errors("Get content exercise status")
+async def get_content_exercise_status(
+    content_uuid: str,
+    lineage: LineageService = Depends(get_lineage_service),
+) -> ContentExerciseStatus:
+    """
+    Get the exercise status for a specific content item.
+
+    Returns information about existing exercises for this content,
+    including which concepts have exercises. Use this before generating
+    new exercises to warn users about potential duplicates.
+    """
+    summary = await lineage.get_content_lineage_summary(content_uuid)
+
+    # Count exercises from concepts vs content
+    exercises = await lineage.get_exercises_for_content(content_uuid)
+    content_marker = settings.EXERCISE_CONTENT_SOURCE_MARKER.lower()
+
+    exercises_from_content = sum(
+        1 for e in exercises
+        if e.source_concept and e.source_concept.lower() == content_marker
+    )
+    exercises_from_concepts = summary.total_exercises - exercises_from_content
+
+    return ContentExerciseStatus(
+        content_uuid=content_uuid,
+        content_title=summary.content_title,
+        has_exercises=summary.total_exercises > 0,
+        total_exercises=summary.total_exercises,
+        exercises_from_concepts=exercises_from_concepts,
+        exercises_from_content=exercises_from_content,
+        concept_names=summary.exercise_concepts,
+    )
+
+
+@router.post(
+    "/content/{content_uuid}/generate",
+    response_model=ContentExerciseGenerateResponse,
+)
+@handle_endpoint_errors("Generate exercises for content")
+async def generate_content_exercises(
+    content_uuid: str,
+    request: ContentExerciseGenerateRequest,
+    db: AsyncSession = Depends(get_db),
+    generator: ExerciseGenerator = Depends(get_exercise_generator),
+    lineage: LineageService = Depends(get_lineage_service),
+) -> ContentExerciseGenerateResponse:
+    """
+    Generate exercises for a specific content item.
+
+    Generates exercises based on extracted concepts and/or the content summary.
+    Returns a warning if the content already has exercises (deduplication will
+    skip existing concepts, but user should be informed).
+
+    Options:
+    - generate_from_concepts: Create exercises from extracted concepts
+    - generate_from_content: Create exercises from content summary
+    """
+    from app.db.models import Content
+    from app.db.models_processing import ProcessingRun, ConceptRecord
+    from app.services.learning.exercise_generator import (
+        generate_exercises_from_content,
+    )
+    from app.models.processing import ExtractionResult, Concept
+
+    # Get existing exercise count for warning
+    existing_summary = await lineage.get_content_lineage_summary(content_uuid)
+    existing_count = existing_summary.total_exercises
+
+    warning = None
+    if existing_count > 0:
+        warning = (
+            f"This content already has {existing_count} exercise(s). "
+            f"New exercises will only be generated for concepts that don't have them yet."
+        )
+
+    # Get content from database
+    result = await db.execute(
+        select(Content).where(Content.content_uuid == content_uuid)
+    )
+    content = result.scalar_one_or_none()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    generated_exercises: list[ExerciseResponse] = []
+    all_usages = []
+
+    # Get tags from content metadata
+    tags = []
+    if content.metadata_json and content.metadata_json.get("tags"):
+        tags = content.metadata_json["tags"]
+
+    # 1. Generate from concepts (if requested)
+    if request.generate_from_concepts:
+        # Get the most recent processing run for this content
+        run_result = await db.execute(
+            select(ProcessingRun)
+            .where(ProcessingRun.content_id == content.id)
+            .order_by(ProcessingRun.completed_at.desc())
+            .limit(1)
+        )
+        processing_run = run_result.scalar_one_or_none()
+
+        if processing_run:
+            # Get concepts from the processing run
+            concept_result = await db.execute(
+                select(ConceptRecord).where(
+                    ConceptRecord.processing_run_id == processing_run.id
+                )
+            )
+            concept_records = concept_result.scalars().all()
+
+            if concept_records:
+                # Convert to Pydantic Concept objects
+                concepts = [
+                    Concept.from_db_record(record) for record in concept_records
+                ]
+                extraction = ExtractionResult(concepts=concepts)
+
+                concept_exercises, concept_usages = (
+                    await generator.generate_from_concepts(
+                        extraction=extraction,
+                        content_id=content_uuid,
+                        tags=tags,
+                        max_exercises=request.max_from_concepts,
+                    )
+                )
+                generated_exercises.extend(concept_exercises)
+                all_usages.extend(concept_usages)
+
+    # 2. Generate from content summary (if requested)
+    if request.generate_from_content and content.summary:
+        # Get content analysis for key topics
+        key_topics = []
+        if content.metadata_json:
+            key_topics = content.metadata_json.get("key_topics", [])
+
+        content_type = content.content_type or "article"
+
+        content_exercises, content_usages = await generate_exercises_from_content(
+            db=db,
+            llm_client=generator.llm,
+            content_uuid=content_uuid,
+            content_title=content.title,
+            content_type=content_type,
+            content_summary=content.summary,
+            key_topics=key_topics,
+            tags=tags,
+            max_exercises=request.max_from_content,
+        )
+        generated_exercises.extend(content_exercises)
+        all_usages.extend(content_usages)
+
+    # Track LLM usage
+    if all_usages:
+        await CostTracker.log_usages_batch(all_usages)
+
+    # Get final total
+    final_summary = await lineage.get_content_lineage_summary(content_uuid)
+
+    return ContentExerciseGenerateResponse(
+        content_uuid=content_uuid,
+        warning=warning,
+        existing_exercise_count=existing_count,
+        generated_exercises=generated_exercises,
+        total_exercises=final_summary.total_exercises,
     )
 
 

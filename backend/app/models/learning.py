@@ -384,6 +384,68 @@ class ExerciseGenerateRequest(StrictRequest):
     )
 
 
+class ContentExerciseGenerateRequest(StrictRequest):
+    """
+    Request to generate exercises for a specific content item.
+
+    Generates exercises based on the content's extracted concepts and/or
+    full summary. This is typically triggered from the Knowledge page UI
+    when a user wants exercises for a specific piece of content.
+
+    Note: Uses StrictRequest - unknown fields will be rejected with 422.
+    """
+
+    generate_from_concepts: bool = Field(
+        True, description="Generate exercises from extracted concepts"
+    )
+    generate_from_content: bool = Field(
+        True, description="Generate exercises from content summary"
+    )
+    max_from_concepts: Optional[int] = Field(
+        None, description="Max exercises from concepts (uses default if not set)"
+    )
+    max_from_content: Optional[int] = Field(
+        None, description="Max exercises from content (uses default if not set)"
+    )
+
+
+class ContentExerciseStatus(StrictResponse):
+    """
+    Status of exercises for a content item.
+
+    Used to check if a content item already has exercises before generating new ones.
+    Helps prevent duplicate generation.
+    """
+
+    content_uuid: str
+    content_title: Optional[str] = None
+    has_exercises: bool
+    total_exercises: int
+    exercises_from_concepts: int
+    exercises_from_content: int
+    concept_names: list[str] = Field(
+        default_factory=list, description="Concepts that have exercises"
+    )
+
+
+class ContentExerciseGenerateResponse(StrictResponse):
+    """
+    Response from content exercise generation.
+
+    Returns both the status (including any pre-existing exercises) and
+    the newly generated exercises. Includes a warning if exercises
+    already existed for this content.
+    """
+
+    content_uuid: str
+    warning: Optional[str] = Field(
+        None, description="Warning if exercises already existed"
+    )
+    existing_exercise_count: int = 0
+    generated_exercises: list[ExerciseResponse] = Field(default_factory=list)
+    total_exercises: int = 0
+
+
 # ===========================================
 # Exercise Attempt Models
 # ===========================================

@@ -120,6 +120,14 @@ class PipelineConfig:
 
     When a stage is enabled, its dependencies are automatically enabled.
     A log message is emitted when dependencies are auto-enabled.
+
+    Exercise Generation Options:
+        When generate_exercises=True, you can control which types are generated:
+        - generate_exercises_from_concepts: Creates exercises based on extracted concepts
+          (targeted, tests specific terminology and definitions)
+        - generate_exercises_from_content: Creates exercises based on full content summary
+          (broader, tests comprehension and application of main ideas)
+        Both default to True. Set either to False to disable that type.
     """
 
     # Stage toggles
@@ -128,6 +136,8 @@ class PipelineConfig:
     assign_tags: bool = True
     generate_cards: bool = False  # Generate spaced repetition cards (disabled by default, use on-demand generation)
     generate_exercises: bool = False  # Generate practice exercises (disabled by default, use on-demand generation)
+    generate_exercises_from_concepts: bool = True  # When generate_exercises=True, generate from extracted concepts
+    generate_exercises_from_content: bool = True  # When generate_exercises=True, generate from content summary
     discover_connections: bool = True
     generate_followups: bool = True
     generate_questions: bool = True
@@ -302,31 +312,63 @@ async def process_content(
         logger.warning("Card generation skipped: no database session provided")
 
     # =========================================================================
-    # Stage 4c: Exercise Generation
+    # Stage 4c: Exercise Generation (from concepts + from content)
     # =========================================================================
     generated_exercises = []
-    if config.generate_exercises and extraction.concepts and db is not None:
+    if config.generate_exercises and db is not None:
         logger.debug("Stage 4c: Exercise Generation")
         try:
             # Deferred import to avoid circular dependency
             from app.services.learning.exercise_generator import (
                 generate_exercises_from_extraction,
+                generate_exercises_from_content,
             )
 
             # Combine domain and meta tags for exercises
             exercise_tags = tags.domain_tags + tags.meta_tags if tags else []
-            generated_exercises, exercise_usages = (
-                await generate_exercises_from_extraction(
-                    db=db,
-                    llm_client=llm_client,
-                    extraction=extraction,
-                    content_id=content.id,  # Exercises use UUID string (source_content_ids)
-                    tags=exercise_tags,
-                    max_exercises=3,  # Limit to 3 exercises per content
+
+            # 4c.1: Generate exercises from extracted concepts
+            if config.generate_exercises_from_concepts and extraction.concepts:
+                concept_exercises, concept_usages = (
+                    await generate_exercises_from_extraction(
+                        db=db,
+                        llm_client=llm_client,
+                        extraction=extraction,
+                        content_id=content.id,
+                        tags=exercise_tags,
+                    )
                 )
+                generated_exercises.extend(concept_exercises)
+                all_usages.extend(concept_usages)
+                logger.info(
+                    f"Generated {len(concept_exercises)} exercises from concepts"
+                )
+
+            # 4c.2: Generate exercises from full content summary
+            if config.generate_exercises_from_content:
+                standard_summary = summaries.get(SummaryLevel.STANDARD.value, "")
+                if standard_summary:
+                    content_exercises, content_usages = (
+                        await generate_exercises_from_content(
+                            db=db,
+                            llm_client=llm_client,
+                            content_uuid=content.id,
+                            content_title=content.title,
+                            content_type=analysis.content_type if analysis else "article",
+                            content_summary=standard_summary,
+                            key_topics=analysis.key_topics if analysis else [],
+                            tags=exercise_tags,
+                        )
+                    )
+                    generated_exercises.extend(content_exercises)
+                    all_usages.extend(content_usages)
+                    logger.info(
+                        f"Generated {len(content_exercises)} exercises from content"
+                    )
+
+            logger.info(
+                f"Total: {len(generated_exercises)} practice exercises generated"
             )
-            all_usages.extend(exercise_usages)
-            logger.info(f"Generated {len(generated_exercises)} practice exercises")
         except Exception as e:
             logger.error(f"Exercise generation failed: {e}")
     elif config.generate_exercises and db is None:

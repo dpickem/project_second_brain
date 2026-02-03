@@ -15,6 +15,7 @@ Modules:
 - mastery_service: Mastery tracking and analytics
 - time_tracking: Time investment tracking and analytics
 - streak_tracking: Practice streak and activity history
+- lineage: Content lineage tracking for cards/exercises
 
 Usage:
     from app.services.learning import (
@@ -26,6 +27,7 @@ Usage:
         MasteryService,
         TimeTrackingService,
         StreakTrackingService,
+        LineageService,
     )
 """
 
@@ -49,6 +51,7 @@ from app.services.learning.session_budget import (
 from app.services.learning.mastery_service import MasteryService
 from app.services.learning.time_tracking import TimeTrackingService
 from app.services.learning.streak_tracking import StreakTrackingService
+from app.services.learning.lineage import LineageService, ContentLineageSummary
 
 __all__ = [
     # FSRS
@@ -70,4 +73,6 @@ __all__ = [
     "MasteryService",
     "TimeTrackingService",
     "StreakTrackingService",
+    "LineageService",
+    "ContentLineageSummary",
 ]
