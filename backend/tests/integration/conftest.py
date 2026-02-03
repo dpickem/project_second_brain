@@ -47,7 +47,13 @@ def verify_test_database():
 
     This runs once at the start of the integration test session and fails fast
     if production credentials are detected. Applies to ALL integration tests.
+
+    Set ALLOW_PROD_DB_TESTS=1 to skip this check (for local development only).
     """
+    # Allow skipping the check for local development
+    if os.environ.get("ALLOW_PROD_DB_TESTS", "").lower() in ("1", "true", "yes"):
+        return
+
     db_name = os.environ.get("POSTGRES_DB", "")
     db_user = os.environ.get("POSTGRES_USER", "")
 
@@ -56,11 +62,11 @@ def verify_test_database():
     for indicator in production_indicators:
         assert indicator not in db_name.lower(), (
             f"SAFETY CHECK FAILED: Database name '{db_name}' looks like production! "
-            "Set POSTGRES_TEST_DB environment variable."
+            "Set POSTGRES_TEST_DB environment variable or ALLOW_PROD_DB_TESTS=1."
         )
         assert indicator not in db_user.lower(), (
             f"SAFETY CHECK FAILED: Database user '{db_user}' looks like production! "
-            "Set POSTGRES_TEST_USER environment variable."
+            "Set POSTGRES_TEST_USER environment variable or ALLOW_PROD_DB_TESTS=1."
         )
 
 
@@ -73,14 +79,24 @@ def get_test_db_config() -> dict:
     """
     Get test database configuration from environment variables.
 
-    Called at runtime (not module load) to ensure .env is loaded first.
+    Priority: POSTGRES_TEST_* > POSTGRES_* > defaults
+    This allows using the same DB as the app (docker-compose) or a dedicated test DB.
     """
     return {
         "host": os.environ.get("POSTGRES_HOST", "localhost"),
         "port": os.environ.get("POSTGRES_PORT", "5432"),
-        "user": os.environ.get("POSTGRES_TEST_USER", "testuser"),
-        "password": os.environ.get("POSTGRES_TEST_PASSWORD", "testpass"),
-        "db": os.environ.get("POSTGRES_TEST_DB", "testdb"),
+        "user": os.environ.get(
+            "POSTGRES_TEST_USER",
+            os.environ.get("POSTGRES_USER", "testuser")
+        ),
+        "password": os.environ.get(
+            "POSTGRES_TEST_PASSWORD",
+            os.environ.get("POSTGRES_PASSWORD", "testpass")
+        ),
+        "db": os.environ.get(
+            "POSTGRES_TEST_DB",
+            os.environ.get("POSTGRES_DB", "testdb")
+        ),
     }
 
 

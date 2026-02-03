@@ -65,15 +65,27 @@ def setup_test_environment() -> Generator[None, None, None]:
     # Store original environment
     original_env = os.environ.copy()
 
-    # Forcefully set test environment variables (override .env values)
-    # Test database credentials come from POSTGRES_TEST_* env vars if set,
-    # otherwise fall back to defaults for CI environments
+    # Set test environment variables
+    # Priority: POSTGRES_TEST_* > POSTGRES_* > defaults
+    # This allows:
+    #   1. Explicit test DB via POSTGRES_TEST_* (for isolated test DB)
+    #   2. Using the same DB as the app via POSTGRES_* (docker-compose)
+    #   3. CI defaults if nothing is set
     test_env = {
         "POSTGRES_HOST": os.environ.get("POSTGRES_HOST", "localhost"),
         "POSTGRES_PORT": os.environ.get("POSTGRES_PORT", "5432"),
-        "POSTGRES_USER": os.environ.get("POSTGRES_TEST_USER", "testuser"),
-        "POSTGRES_PASSWORD": os.environ.get("POSTGRES_TEST_PASSWORD", "testpass"),
-        "POSTGRES_DB": os.environ.get("POSTGRES_TEST_DB", "testdb"),
+        "POSTGRES_USER": os.environ.get(
+            "POSTGRES_TEST_USER",
+            os.environ.get("POSTGRES_USER", "testuser")
+        ),
+        "POSTGRES_PASSWORD": os.environ.get(
+            "POSTGRES_TEST_PASSWORD",
+            os.environ.get("POSTGRES_PASSWORD", "testpass")
+        ),
+        "POSTGRES_DB": os.environ.get(
+            "POSTGRES_TEST_DB",
+            os.environ.get("POSTGRES_DB", "testdb")
+        ),
         "REDIS_URL": os.environ.get("REDIS_URL", "redis://localhost:6379/1"),
         "NEO4J_URI": os.environ.get("NEO4J_URI", "bolt://localhost:7687"),
         "NEO4J_USER": os.environ.get("NEO4J_USER", "neo4j"),

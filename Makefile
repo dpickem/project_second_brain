@@ -88,16 +88,31 @@ logs-neo4j:
 # Testing
 # =============================================================================
 
+# Common volume mounts for backend tests (backend code + scripts for integration tests)
+BACKEND_TEST_VOLUMES := -v ./backend:/app -v ./scripts:/scripts
+
+# Allow integration tests to run against dev database (local development only)
+# Set ALLOW_PROD_DB_TESTS=0 to enforce separate test database
+BACKEND_TEST_ENV := -e ALLOW_PROD_DB_TESTS=1
+
 # Run all tests
 test:
 	@echo "Running backend tests..."
-	docker compose run --rm backend pytest -v
+	docker compose run --rm $(BACKEND_TEST_VOLUMES) $(BACKEND_TEST_ENV) backend pytest -v
 	@echo "Running frontend tests..."
 	docker compose run --rm frontend npm test
 
 # Run backend tests only
 test-backend:
-	docker compose run --rm backend pytest -v
+	docker compose run --rm $(BACKEND_TEST_VOLUMES) $(BACKEND_TEST_ENV) backend pytest -v
+
+# Run backend unit tests only (fast, no external dependencies)
+test-unit:
+	docker compose run --rm $(BACKEND_TEST_VOLUMES) backend pytest tests/unit -v
+
+# Run backend integration tests only (requires running services)
+test-integration:
+	docker compose run --rm $(BACKEND_TEST_VOLUMES) $(BACKEND_TEST_ENV) backend pytest tests/integration -v
 
 # Run frontend tests only
 test-frontend:
@@ -109,7 +124,11 @@ test-e2e:
 
 # Run tests with coverage
 test-coverage:
-	docker compose run --rm backend pytest -v --cov=app --cov-report=html
+	docker compose run --rm $(BACKEND_TEST_VOLUMES) $(BACKEND_TEST_ENV) backend pytest -v --cov=app --cov-report=html
+
+# Update OpenAPI snapshot (run after intentional API changes)
+snapshot:
+	docker compose run --rm $(BACKEND_TEST_VOLUMES) -e PYTHONPATH=/app backend python scripts/update_openapi_snapshot.py
 
 # =============================================================================
 # Database

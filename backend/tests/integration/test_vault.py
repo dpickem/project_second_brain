@@ -15,9 +15,12 @@ from typing import Any
 import pytest
 
 # Add scripts/setup directory to path for validate_vault import
-sys.path.insert(
-    0, str(Path(__file__).parent.parent.parent.parent / "scripts" / "setup")
-)
+# When running in Docker, scripts are mounted at /scripts
+# When running locally, they're at project_root/scripts
+_scripts_path = Path("/scripts/setup")
+if not _scripts_path.exists():
+    _scripts_path = Path(__file__).parent.parent.parent.parent / "scripts" / "setup"
+sys.path.insert(0, str(_scripts_path))
 
 from validate_vault import validate_vault
 
