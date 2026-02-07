@@ -1,9 +1,13 @@
-# Second Brain: Personal Knowledge Management & Learning System
+<div align="center">
+  <img src="docs/image/logo.png" alt="Second Brain Logo" width="200" />
+  <h1>Second Brain</h1>
+  <p><strong>Personal Knowledge Management & Learning System</strong></p>
 
-> *"Tell me and I forget, teach me and I may remember, involve me and I learn."*
-> Benjamin Franklin
+  > *"Tell me and I forget, teach me and I may remember, involve me and I learn."*
+  > — Benjamin Franklin
 
-A comprehensive system for ingesting, organizing, connecting, and actively learning from personal and professional knowledge sources—powered by LLMs and graph-based knowledge representation.
+  <p>A comprehensive system for ingesting, organizing, connecting, and actively learning from personal and professional knowledge sources—powered by LLMs and graph-based knowledge representation.</p>
+</div>
 
 ---
 
