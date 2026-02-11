@@ -58,6 +58,59 @@ const pages = [
     title: 'Knowledge Explorer',
     waitFor: 'main',
     waitTime: 1500,
+    // Custom action to select a note from sources/articles to show markdown rendering
+    customAction: async (page) => {
+      // Wait for folders to load
+      await page.waitForTimeout(1000)
+      
+      // Try to find and expand sources/articles folder specifically
+      // Folder buttons have aria-label like "{folder} folder, {count} notes, expand/collapse"
+      const folderButtons = page.locator('button[aria-label*="folder"]')
+      const folderCount = await folderButtons.count()
+      
+      // Priority list of folders to try (sources/articles preferred)
+      const preferredFolders = ['sources/articles', 'sources/papers', 'sources/books', 'sources']
+      let folderFound = false
+      
+      for (const targetFolder of preferredFolders) {
+        if (folderFound) break
+        
+        for (let i = 0; i < folderCount; i++) {
+          const folder = folderButtons.nth(i)
+          const ariaLabel = await folder.getAttribute('aria-label')
+          
+          if (ariaLabel && ariaLabel.toLowerCase().includes(targetFolder)) {
+            const isExpanded = await folder.getAttribute('aria-expanded')
+            if (isExpanded !== 'true') {
+              await folder.click()
+              await page.waitForTimeout(500)
+            }
+            folderFound = true
+            break
+          }
+        }
+      }
+      
+      // If no preferred folder found, just expand the first folder
+      if (!folderFound && folderCount > 0) {
+        const firstFolder = folderButtons.first()
+        const isExpanded = await firstFolder.getAttribute('aria-expanded')
+        if (isExpanded !== 'true') {
+          await firstFolder.click()
+          await page.waitForTimeout(500)
+        }
+      }
+      
+      // Look for a note button inside the expanded folder
+      const noteButtons = page.locator('div[role="group"] button')
+      const noteCount = await noteButtons.count()
+      
+      if (noteCount > 0) {
+        // Click the first note to show its content
+        await noteButtons.first().click()
+        await page.waitForTimeout(1500) // Wait for note content to load and render
+      }
+    },
   },
   {
     name: 'graph',
@@ -129,6 +182,11 @@ test.describe('Screenshot Generator', () => {
       }, { timeout: 15000 }).catch(() => {
         // Ignore timeout - page might not have loading indicators
       })
+      
+      // Execute custom action if defined (e.g., selecting a note)
+      if (page.customAction) {
+        await page.customAction(browserPage)
+      }
       
       // Additional wait for stability
       await browserPage.waitForTimeout(500)

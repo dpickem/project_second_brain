@@ -699,6 +699,18 @@ The PWA runs as a separate lightweight frontend (`localhost:5174`) and communica
 
 See [08_mobile_capture.md](docs/design_docs/08_mobile_capture.md) for full design details.
 
+### Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/capture-home.png" alt="Capture Home" width="250" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/screenshots/capture-text.png" alt="Text Capture" width="250" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/screenshots/capture-url.png" alt="URL Capture" width="250" />
+</p>
+
+*Left to right: Main capture screen with all capture types, Quick Note text capture, URL capture for saving links*
+
 ---
 
 ## 🚀 Getting Started
