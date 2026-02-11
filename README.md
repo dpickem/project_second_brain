@@ -34,6 +34,7 @@
 - [Web Application](#️-web-application)
   - [Architecture](#architecture)
   - [Screenshots](#screenshots)
+- [Mobile Capture (PWA)](#-mobile-capture-pwa)
 - [Getting Started](#-getting-started)
   - [Prerequisites](#prerequisites)
   - [Quick Start](#quick-start)
@@ -47,7 +48,6 @@
 - [Future Extensions](#-future-extensions)
   - [Tool Calling for Learning Assistant](#tool-calling-for-learning-assistant)
   - [MCP Integration](#mcp-integration-model-context-protocol)
-  - [Mobile Capture (PWA)](#-mobile-capture-pwa)
 - [Production Deployment](#-production-deployment)
 - [Contributing](#-contributing)
 - [Security](#-security)
@@ -543,6 +543,9 @@ The Second Brain web application provides a full-featured interface for knowledg
 │  ├── search             ├── raindrop          ├── generate-questions        │
 │  ├── connections        ├── ocr               └── explain-connection        │
 │  └── topics             └── github                                          │
+│                                                                              │
+│  /api/capture/*                                                             │
+│  ├── text, url, photo, voice, pdf, book                                     │
 └──────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
@@ -558,7 +561,7 @@ The Second Brain web application provides a full-featured interface for knowledg
 │ • Semantic embeddings   │ • Time tracking         │                          │
 └─────────────────────────┴─────────────────────────┴──────────────────────────┘
 ```
-**Backend APIs**: `/api/practice/*`, `/api/review/*`, `/api/analytics/*`, `/api/knowledge/*`, `/api/ingest/*`, `/api/assistant/*`
+**Backend APIs**: `/api/practice/*`, `/api/review/*`, `/api/analytics/*`, `/api/knowledge/*`, `/api/ingest/*`, `/api/assistant/*`, `/api/capture/*`
 
 ### Screenshots
 
@@ -626,6 +629,78 @@ The Settings page lets you customize the application to your preferences. Appear
 
 ---
 
+## 📱 Mobile Capture (PWA)
+
+A critical bottleneck in knowledge management is **capture friction** — the effort required to get information into the system. The companion Progressive Web App provides a mobile-optimized interface for on-the-go capture with offline support.
+
+### Capture Types
+
+| Scenario | Capture Method | Processing |
+|----------|----------------|------------|
+| Physical book highlight | Photo of page | Vision OCR → highlight extraction → ingest |
+| Fleeting idea | Voice memo or text | Transcription → LLM expansion → inbox |
+| Interesting article | Share sheet / URL | Content fetch → summarize → save |
+| Whiteboard / diagram | Photo | Vision LLM → describe → save with image |
+| PDF document | File upload | Mistral OCR → full processing pipeline |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     MOBILE DEVICE                                │
+├─────────────────────────────────────────────────────────────────┤
+│   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│   │   📷 Camera   │  │   🎤 Voice   │  │   📎 Share   │          │
+│   │  (book pages, │  │   (ideas,    │  │   (URLs,     │          │
+│   │  whiteboards) │  │   memos)     │  │   articles)  │          │
+│   └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
+│          └─────────────────┼─────────────────┘                   │
+│                   ┌────────▼────────┐                            │
+│                   │   PWA / Mobile   │                            │
+│                   │   Quick Capture  │                            │
+│                   └────────┬────────┘                            │
+└────────────────────────────┼─────────────────────────────────────┘
+                             │ Upload (queue if offline)
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      BACKEND                                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   /api/capture/photo     → Vision OCR → Text extraction          │
+│   /api/capture/voice     → Whisper transcription → LLM expand    │
+│   /api/capture/url       → Content fetch → Summarize             │
+│   /api/capture/text      → Save to inbox → Tag suggestion        │
+│   /api/capture/pdf       → Mistral OCR → Full pipeline           │
+│   /api/capture/book      → Batch page OCR → Book notes           │
+│                                                                  │
+│                   ┌────────────────────┐                         │
+│                   │   Inbox Processing  │                         │
+│                   │  (async via Celery) │                         │
+│                   └─────────┬──────────┘                         │
+│                             │                                    │
+│              ┌──────────────┼──────────────┐                     │
+│              ▼              ▼              ▼                     │
+│         Neo4j          Obsidian        PostgreSQL                │
+│      (concepts)         (notes)       (metadata)                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Features
+
+| Feature | Details |
+|---------|---------|
+| **Installable** | "Add to Home Screen" — launches like a native app |
+| **Offline capable** | Service worker caches assets and queues captures in IndexedDB |
+| **Background sync** | Automatically uploads queued captures when connection is restored |
+| **Share target** | Receive shared URLs, text, and images from other apps (Android) |
+| **< 3 second capture** | Minimal UI with large touch targets optimized for speed |
+
+The PWA runs as a separate lightweight frontend (`localhost:5174`) and communicates with the same backend API. All captures are processed asynchronously via Celery and flow into the standard ingestion pipeline.
+
+See [08_mobile_capture.md](docs/design_docs/08_mobile_capture.md) for full design details.
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -667,6 +742,7 @@ python scripts/setup_project.py --help-env        # Show env variable reference
 |---------|-----|-------------|
 | **Frontend** | http://localhost:3000 | Main web application |
 | **Knowledge Graph** | http://localhost:3000/graph | Interactive graph visualization |
+| **Mobile Capture PWA** | http://localhost:5174 | Mobile-optimized capture app |
 | **Backend API** | http://localhost:8000 | REST API endpoints |
 | **API Documentation** | http://localhost:8000/docs | Swagger/OpenAPI docs |
 | **Neo4j Browser** | http://localhost:7474 | Graph database UI |
@@ -903,8 +979,10 @@ Neo4j requires significant memory. Ensure Docker Desktop has at least 4GB RAM al
 | 6 | Frontend Application | ✅ Complete |
 | 7 | Learning System (Exercises + FSRS) | ✅ Complete |
 | 8 | Analytics Dashboard | ✅ Complete |
-| 9 | Mobile Capture | ⬜ Not Started |
-| 10 | Polish & Production | 🟡 In Progress |
+| 9 | Mobile Capture (PWA) | ✅ Complete |
+| 10 | Assistant Tool Calling | ⬜ Not Started |
+| 11 | MCP Integration | ⬜ Not Started |
+| 12 | Polish & Production | 🟡 In Progress |
 
 ---
 
@@ -944,6 +1022,7 @@ Step-by-step implementation guides with task checklists:
 | [06_backend_api_implementation.md](docs/implementation_plan/06_backend_api_implementation.md) | API development |
 | [07_frontend_application_implementation.md](docs/implementation_plan/07_frontend_application_implementation.md) | Frontend development |
 | [08_mobile_capture_implementation.md](docs/implementation_plan/08_mobile_capture_implementation.md) | Mobile PWA |
+| [09_assistant_tool_calling_implementation.md](docs/implementation_plan/09_assistant_tool_calling_implementation.md) | Assistant tool calling |
 | [tech_debt.md](docs/implementation_plan/tech_debt.md) | Technical debt tracking |
 
 ### Other Documentation
@@ -969,109 +1048,42 @@ Step-by-step implementation guides with task checklists:
 
 ### Tool Calling for Learning Assistant
 
-Enable the assistant to take actions through natural language requests:
+Enable the Learning Assistant to take actions through natural language requests, turning it from a Q&A interface into an interactive agent:
 
 ```
 User: "Generate an exercise about attention mechanisms"
       → Assistant calls generate_exercise tool
-      → Returns interactive exercise card
+      → Returns interactive exercise card inline in chat
 ```
 
 **Planned Tools:**
 | Tool | Description |
 |------|-------------|
-| `generate_exercise` | Generate adaptive exercise for a topic |
-| `create_flashcard` | Create a spaced repetition card |
-| `search_knowledge` | Search the knowledge graph |
-| `get_mastery` | Get mastery state for a topic |
-| `get_weak_spots` | Get topics needing review |
+| `generate_exercise` | Generate adaptive exercise for a topic based on current mastery |
+| `create_flashcard` | Create a spaced repetition card from conversation context |
+| `search_knowledge` | Search the knowledge graph with natural language |
+| `get_mastery` | Retrieve mastery state and learning history for a topic |
+| `get_weak_spots` | Identify topics with declining retention needing review |
 
-See [09_assistant_tool_calling.md](docs/design_docs/09_assistant_tool_calling.md) for full design.
+The design uses an LLM tool-calling loop: the model decides when to invoke tools, results are fed back for a synthesized response. See [09_assistant_tool_calling.md](docs/design_docs/09_assistant_tool_calling.md) for the full design.
 
 ### MCP Integration (Model Context Protocol)
 
-Enable LLMs to directly access the Obsidian vault and knowledge graph via [MCP servers](https://modelcontextprotocol.io/):
+Expose the knowledge base as [MCP servers](https://modelcontextprotocol.io/) so any MCP-compatible LLM client (Claude Desktop, Cursor, etc.) can directly query your Second Brain:
 
 ```
-User: "Find all my notes about distributed systems"
-      → LLM queries MCP filesystem server
-      → Returns matching notes from Obsidian vault
-      → LLM synthesizes answer with citations
+User (in Claude Desktop): "What do I know about distributed consensus?"
+      → LLM queries Second Brain MCP server
+      → Server searches Obsidian vault + Neo4j graph
+      → Returns relevant notes with citations
 ```
 
-**Potential MCP Servers:**
-- **Filesystem server**: Direct Obsidian vault access (read/write notes)
-- **Neo4j server**: Knowledge graph queries and traversal
-- **Custom Second Brain server**: Exercise generation, spaced rep scheduling
-
-### 📱 Mobile Capture (PWA)
-
-A critical bottleneck in knowledge management is **capture friction**—the effort required to get information into the system. A Progressive Web App minimizes this for on-the-go capture.
-
-**Use Cases:**
-| Scenario | Capture Method | Processing |
-|----------|----------------|------------|
-| Physical book highlight | Photo of page | Vision OCR → highlight extraction → ingest |
-| Fleeting idea | Voice memo or text | Transcription → LLM expansion → inbox |
-| Interesting article | Share sheet / URL | Content fetch → summarize → save |
-| Whiteboard / diagram | Photo | Vision LLM → describe → save with image |
-
-**Architecture:**
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     MOBILE DEVICE                                │
-├─────────────────────────────────────────────────────────────────┤
-│   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│   │   📷 Camera   │  │   🎤 Voice   │  │   📎 Share   │          │
-│   │  (book pages, │  │   (ideas,    │  │   (URLs,     │          │
-│   │  whiteboards) │  │   memos)     │  │   articles)  │          │
-│   └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
-│          └─────────────────┼─────────────────┘                   │
-│                   ┌────────▼────────┐                            │
-│                   │   PWA / Mobile   │                            │
-│                   │   Quick Capture  │                            │
-│                   └────────┬────────┘                            │
-└────────────────────────────┼─────────────────────────────────────┘
-                             │ Upload (queue if offline)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      BACKEND                                     │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   /api/capture/photo     → Vision OCR → Text extraction          │
-│   /api/capture/voice     → Whisper transcription → LLM expand    │
-│   /api/capture/url       → Content fetch → Summarize             │
-│   /api/capture/text      → Save to inbox → Tag suggestion        │
-│                                                                  │
-│                   ┌────────────────────┐                         │
-│                   │   Inbox Processing  │                         │
-│                   │  (async, batched)   │                         │
-│                   └─────────┬──────────┘                         │
-│                             │                                    │
-│              ┌──────────────┼──────────────┐                     │
-│              ▼              ▼              ▼                     │
-│         Neo4j          Obsidian        PostgreSQL                │
-│      (concepts)         (notes)       (metadata)                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**PWA Benefits:**
-| Feature | Benefit |
-|---------|---------|
-| Installable | "Add to Home Screen" — launches like native app |
-| Offline capable | Service workers cache assets and queue API calls |
-| Background sync | Uploads queued captures when connection restored |
-| Push notifications | Remind user of spaced repetition reviews |
-
-**Design Principles:**
-1. **< 3 seconds to capture** — Any longer and ideas are lost
-2. **Offline-first** — Queue uploads, sync when connected
-3. **Minimal categorization at capture** — Let LLM tag later
-4. **Visual feedback** — Confirm capture succeeded immediately
-5. **Inbox review** — All captures go to inbox for daily processing
-
-See [08_mobile_capture.md](docs/design_docs/08_mobile_capture.md) for full design.
+**Planned MCP Servers:**
+| Server | Capabilities |
+|--------|-------------|
+| **Vault server** | Read/search/write Obsidian notes, list by topic |
+| **Knowledge graph server** | Cypher queries, concept lookup, relationship traversal |
+| **Learning server** | Exercise generation, spaced rep scheduling, mastery queries |
 
 ---
 
