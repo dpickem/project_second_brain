@@ -27,6 +27,7 @@ const Analytics = lazy(() => import('./pages/Analytics'))
 const Assistant = lazy(() => import('./pages/Assistant'))
 const LLMUsage = lazy(() => import('./pages/LLMUsage'))
 const Tasks = lazy(() => import('./pages/Tasks'))
+const Ingest = lazy(() => import('./pages/Ingest'))
 const Settings = lazy(() => import('./pages/Settings'))
 
 // Create a query client
@@ -79,6 +80,7 @@ function Navigation() {
         <NavItem to="/knowledge" icon={<KnowledgeIcon />} title="Knowledge" shortcut="⌘7" />
         <NavItem to="/graph" icon={<GraphIcon />} title="Graph" shortcut="⌘8" />
         <NavItem to="/analytics" icon={<AnalyticsIcon />} title="Analytics" shortcut="⌘9" />
+        <NavItem to="/ingest" icon={<IngestIcon />} title="Ingest" />
         <NavItem to="/assistant" icon={<AssistantIcon />} title="Assistant" />
         <NavItem to="/llm-usage" icon={<CostIcon />} title="LLM Costs" />
       </div>
@@ -224,6 +226,14 @@ function CostIcon() {
   )
 }
 
+function IngestIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+    </svg>
+  )
+}
+
 function SettingsIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -277,6 +287,7 @@ function App() {
                   <Route path="/assistant" element={<AnimatedPage><Assistant /></AnimatedPage>} />
                   <Route path="/llm-usage" element={<AnimatedPage><LLMUsage /></AnimatedPage>} />
                   <Route path="/tasks" element={<AnimatedPage><Tasks /></AnimatedPage>} />
+                  <Route path="/ingest" element={<AnimatedPage><Ingest /></AnimatedPage>} />
                   <Route path="/settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
                 </Routes>
               </AnimatePresence>
