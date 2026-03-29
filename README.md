@@ -612,6 +612,11 @@ The Analytics Dashboard provides comprehensive insights into your learning journ
 
 The Follow-up Tasks page displays actionable items generated automatically during content processing. When you ingest a paper, article, or book, the LLM identifies potential follow-up actions: research topics to explore, concepts to practice, connections to make with other notes, and applications to try. Tasks are categorized by type (research, practice, connect, apply, review) and priority (high, medium, low), with estimated time requirements. You can filter, search, and mark tasks complete as you work through them, turning passive reading into active engagement.
 
+#### Ingest
+![Ingest](docs/screenshots/ingest.png)
+
+The Ingest page provides a unified interface for capturing new content directly from the desktop web UI and monitoring the entire ingestion pipeline. The top panel offers tabbed capture for text notes, URLs, and file uploads (PDFs, images, audio) with expandable options for tagging, title, and learning material generation (cards/exercises). The bottom panel displays a live, auto-refreshing ingestion queue showing all content items across every status (Pending, Processing, Completed, Failed). Click any item to expand a detail panel with full processing stage progress, error messages, cost/token stats, and a direct link to the generated note in the Knowledge Explorer.
+
 #### LLM Usage
 ![LLM Usage](docs/screenshots/llm-usage.png)
 
