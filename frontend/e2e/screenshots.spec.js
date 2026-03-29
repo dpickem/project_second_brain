@@ -148,6 +148,13 @@ const pages = [
     waitTime: 1500,
   },
   {
+    name: 'ingest',
+    path: '/ingest',
+    title: 'Ingest',
+    waitFor: 'main',
+    waitTime: 2000,
+  },
+  {
     name: 'settings',
     path: '/settings',
     title: 'Settings',
